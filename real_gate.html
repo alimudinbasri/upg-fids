@@ -691,7 +691,13 @@ const state = {flights:[], gates:[], gateLayout:{byGate:{},totalHeight:0}, chart
 document.addEventListener('DOMContentLoaded', initApp);
 
 function initApp() {
-  document.getElementById('tanggal').addEventListener('change', loadData);
+  document.getElementById('tanggal').addEventListener('change', function() {
+    // Switching dates must not keep the previous date's flights around -
+    // otherwise a failed/empty fetch for the new date silently falls back
+    // to showing the old date's data instead of an explicit error.
+    state.flights = [];
+    loadData();
+  });
   setupOptionDropdown();
   setupFlightSearch();
   setupWaReport();

@@ -1244,7 +1244,13 @@ document.addEventListener('DOMContentLoaded', function() {
   loadData();
   startCountdown();
 
-  tanggalEl.addEventListener('change', loadData);
+  tanggalEl.addEventListener('change', function() {
+    // Switching dates must not keep the previous date's flights around -
+    // otherwise a failed/empty fetch for the new date silently falls back
+    // to showing the old date's data instead of an explicit error.
+    allFlights = [];
+    loadData();
+  });
   document.getElementById('searchInput').addEventListener('input', render);
 
   // Sort headers
