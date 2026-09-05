@@ -29,9 +29,12 @@ service cloud.firestore {
       return isHardcodedAdmin() || isDynamicAdminByEmail();
     }
 
-    // Activity logs
+    // Activity logs — create must be self-attributed (uid/email match the caller),
+    // so a user can't forge a log entry claiming to be someone else
     match /activity_logs/{logId} {
-      allow create: if request.auth != null;
+      allow create: if request.auth != null &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.email == request.auth.token.email;
       allow read, delete: if isAdmin();
       allow update: if false;
     }
@@ -66,9 +69,12 @@ service cloud.firestore {
       allow delete: if isHardcodedAdmin();
     }
 
-    // User login records
+    // User login records — a user may only write their own record
+    // (doc id must be their own emailKey, and uid must match)
     match /user_logs/{emailKey} {
-      allow write: if request.auth != null;
+      allow write: if request.auth != null &&
+        emailKey == emailToKey(request.auth.token.email) &&
+        request.resource.data.uid == request.auth.uid;
       allow list, get: if request.auth != null;
     }
 
