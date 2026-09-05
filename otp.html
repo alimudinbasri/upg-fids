@@ -27,6 +27,7 @@
   --tosca:    #00bcd4;
   --tosca-dark:#00e5ff;
   --muted:    #6aafc8;
+  --citycode: #eeff13;
   --radius-sm:8px;
 }
 :root[data-theme="light"] {
@@ -48,6 +49,7 @@
   --tosca:    #0097a7;
   --tosca-dark:#00838f;
   --muted:    #2c5070;
+  --citycode: #6b5900;
 }
 :root[data-theme="light"] .fids-header { background: linear-gradient(135deg,#0d2137 0%,#0a2845 60%,#082040 100%); }
 .clock      { color: #00e7fc !important; }
@@ -252,7 +254,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
 .fn-XX { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
 .flight-meta { font-size: 9px; color: var(--text3); margin-top: 3px; }
 .city-name { font-size: 10px; color: var(--text2); font-weight: 500; line-height: 1.2; }
-.city-code { font-size: 13px; font-weight: 800; color: #eeff13; letter-spacing: .5px; line-height: 1.4; }
+.city-code { font-size: 13px; font-weight: 800; color: var(--citycode); letter-spacing: .5px; line-height: 1.4; }
 .time-row  { display: flex; align-items: baseline; gap: 3px; }
 .time-label { font-size: 9px; font-weight: 700; color: var(--text3); width: 22px; flex-shrink: 0; }
 .time-val  { font-size: 10px; font-weight: 700; color: var(--text2); font-variant-numeric: tabular-nums; }

@@ -32,6 +32,8 @@
       --text2:     #90d4e8;
       --text3:     #6aafc8;
       --white:     #ffffff;
+      --citycode:  #eeff13;
+      --pairing-label: #ffffff;
       --radius-sm: 8px;
     }
 
@@ -53,6 +55,8 @@
       --text2:     #18365a;
       --text3:     #2c5070;
       --white:     #091422;
+      --citycode:  #6b5900;
+      --pairing-label: #091422;
     }
     :root[data-theme="light"] body { background: var(--bg); color: var(--text); }
     :root[data-theme="light"] .fids-header { background: linear-gradient(135deg,#0d2137 0%,#0a2845 60%,#082040 100%); }
@@ -233,7 +237,7 @@
 
     /* City */
     .city-name { font-size: 12px; color: var(--text2); font-weight: 500; line-height: 1.2; }
-    .city-code  { font-size: 17px; font-weight: 800; color: #eeff13; letter-spacing: .8px; line-height: 1.2; }
+    .city-code  { font-size: 17px; font-weight: 800; color: var(--citycode); letter-spacing: .8px; line-height: 1.2; }
 
     /* Time */
     .time-row   { display: flex; align-items: baseline; gap: 4px; }
@@ -292,7 +296,7 @@
       display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
       font-size: 11px;
     }
-    .pr-label  { font-size: 10px; font-weight: 700; color: #ffffff; letter-spacing: .5px; flex-shrink: 0; }
+    .pr-label  { font-size: 10px; font-weight: 700; color: var(--pairing-label); letter-spacing: .5px; flex-shrink: 0; }
     .pr-badge  { font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
     .pr-badge.ARR { background: rgba(0,188,212,.2); color: var(--teal); border: 1px solid var(--teal-dim); }
     .pr-badge.DEP { background: rgba(255,193,7,.15); color: var(--amber); border: 1px solid var(--amber2); }
