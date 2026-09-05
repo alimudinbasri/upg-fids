@@ -320,6 +320,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
 .wa-modal { width: 100%; max-width: 680px; max-height: 92vh; background: var(--bg2); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; }
 .wa-modal-head { padding: 14px 16px; background: var(--teal); color: #000; font-weight: 900; display: flex; justify-content: space-between; align-items: center; font-size: 14px; flex-shrink: 0; }
 .wa-modal-body { padding: 14px 16px; overflow: auto; }
+.wa-tags-ref { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; font-size: 11px; line-height: 1.6; color: var(--text3); }
+.wa-tags-ref b { color: var(--text); }
 .wa-field { margin-bottom: 10px; }
 .wa-field label { display: block; font-size: 11px; font-weight: 700; color: var(--text3); margin-bottom: 4px; }
 .wa-field textarea { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 8px 10px; font-size: 13px; resize: vertical; box-sizing: border-box; font-family: inherit; }
@@ -435,9 +437,14 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
       <button type="button" class="modal-close" id="btnCloseWaReport">Close</button>
     </div>
     <div class="wa-modal-body">
-      <div class="wa-field"><label>Opening Statement</label><textarea id="waOpeningText" rows="5"></textarea></div>
-      <div class="wa-field"><label>Closing Statement</label><textarea id="waClosingText" rows="3"></textarea></div>
+      <div class="wa-tags-ref">
+        <b>Available Tags:</b><br>
+        {airport}, {day}, {date}, {filter}, {total_flight}, {ontime_flight}, {ontime_%}, {delay_flight}, {delay_%}, {cancel_flight}, {cancel_%}, {otp_%}<br>
+        Repeating block tags: {cat_no}, {cat_range}, {cat_flight} inside [[CATEGORY_BLOCK]]...[[/CATEGORY_BLOCK]]
+      </div>
+      <div class="wa-field"><label>Template</label><textarea id="waTemplateText" rows="20"></textarea></div>
       <div class="wa-report-actions">
+        <button type="button" id="btnResetWaTemplate" class="btn-wa-secondary">Reset to Default</button>
         <button type="button" id="btnGenerateWaReport" class="btn-wa-secondary">↺ Update Report</button>
         <button type="button" id="btnCopyWaReport" class="btn-wa-copy">📋 Copy Text</button>
       </div>
@@ -1318,8 +1325,11 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('waReportModal').addEventListener('click', function(e) { if (e.target.id==='waReportModal') closeWaReport(); });
   document.getElementById('btnGenerateWaReport').addEventListener('click', function() { generateWaReport(); waSaveNow(); });
   document.getElementById('btnCopyWaReport').addEventListener('click', copyWaReport);
-  document.getElementById('waOpeningText').addEventListener('input', function() { generateWaReport(); waSave(); });
-  document.getElementById('waClosingText').addEventListener('input', function() { generateWaReport(); waSave(); });
+  document.getElementById('btnResetWaTemplate').addEventListener('click', function() {
+    document.getElementById('waTemplateText').value = getDefaultWaTemplate();
+    generateWaReport(); waSaveNow();
+  });
+  document.getElementById('waTemplateText').addEventListener('input', function() { generateWaReport(); waSave(); });
 });
 
 /* ============================================================
@@ -1342,9 +1352,8 @@ function waSaveNow() {
   if (!window._db) { showWaToast('⚠ Not connected to database'); return; }
   clearTimeout(_waSaveTimer);
   window._db.collection('wa_settings').doc('otp').set({
-    opening: document.getElementById('waOpeningText').value,
-    closing: document.getElementById('waClosingText').value
-  }).then(function() {
+    template: document.getElementById('waTemplateText').value
+  }, { merge: true }).then(function() {
     showWaToast('✓ Saved to database');
   }).catch(function(err) {
     showWaToast('✗ Save failed: ' + (err.message || err.code || err));
@@ -1359,45 +1368,94 @@ function waSave() {
 
 function openWaReport() {
   if (!allFlights.length) { alert('Data flight belum tersedia untuk WA Report.'); return; }
-  const date = document.getElementById('tanggal').value;
-  const defaultOpening = buildWaOpening(date);
-  const defaultClosing = "Dasar : PM 89 Tahun 2015\n\nDemikian disampaikan, terima kasih.\n\nWassalaamu'alaikum Wr. Wb.";
-
+  function applyAndShow(tmpl) {
+    document.getElementById('waTemplateText').value = tmpl;
+    generateWaReport();
+    document.getElementById('waReportModal').classList.add('show');
+  }
   if (window._db) {
     window._db.collection('wa_settings').doc('otp').get().then(function(doc) {
-      document.getElementById('waOpeningText').value = (doc.exists && doc.data().opening) ? doc.data().opening : defaultOpening;
-      document.getElementById('waClosingText').value = (doc.exists && doc.data().closing) ? doc.data().closing : defaultClosing;
-      generateWaReport();
-    }).catch(function() {
-      document.getElementById('waOpeningText').value = defaultOpening;
-      document.getElementById('waClosingText').value = defaultClosing;
-      generateWaReport();
-    });
+      const d = doc.exists ? doc.data() : {};
+      if (d.template) { applyAndShow(d.template); return; }
+      if (d.opening || d.closing) {
+        const migrated = migrateLegacyWaTemplate(d.opening, d.closing);
+        applyAndShow(migrated);
+        window._db.collection('wa_settings').doc('otp').set({ template: migrated }, { merge: true }).catch(function(){});
+        return;
+      }
+      applyAndShow(getDefaultWaTemplate());
+    }).catch(function() { applyAndShow(getDefaultWaTemplate()); });
   } else {
-    document.getElementById('waOpeningText').value = defaultOpening;
-    document.getElementById('waClosingText').value = defaultClosing;
-    generateWaReport();
+    applyAndShow(getDefaultWaTemplate());
   }
-  document.getElementById('waReportModal').classList.add('show');
 }
 
 function closeWaReport() {
   document.getElementById('waReportModal').classList.remove('show');
 }
 
-function buildWaOpening(date) {
+/* ── Template engine: {tag} substitution + [[BLOCK]]...[[/BLOCK]] repeating rows ── */
+function renderWaTemplate(tmpl, data, blocks) {
+  const withBlocks = String(tmpl||'').replace(/\[\[(\w+)\]\]\n?([\s\S]*?)\n?\[\[\/\1\]\]/g, function(_, name, inner) {
+    const rows = (blocks && blocks[name]) || [];
+    return rows.map(function(row) {
+      return inner.replace(/\{([a-zA-Z0-9_%]+)\}/g, function(m, key) {
+        if (Object.prototype.hasOwnProperty.call(row, key)) return String(row[key]);
+        if (Object.prototype.hasOwnProperty.call(data, key)) return String(data[key]);
+        return m;
+      });
+    }).join('\n');
+  });
+  return withBlocks.replace(/\{([a-zA-Z0-9_%]+)\}/g, function(m, key) {
+    return Object.prototype.hasOwnProperty.call(data, key) ? String(data[key]) : m;
+  });
+}
+
+function getDefaultWaTemplate() {
   return [
     "Assalaamu'alaikum Wr. Wb.",
     "",
     "*LAPORAN ON TIME PERFORMANCE (OTP)*",
     "",
-    "Izin menyampaikan Laporan On Time Performance (OTP) Bandar Udara Sultan Hasanuddin Makassar  *berdasarkan Daily Flight Schedule (DFS)*",
+    "Izin menyampaikan Laporan On Time Performance (OTP) {airport}  *berdasarkan Daily Flight Schedule (DFS)*",
     "",
-    "Hari/Tanggal : " + formatLongDate(date)
+    "Hari/Tanggal : {day}, {date}",
+    "",
+    "==============================",
+    "",
+    "*RESUME OTP*",
+    "- Filter         : {filter}",
+    "- Total Flight   : {total_flight}",
+    "- On Time        : {ontime_flight} ({ontime_%}%)",
+    "- Delay          : {delay_flight} ({delay_%}%)",
+    "- Cancel         : {cancel_flight} ({cancel_%}%)",
+    "- *OTP           : {otp_%}%*",
+    "",
+    "*KATEGORI KETERLAMBATAN*",
+    "[[CATEGORY_BLOCK]]",
+    "- Kat. {cat_no} ({cat_range}) : {cat_flight} flight",
+    "[[/CATEGORY_BLOCK]]",
+    "",
+    "==============================",
+    "Dasar : PM 89 Tahun 2015",
+    "",
+    "Demikian disampaikan, terima kasih.",
+    "",
+    "Wassalaamu'alaikum Wr. Wb."
   ].join('\n');
 }
 
-function buildWaText(opening, closing) {
+// Combines old free-text opening + old free-text closing around the (new) auto-generated body,
+// so a previously-saved custom opening/closing keeps working after migrating to the template format.
+function migrateLegacyWaTemplate(opening, closing) {
+  const def = getDefaultWaTemplate();
+  const bodyStart = def.indexOf('==============================');
+  const bodyEnd = def.lastIndexOf('[[/CATEGORY_BLOCK]]') + '[[/CATEGORY_BLOCK]]'.length;
+  const body = def.slice(bodyStart, bodyEnd);
+  return [(opening||'').trim(), '', body, '', (closing||'').trim()].join('\n');
+}
+
+function buildWaTagData() {
   const all = allFlights.filter(f => {
     if (activeTab==='arr') return f.type==='ARR';
     if (activeTab==='dep') return f.type==='DEP';
@@ -1407,10 +1465,21 @@ function buildWaText(opening, closing) {
   const cancel = all.filter(f => getCategory(f)===6).length;
   const delay  = all.filter(f => { const c=getCategory(f); return c>=1&&c<=5; }).length;
   const ontime = total - cancel - delay;
-  const otpPct = total>0 ? ((ontime/total)*100).toFixed(1)+'%' : '–';
-  const pct    = (n) => total>0 ? ' ('+((n/total)*100).toFixed(1)+'%)' : '';
-
+  const pct1 = (n) => total>0 ? ((n/total)*100).toFixed(1) : '0.0';
   const tabLabel = activeTab==='arr' ? 'ARR' : activeTab==='dep' ? 'DEP' : 'All';
+  const date = document.getElementById('tanggal').value;
+
+  const data = {
+    airport: 'Bandar Udara Sultan Hasanuddin Makassar',
+    day: formatLongDate(date).split(',')[0],
+    date: formatLongDate(date).split(', ')[1] || formatLongDate(date),
+    filter: tabLabel,
+    total_flight: total,
+    ontime_flight: ontime, 'ontime_%': pct1(ontime),
+    delay_flight: delay, 'delay_%': pct1(delay),
+    cancel_flight: cancel, 'cancel_%': pct1(cancel),
+    'otp_%': pct1(ontime)
+  };
 
   const catDef = [
     {n:1, sub:'30 – 60 minutes'},
@@ -1420,36 +1489,19 @@ function buildWaText(opening, closing) {
     {n:5, sub:'> 240 minutes'},
     {n:6, sub:'Cancellation'},
   ];
-  const catLines = catDef.map(function(c) {
-    const cnt = all.filter(f=>getCategory(f)===c.n).length;
-    return '- Kat. ' + c.n + ' (' + c.sub + ') : ' + cnt + ' flight';
-  });
+  const blocks = {
+    CATEGORY_BLOCK: catDef.map(function(c) {
+      return { cat_no: c.n, cat_range: c.sub, cat_flight: all.filter(f=>getCategory(f)===c.n).length };
+    })
+  };
 
-  return [
-    opening,
-    '',
-    '='.repeat(30),
-    '',
-    '*RESUME OTP*',
-    '- Filter         : ' + tabLabel,
-    '- Total Flight   : ' + total,
-    '- On Time        : ' + ontime + pct(ontime),
-    '- Delay          : ' + delay  + pct(delay),
-    '- Cancel         : ' + cancel + pct(cancel),
-    '- *OTP           : ' + otpPct + '*',
-    '',
-    '*KATEGORI KETERLAMBATAN*',
-    catLines.join('\n'),
-    '',
-    '='.repeat(30),
-    closing
-  ].join('\n');
+  return { data, blocks };
 }
 
 function generateWaReport() {
-  const opening = document.getElementById('waOpeningText').value.trim();
-  const closing = document.getElementById('waClosingText').value.trim();
-  document.getElementById('waReportText').value = buildWaText(opening, closing);
+  const tmpl = document.getElementById('waTemplateText').value;
+  const built = buildWaTagData();
+  document.getElementById('waReportText').value = renderWaTemplate(tmpl, built.data, built.blocks);
 }
 
 async function copyWaReport() {

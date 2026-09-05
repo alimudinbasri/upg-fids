@@ -334,6 +334,8 @@ body.pdf-exporting-matrix .remark-blink, body.pdf-exporting-overview .remark-bli
 .wa-modal { width: 100%; max-width: 720px; max-height: 92vh; background: var(--bg2); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; }
 .wa-modal-head { padding: 14px 16px; background: var(--tosca); color: #000; font-weight: 900; display: flex; justify-content: space-between; align-items: center; }
 .wa-modal-body { padding: 14px 16px; overflow: auto; }
+.wa-tags-ref { background: var(--bg3); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; font-size: 11.5px; line-height: 1.6; color: var(--text2); }
+.wa-tags-ref b { color: var(--text); }
 .wa-field { margin-bottom: 12px; }
 .wa-field label { display: block; font-size: 12px; font-weight: 900; color: var(--text2); margin-bottom: 6px; }
 .wa-field textarea { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-family: Arial, Helvetica, sans-serif; font-size: 13px; line-height: 1.45; color: var(--text); background: var(--bg3); resize: vertical; outline: none; }
@@ -599,9 +601,15 @@ body.pdf-exporting-matrix .remark-blink, body.pdf-exporting-overview .remark-bli
         <button type="button" class="modal-close" id="btnCloseWaReport">Close</button>
       </div>
       <div class="wa-modal-body">
-        <div class="wa-field"><label for="waOpeningText">Opening Statement</label><textarea id="waOpeningText" rows="7"></textarea></div>
-        <div class="wa-field"><label for="waClosingText">Closing Statement</label><textarea id="waClosingText" rows="3"></textarea></div>
+        <div class="wa-tags-ref">
+          <b>Available Tags:</b><br>
+          {airport}, {day}, {date}, {dom_flight}, {dom_pax}, {dom_%}, {int_flight}, {int_pax}, {int_%}, {tot_flight}, {tot_pax}<br>
+          Repeating block tags: {gate}, {gate_flight}, {gate_pax} inside [[GATE_BLOCK]]...[[/GATE_BLOCK]]<br>
+          {group}, {group_flight}, {group_pax}, {group_%} inside [[GATE_GROUP_BLOCK]]...[[/GATE_GROUP_BLOCK]]
+        </div>
+        <div class="wa-field"><label for="waTemplateText">Template</label><textarea id="waTemplateText" rows="18"></textarea></div>
         <div class="wa-report-actions">
+          <button type="button" id="btnResetWaTemplate" class="btn-wa-secondary">Reset to Default</button>
           <button type="button" id="btnGenerateWaReport" class="btn-wa-secondary">Update Report</button>
           <button type="button" id="btnCopyWaReport" class="btn-wa-copy">Copy Text</button>
         </div>
@@ -956,15 +964,18 @@ function setupWaReport() {
   const modal = document.getElementById('waReportModal');
   const generateBtn = document.getElementById('btnGenerateWaReport');
   const copyBtn = document.getElementById('btnCopyWaReport');
-  const opening = document.getElementById('waOpeningText');
-  const closing = document.getElementById('waClosingText');
+  const resetBtn = document.getElementById('btnResetWaTemplate');
+  const template = document.getElementById('waTemplateText');
   if (btn) btn.addEventListener('click', function() { closeOptionDropdown(); openWaReportModal(); });
   if (closeBtn) closeBtn.addEventListener('click', closeWaReportModal);
   if (modal) modal.addEventListener('click', function(e) { if (e.target.id==='waReportModal') closeWaReportModal(); });
   if (generateBtn) generateBtn.addEventListener('click', function() { generateWaReportText(); waSaveNow(); });
   if (copyBtn) copyBtn.addEventListener('click', copyWaReportText);
-  if (opening) opening.addEventListener('input', function() { generateWaReportText(); waSave(); });
-  if (closing) closing.addEventListener('input', function() { generateWaReportText(); waSave(); });
+  if (resetBtn) resetBtn.addEventListener('click', function() {
+    if (template) template.value = getDefaultWaTemplate();
+    generateWaReportText(); waSaveNow();
+  });
+  if (template) template.addEventListener('input', function() { generateWaReportText(); waSave(); });
 }
 
 var _waSaveTimer = null;
@@ -983,9 +994,8 @@ function waSaveNow() {
   if (!window._db) { showWaToast('⚠ Not connected to database'); return; }
   clearTimeout(_waSaveTimer);
   window._db.collection('wa_settings').doc('real_gate').set({
-    opening: (document.getElementById('waOpeningText') || {}).value || '',
-    closing: (document.getElementById('waClosingText') || {}).value || ''
-  }).then(function() {
+    template: (document.getElementById('waTemplateText') || {}).value || ''
+  }, { merge: true }).then(function() {
     showWaToast('✓ Saved to database');
   }).catch(function(err) {
     showWaToast('✗ Save failed: ' + (err.message || err.code || err));
@@ -1000,27 +1010,29 @@ function waSave() {
 
 function openWaReportModal() {
   if (!state.flights||!state.flights.length) { showStatus('Data flight belum tersedia untuk WA Report.', true); return; }
-  const opening = document.getElementById('waOpeningText');
-  const closing = document.getElementById('waClosingText');
+  const template = document.getElementById('waTemplateText');
   const modal = document.getElementById('waReportModal');
-  const defOpen = getDefaultWaOpeningText();
-  const defClose = getDefaultWaClosingText();
-  function applyAndShow(op, cl) {
-    if (opening) opening.value = op;
-    if (closing) closing.value = cl;
+  function applyAndShow(tmpl) {
+    if (template) template.value = tmpl;
     generateWaReportText();
     if (modal) modal.classList.add('show');
   }
   if (window._db) {
     window._db.collection('wa_settings').doc('real_gate').get()
       .then(function(doc) {
-        applyAndShow(
-          (doc.exists && doc.data().opening) ? doc.data().opening : defOpen,
-          (doc.exists && doc.data().closing) ? doc.data().closing : defClose
-        );
-      }).catch(function() { applyAndShow(defOpen, defClose); });
+        const d = doc.exists ? doc.data() : {};
+        if (d.template) { applyAndShow(d.template); return; }
+        if (d.opening || d.closing) {
+          // Migrate legacy opening/closing fields into the new single template
+          const migrated = migrateLegacyWaTemplate(d.opening, d.closing);
+          applyAndShow(migrated);
+          window._db.collection('wa_settings').doc('real_gate').set({ template: migrated }, { merge: true }).catch(function(){});
+          return;
+        }
+        applyAndShow(getDefaultWaTemplate());
+      }).catch(function() { applyAndShow(getDefaultWaTemplate()); });
   } else {
-    applyAndShow(defOpen, defClose);
+    applyAndShow(getDefaultWaTemplate());
   }
 }
 
@@ -1031,48 +1043,111 @@ function closeWaReportModal() {
 
 function generateWaReportText() {
   const output = document.getElementById('waReportText');
+  const template = document.getElementById('waTemplateText');
   if (!output) return;
-  const opening = document.getElementById('waOpeningText');
-  const closing = document.getElementById('waClosingText');
-  output.value = buildWaReportText(
-    opening ? opening.value.trim() : getDefaultWaOpeningText(),
-    closing ? closing.value.trim() : getDefaultWaClosingText()
-  );
+  const tmpl = template ? template.value : getDefaultWaTemplate();
+  const built = buildWaTagData();
+  output.value = renderWaTemplate(tmpl, built.data, built.blocks);
 }
 
-function getDefaultWaOpeningText() {
-  const tanggal = document.getElementById('tanggal').value || getTodayDateString();
-  return ["Assalaamu'alaikum Wr. Wb.","","*REALISASI PENGGUNAAN GATE*","","Izin menyampaikan Realisasi Penggunaan Gate di Bandara Bandar Udara Sultan Hasanuddin Makassar","Hari/Tanggal : "+formatIndonesianLongDate(tanggal)].join('\n');
+/* ── Template engine: {tag} substitution + [[BLOCK]]...[[/BLOCK]] repeating rows ── */
+function renderWaTemplate(tmpl, data, blocks) {
+  const withBlocks = String(tmpl||'').replace(/\[\[(\w+)\]\]\n?([\s\S]*?)\n?\[\[\/\1\]\]/g, function(_, name, inner) {
+    const rows = (blocks && blocks[name]) || [];
+    return rows.map(function(row) {
+      return inner.replace(/\{([a-zA-Z0-9_%]+)\}/g, function(m, key) {
+        if (Object.prototype.hasOwnProperty.call(row, key)) return String(row[key]);
+        if (Object.prototype.hasOwnProperty.call(data, key)) return String(data[key]);
+        return m;
+      });
+    }).join('\n');
+  });
+  return withBlocks.replace(/\{([a-zA-Z0-9_%]+)\}/g, function(m, key) {
+    return Object.prototype.hasOwnProperty.call(data, key) ? String(data[key]) : m;
+  });
 }
 
-function getDefaultWaClosingText() {
-  return ["Demikian disampaikan terima kasih.","","Wassalaamu'alaikum Wr. Wb."].join('\n');
+function getWaLongDateParts(dateString) {
+  const days=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+  const months=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const date=new Date(String(dateString||getTodayDateString())+'T00:00:00');
+  if (isNaN(date.getTime())) return {day:'-', date:dateString||'-'};
+  return { day: days[date.getDay()], date: String(date.getDate()).padStart(2,'0')+' '+months[date.getMonth()]+' '+date.getFullYear() };
 }
 
-function buildWaReportText(openingText, closingText) {
+function getDefaultWaTemplate() {
+  return [
+    "Assalaamu'alaikum Wr. Wb.",
+    "",
+    "*REALISASI PENGGUNAAN GATE*",
+    "",
+    "Izin menyampaikan Realisasi Penggunaan Gate di Bandara {airport}",
+    "Hari/Tanggal : {day}, {date}",
+    "",
+    "GATE REPORT",
+    "[[GATE_BLOCK]]",
+    "-GATE {gate} = {gate_flight} Flight ({gate_pax} pax)",
+    "[[/GATE_BLOCK]]",
+    "",
+    "DOMESTIC GATE:",
+    "[[GATE_GROUP_BLOCK]]",
+    "- {group} = {group_flight} Flight ({group_pax} pax) = {group_%}%",
+    "[[/GATE_GROUP_BLOCK]]",
+    "",
+    "FLIGHTS:",
+    "-Domestic = {dom_flight} Flight ({dom_pax} pax) = {dom_%}%",
+    "-International = {int_flight} Flight ({int_pax} pax) = {int_%}%",
+    "-Total = {tot_flight} Flight ({tot_pax} pax)",
+    "",
+    "Demikian disampaikan terima kasih.",
+    "",
+    "Wassalaamu'alaikum Wr. Wb."
+  ].join('\n');
+}
+
+// Combines old free-text opening + old free-text closing around the (new) auto-generated body,
+// so a previously-saved custom opening/closing keeps working after migrating to the template format.
+function migrateLegacyWaTemplate(opening, closing) {
+  const def = getDefaultWaTemplate();
+  const bodyStart = def.indexOf('GATE REPORT');
+  const bodyEnd = def.lastIndexOf('-Total = {tot_flight}') + '-Total = {tot_flight} Flight ({tot_pax} pax)'.length;
+  const body = def.slice(bodyStart, bodyEnd);
+  return [(opening||'').trim(), '', body, '', (closing||'').trim()].join('\n');
+}
+
+function buildWaTagData() {
   const flights = state.flights.filter(hasFilledGate);
   const gateStats = buildWaGateStats(flights);
   const total = summarizeFlights(flights);
-  const gateLines = DEFAULT_GATES.map(function(gate) {
-    const stat = gateStats[gate]||{flightCount:0,pax:0};
-    return '-GATE '+gate+' = '+formatNumber(stat.flightCount)+' Flight ('+formatNumber(stat.pax)+' pax)';
-  });
   const ts = summarizeGateGroup(gateStats,['1','2','3','4','5','6','6A']);
   const te = summarizeGateGroup(gateStats,['7','8','9','9A','10']);
   const inter = summarizeGateGroup(gateStats,['11','12','11A','11B']);
   const domestic = summarizeFlights(flights.filter(function(f){return normalizeScope(f.flight_category)==='DOM';}));
   const international = summarizeFlights(flights.filter(function(f){return normalizeScope(f.flight_category)==='INT';}));
-  return [
-    openingText,'','GATE REPORT',gateLines.join('\n'),'',
-    'DOMESTIC GATE:',
-    '- TS (Gate 1-6, 6A) = '+formatNumber(ts.flightCount)+' Flight ('+formatNumber(ts.pax)+' pax) = '+formatPercent(ts.flightCount,total.flightCount),
-    '- TE (Gate 7-10, 9A) = '+formatNumber(te.flightCount)+' Flight ('+formatNumber(te.pax)+' pax) = '+formatPercent(te.flightCount,total.flightCount),
-    '- INTER (Gate 11, 12, 11A, 11B) = '+formatNumber(inter.flightCount)+' Flight ('+formatNumber(inter.pax)+' pax) = '+formatPercent(inter.flightCount,total.flightCount),'',
-    'FLIGHTS:',
-    '-Domestic = '+formatNumber(domestic.flightCount)+' Flight ('+formatNumber(domestic.pax)+' pax) = '+formatPercent(domestic.flightCount,total.flightCount),
-    '-International = '+formatNumber(international.flightCount)+' Flight ('+formatNumber(international.pax)+' pax) = '+formatPercent(international.flightCount,total.flightCount),
-    '-Total = '+formatNumber(total.flightCount)+' Flight ('+formatNumber(total.pax)+' pax)','',closingText
-  ].join('\n');
+  const tanggal = document.getElementById('tanggal').value || getTodayDateString();
+  const dp = getWaLongDateParts(tanggal);
+
+  const data = {
+    airport: 'Bandar Udara Sultan Hasanuddin Makassar',
+    day: dp.day, date: dp.date,
+    dom_flight: formatNumber(domestic.flightCount), dom_pax: formatNumber(domestic.pax), 'dom_%': formatPercent(domestic.flightCount,total.flightCount),
+    int_flight: formatNumber(international.flightCount), int_pax: formatNumber(international.pax), 'int_%': formatPercent(international.flightCount,total.flightCount),
+    tot_flight: formatNumber(total.flightCount), tot_pax: formatNumber(total.pax)
+  };
+
+  const blocks = {
+    GATE_BLOCK: DEFAULT_GATES.map(function(gate) {
+      const stat = gateStats[gate]||{flightCount:0,pax:0};
+      return { gate: gate, gate_flight: formatNumber(stat.flightCount), gate_pax: formatNumber(stat.pax) };
+    }),
+    GATE_GROUP_BLOCK: [
+      { group: 'TS (Gate 1-6, 6A)', group_flight: formatNumber(ts.flightCount), group_pax: formatNumber(ts.pax), 'group_%': formatPercent(ts.flightCount,total.flightCount) },
+      { group: 'TE (Gate 7-10, 9A)', group_flight: formatNumber(te.flightCount), group_pax: formatNumber(te.pax), 'group_%': formatPercent(te.flightCount,total.flightCount) },
+      { group: 'INTER (Gate 11, 12, 11A, 11B)', group_flight: formatNumber(inter.flightCount), group_pax: formatNumber(inter.pax), 'group_%': formatPercent(inter.flightCount,total.flightCount) }
+    ]
+  };
+
+  return { data, blocks };
 }
 
 function buildWaGateStats(flights) {
@@ -1100,18 +1175,11 @@ function summarizeFlights(flights) {
   return flights.reduce(function(sum,f) { sum.flightCount+=1; sum.pax+=Number(f.pax||0); return sum; },{flightCount:0,pax:0});
 }
 
+// Returns the bare percentage number (no "%" sign) - the template itself supplies the literal "%".
 function formatPercent(value, total) {
   value=Number(value||0); total=Number(total||0);
-  if (!total) return '0%';
-  return Math.round((value/total)*100)+'%';
-}
-
-function formatIndonesianLongDate(dateString) {
-  const days=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-  const months=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-  const date=new Date(String(dateString||getTodayDateString())+'T00:00:00');
-  if (isNaN(date.getTime())) return dateString||'-';
-  return days[date.getDay()]+', '+String(date.getDate()).padStart(2,'0')+' '+months[date.getMonth()]+' '+date.getFullYear();
+  if (!total) return '0';
+  return String(Math.round((value/total)*100));
 }
 
 async function copyWaReportText() {
