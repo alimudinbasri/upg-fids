@@ -715,6 +715,21 @@ function getTodayDateString() {
 }
 
 /* ========================================================
+   CACHE (stale-while-revalidate, avoids blank screen while GAS is slow)
+======================================================== */
+const BELT_CACHE_KEY = 'belt_flight_cache_v1';
+function loadBeltCache(date) {
+  try {
+    const p = JSON.parse(localStorage.getItem(BELT_CACHE_KEY) || 'null');
+    if (p && p.date === date && Array.isArray(p.flights)) return p;
+  } catch(e) {}
+  return null;
+}
+function saveBeltCache(date, flights) {
+  try { localStorage.setItem(BELT_CACHE_KEY, JSON.stringify({date, flights, ts: Date.now()})); } catch(e) {}
+}
+
+/* ========================================================
    LOAD DATA — JSONP via GAS Bridge
 ======================================================== */
 function loadData() {
@@ -724,9 +739,24 @@ function loadData() {
 
   const tanggal = document.getElementById('tanggal').value || getTodayDateString();
   const root = document.getElementById('matrixRoot');
-  showStatus('Loading data from server...');
-  root.className = 'loading';
-  root.innerHTML = 'Loading data...';
+
+  if (!state.flights.length) {
+    // First load: show last-known data immediately instead of a blank
+    // "Loading..." box while the (often slow, 3-10s+) GAS backend responds.
+    const cached = loadBeltCache(tanggal);
+    if (cached && cached.flights.length) {
+      state.flights = cached.flights;
+      renderAll();
+      const mins = Math.max(0, Math.round((Date.now()-cached.ts)/60000));
+      showStatus('⏳ Menampilkan data tersimpan (' + (mins<1?'baru saja':mins+' menit lalu') + '), sedang memperbarui…');
+    } else {
+      showStatus('Loading data from server...');
+      root.className = 'loading';
+      root.innerHTML = 'Loading data...';
+    }
+  } else {
+    showStatus('Memperbarui data…');
+  }
 
   const cbName = '_gasBelt_' + Date.now();
   const timeout = setTimeout(function() {
@@ -752,26 +782,30 @@ function loadData() {
 
 function onLoadSuccess(res, tanggal) {
   const root = document.getElementById('matrixRoot');
+  const hadData = state.flights.length > 0;
 
   if (!res) {
-    showStatus('No response from server.', true);
-    root.className = 'loading'; root.innerHTML = 'Data could not be loaded.';
-    destroyAllCharts(); finishLoad(); return;
+    if (!hadData) { showStatus('No response from server.', true); root.className='loading'; root.innerHTML='Data could not be loaded.'; destroyAllCharts(); }
+    else showStatus('⚠ Gagal memperbarui data (no response). Menampilkan data terakhir yang berhasil dimuat.', true);
+    finishLoad(); return;
   }
 
   if (res.success === false) {
-    showStatus('Failed: ' + (res.message || 'Unknown error'), true);
-    root.className = 'loading'; root.innerHTML = 'Data could not be loaded.';
-    destroyAllCharts(); finishLoad(); return;
+    if (!hadData) { showStatus('Failed: ' + (res.message || 'Unknown error'), true); root.className='loading'; root.innerHTML='Data could not be loaded.'; destroyAllCharts(); }
+    else showStatus('⚠ Gagal memperbarui: ' + (res.message||'Unknown error') + '. Menampilkan data terakhir yang berhasil dimuat.', true);
+    finishLoad(); return;
   }
 
-  state.flights = mapFlights(Array.isArray(res) ? res : (res.data || res));
+  const flights = mapFlights(Array.isArray(res) ? res : (res.data || res));
 
-  if (!state.flights.length) {
-    showStatus('No flight data for date ' + tanggal + '.', true);
-    root.className = 'loading'; root.innerHTML = 'Data flight kosong.';
-    destroyAllCharts(); finishLoad(); return;
+  if (!flights.length) {
+    if (!hadData) { showStatus('No flight data for date ' + tanggal + '.', true); root.className='loading'; root.innerHTML='Data flight kosong.'; destroyAllCharts(); }
+    else showStatus('⚠ Data flight kosong dari server, tetap menampilkan data terakhir.', true);
+    finishLoad(); return;
   }
+
+  state.flights = flights;
+  saveBeltCache(tanggal, flights);
 
   const rowCountEl = document.getElementById('rowCount');
   if (rowCountEl) rowCountEl.textContent = state.flights.length + ' flights';
@@ -783,10 +817,14 @@ function onLoadSuccess(res, tanggal) {
 
 function onLoadError(err) {
   const root = document.getElementById('matrixRoot');
-  showStatus('Error: ' + (err.message || err), true);
-  root.className = 'loading';
-  root.innerHTML = 'Failed to load data.';
-  destroyAllCharts();
+  if (!state.flights.length) {
+    showStatus('Error: ' + (err.message || err), true);
+    root.className = 'loading';
+    root.innerHTML = 'Failed to load data.';
+    destroyAllCharts();
+  } else {
+    showStatus('⚠ Gagal memperbarui data (' + (err.message || err) + '). Menampilkan data terakhir yang berhasil dimuat.', true);
+  }
   finishLoad();
 }
 

@@ -684,14 +684,42 @@ let sortKey = 'sch';
 let sortDir = 'asc';
 
 /* ============================================================
+   CACHE (stale-while-revalidate, avoids blank screen while GAS is slow)
+============================================================ */
+const OTP_CACHE_KEY = 'otp_flight_cache_v1';
+function loadOtpCache(date) {
+  try {
+    const p = JSON.parse(localStorage.getItem(OTP_CACHE_KEY) || 'null');
+    if (p && p.date === date && Array.isArray(p.flights)) return p;
+  } catch(e) {}
+  return null;
+}
+function saveOtpCache(date, flights) {
+  try { localStorage.setItem(OTP_CACHE_KEY, JSON.stringify({date, flights, ts: Date.now()})); } catch(e) {}
+}
+
+/* ============================================================
    LOAD DATA
 ============================================================ */
 async function loadData() {
   const date = document.getElementById('tanggal').value;
   if (!date) return;
 
+  const firstLoad = allFlights.length === 0;
   setLoading(true);
   showMsg('');
+
+  // Show last-known data immediately instead of a blank box while the
+  // (often slow, 3-10s+) Apps Script backend responds.
+  if (firstLoad) {
+    const cached = loadOtpCache(date);
+    if (cached) {
+      allFlights = cached.flights;
+      render();
+      const mins = Math.max(0, Math.round((Date.now()-cached.ts)/60000));
+      showMsg('⏳ Menampilkan data tersimpan (' + (mins<1?'baru saja':mins+' menit lalu') + '), sedang memperbarui…');
+    }
+  }
 
   try {
     const [arrData, depData] = await Promise.all([
@@ -709,13 +737,16 @@ async function loadData() {
       const ta = toMin(a.schedule)||9999, tb = toMin(b.schedule)||9999;
       return ta - tb;
     });
+    saveOtpCache(date, allFlights);
 
     activeCat = null;
     document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('active-filter'));
     render();
     resetCountdown();
+    showMsg('');
   } catch(e) {
-    showMsg('Failed to load data: ' + e.message, true);
+    if (allFlights.length === 0) showMsg('Failed to load data: ' + e.message, true);
+    else showMsg('⚠ Gagal memperbarui data (' + e.message + '). Menampilkan data terakhir yang berhasil dimuat.', true);
   }
 
   setLoading(false);
