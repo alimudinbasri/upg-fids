@@ -10,11 +10,23 @@ service cloud.firestore {
       ];
     }
 
-    // isAdmin: hardcoded admin OR dynamic admin (UID stored in admin_uids)
+    // Mirrors emailToKey() in js/auth-guard.js and admin.html
+    function emailToKey(email) {
+      return email.lower().replace('\\.', '_').replace('@', '__');
+    }
+
+    // Dynamic admin: email has a doc in /admins (only isHardcodedAdmin() can write there)
+    function isDynamicAdminByEmail() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(emailToKey(request.auth.token.email)));
+    }
+
+    // isAdmin: hardcoded admin OR dynamic admin, verified against /admins (source of truth).
+    // Does NOT trust /admin_uids directly — that collection is self-writable by uid owners,
+    // so using its mere existence as the admin check would let any logged-in user grant
+    // themselves admin by writing their own admin_uids/{uid} doc from the browser console.
     function isAdmin() {
-      return isHardcodedAdmin() ||
-        (request.auth != null &&
-         exists(/databases/$(database)/documents/admin_uids/$(request.auth.uid)));
+      return isHardcodedAdmin() || isDynamicAdminByEmail();
     }
 
     // Activity logs
@@ -44,11 +56,13 @@ service cloud.firestore {
       allow write: if isHardcodedAdmin();
     }
 
-    // Admin UIDs — diisi saat dynamic admin login ke admin.html;
-    // digunakan oleh Firestore rules untuk cek isAdmin() via exists()
+    // Admin UIDs — bookkeeping cache written by admin.html on login; NOT used by isAdmin()
+    // (see note above). Self-write only allowed once the caller is already a verified
+    // admin via /admins, so this can no longer be used to self-escalate.
     match /admin_uids/{uid} {
       allow read: if request.auth != null;
-      allow write: if isHardcodedAdmin() || (request.auth != null && request.auth.uid == uid);
+      allow write: if isHardcodedAdmin() ||
+        (request.auth != null && request.auth.uid == uid && isDynamicAdminByEmail());
       allow delete: if isHardcodedAdmin();
     }
 
