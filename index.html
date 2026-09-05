@@ -156,6 +156,14 @@
     .refresh-countdown.loading strong { color: #fbbf24; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    .stale-notice {
+      display: none; align-items: center; gap: 8px; font-size: 12px; font-weight: 600;
+      color: #fbbf24; background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.3);
+      border-radius: 10px; padding: 7px 12px; margin: 0 16px 10px;
+    }
+    .stale-notice.show { display: flex; }
+    .stale-notice.error { color: #f87171; background: rgba(248,113,113,.1); border-color: rgba(248,113,113,.3); }
+
     /* ── TABLE WRAPPER ── */
     .table-wrap { overflow-x: auto; }
 
@@ -584,6 +592,8 @@
 
 </div><!-- /.sticky-bar -->
 
+<div class="stale-notice" id="staleNotice"></div>
+
 <!-- WA Report Modal -->
 <div id="waReportModal" class="wa-modal-backdrop">
   <div class="wa-modal">
@@ -835,11 +845,46 @@ async function fetchFlights(kind, date) {
   throw new Error(errs.join(" | "));
 }
 
+// ── CACHE (stale-while-revalidate, avoids blank screen while GAS is slow) ──
+const CACHE_KEY = "fids_flight_cache_v1";
+function loadCache(date) {
+  try {
+    const p = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
+    if (p && p.date === date && Array.isArray(p.flights)) return p;
+  } catch(e) {}
+  return null;
+}
+function saveCache(date, flights) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({date, flights, ts: Date.now()})); } catch(e) {}
+}
+function setStaleNotice(msg, isError) {
+  const el = document.getElementById("staleNotice");
+  if (!el) return;
+  if (!msg) { el.classList.remove("show","error"); el.textContent = ""; return; }
+  el.textContent = msg;
+  el.classList.add("show");
+  el.classList.toggle("error", !!isError);
+}
+
 // ── LOAD DATA ──
 async function loadData() {
   if (isLoading) return;
   isLoading = true; setLoading(true);
   const date = document.getElementById("masterDate").value || today();
+  const firstLoad = allFlights.length === 0;
+
+  // Show last-known data immediately instead of a blank "Loading…" box
+  // while the (often slow) backend responds.
+  if (firstLoad) {
+    const cached = loadCache(date);
+    if (cached) {
+      allFlights = cached.flights;
+      renderFlights();
+      const mins = Math.max(0, Math.round((Date.now()-cached.ts)/60000));
+      setStaleNotice("⏳ Menampilkan data tersimpan (" + (mins<1?"baru saja":mins+" menit lalu") + "), sedang memperbarui…");
+    }
+  }
+
   try {
     const [arrRaw, depRaw] = await Promise.all([
       fetchFlights("arrival",date), fetchFlights("departure",date)
@@ -849,11 +894,13 @@ async function loadData() {
     const departures = depRaw.map(normalizeDep).filter(x=>x.flight!=="-" && hasOpData(x));
     buildPairing(arrivals, departures);
     allFlights = [...arrivals, ...departures];
-    const now = new Date();
+    saveCache(date, allFlights);
     setError(null);
+    setStaleNotice(null);
   } catch(err) {
     console.error(err);
-    setError("Failed to load data: "+err.message);
+    if (allFlights.length===0) setError("Failed to load data: "+err.message);
+    else setStaleNotice("⚠ Gagal memperbarui data (" + err.message + "). Menampilkan data terakhir yang berhasil dimuat.", true);
   } finally {
     isLoading=false; setLoading(false); renderFlights(); _startCountdown();
   }
