@@ -1,0 +1,1806 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Belt Realization</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <style>
+:root {
+  --bg:        #0a1628;
+  --bg2:       #0d1e35;
+  --bg3:       #122444;
+  --card:      #0d1e35;
+  --text:      #eaf6ff;
+  --text2:     #90cce0;
+  --muted:     #6aafc8;
+  --line:      #2a4868;
+  --head:      #0d1e35;
+  --left:      #0f2540;
+  --tosca:     #00bcd4;
+  --tosca-dark:#00e5ff;
+  --green:     rgba(0,220,100,.40);
+  --yellow:    rgba(255,195,0,.38);
+  --red:       rgba(255,70,70,.40);
+  --blue-total:#1a3a6a;
+  --belt-w:    74px;
+  --fl-w:      38px;
+  --hour-w:    82px;
+  --row-h:     80px;
+  --header-h:  42px;
+  --left-w:    calc(var(--belt-w) + var(--fl-w));
+  --teal:      #00bcd4;
+  --teal2:     #00e5ff;
+  --teal-dim:  #008fa3;
+  --text3:     #6aafc8;
+  --border:    #2a4868;
+  --amber:     #ffc107;
+  --radius-sm: 8px;
+}
+/* ── LIGHT THEME ── */
+:root[data-theme="light"] {
+  --bg:        #edf3fb;
+  --bg2:       #ffffff;
+  --bg3:       #ddeaf7;
+  --card:      #ffffff;
+  --text:      #091422;
+  --text2:     #18365a;
+  --muted:     #2c5070;
+  --line:      #8ab0d0;
+  --head:      #ddeaf7;
+  --left:      #d0e4f5;
+  --tosca:     #0097a7;
+  --tosca-dark:#00838f;
+  --green:     rgba(0,140,60,.30);
+  --yellow:    rgba(180,120,0,.32);
+  --red:       rgba(180,40,40,.30);
+  --blue-total:#c0d8f0;
+  --teal:      #0097a7;
+  --teal2:     #00838f;
+  --teal-dim:  #006978;
+  --text3:     #2c5070;
+  --border:    #8ab0d0;
+}
+:root[data-theme="light"] .flight-bar { border: 2px solid rgba(0,0,0,.25) !important; text-shadow: 0 0px 7px rgb(0 0 0), 0 0 7px rgba(0,0,0,.9); }
+:root[data-theme="light"] .fids-header { background: linear-gradient(135deg,#0d2137 0%,#0a2845 60%,#082040 100%); }
+.clock      { color: #00e7fc !important; }
+.clock-date { color: #68b8ff !important; }
+.brand-name { color: #ffffff !important; }
+
+/* ── BASE RESET ── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── HEADER ── */
+.fids-header {
+  background: linear-gradient(135deg,#0d2137 0%,#0a2845 60%,#082040 100%);
+  border-bottom: 2px solid var(--teal-dim);
+  padding: 14px 16px 12px;
+  display: flex; align-items: center;
+  gap: 12px; position: sticky; top: 0; z-index: 100;
+}
+.brand { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+.brand-logo {
+  background: var(--teal); color: #000; font-weight: 900;
+  font-size: 20px; letter-spacing: -.5px; padding: 6px 12px;
+  border-radius: var(--radius-sm); flex-shrink: 0; line-height: 1;
+}
+.brand-info { min-width: 0; }
+.brand-name { font-size: 13px; font-weight: 700; color: #ffffff; }
+.brand-sub  { font-size: 11px; color: var(--text3); margin-top: 1px; }
+.header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
+.clock { font-size: 22px; font-weight: 700; color: #00e7fc; letter-spacing: 1px; font-variant-numeric: tabular-nums; line-height: 1; }
+.clock-date { font-size: 10px; color: #68b8ff; text-align: right; }
+
+/* ── STATUS BAR ── */
+.status-bar {
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; gap: 8px;
+}
+.status-left { color: var(--text3); display: flex; align-items: center; gap: 6px; }
+.status-badge {
+  background: rgba(0,188,212,.15); border: 1px solid var(--teal-dim);
+  color: var(--teal); padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+}
+.status-right { display: flex; align-items: center; gap: 6px; color: #00e676; font-size: 11px; font-weight: 600; }
+.dot-live { width: 7px; height: 7px; border-radius: 50%; background: #00e676; animation: pulse 2s infinite; flex-shrink: 0; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
+
+/* ── DATE INPUT ── */
+.date-input {
+  background: var(--bg3);
+  border: 1.5px solid var(--teal-dim);
+  border-radius: 6px;
+  color: var(--teal2);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 6px;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  letter-spacing: .3px;
+}
+.date-input::-webkit-calendar-picker-indicator {
+  filter: invert(70%) sepia(80%) saturate(400%) hue-rotate(160deg);
+  cursor: pointer;
+}
+.date-input:focus { border-color: var(--teal); }
+
+/* ── CONTROLS ── */
+.controls {
+  background: var(--bg); padding: 10px 12px;
+  display: flex; gap: 8px; align-items: center;
+  border-bottom: 1px solid var(--border); flex-wrap: nowrap;
+}
+.refresh-countdown { display: inline-flex; align-items: center; gap: 5px; background: transparent; border: 1.5px solid var(--border); color: var(--text3); height: 34px; padding: 0 10px; border-radius: 22px; font-size: 12px; font-weight: 700; flex-shrink: 0; cursor: pointer; transition: border-color .18s, color .18s; }
+.refresh-countdown:hover { border-color: var(--teal-dim); color: var(--teal); }
+.refresh-countdown strong { color: var(--teal); font-variant-numeric: tabular-nums; }
+.refresh-icon { font-size: 15px; display: inline-block; }
+.refresh-countdown.loading { border-color: rgba(245,158,11,.5); color: #fbbf24; }
+.refresh-countdown.loading .refresh-icon { animation: spin .8s linear infinite; }
+.refresh-countdown.loading strong { color: #fbbf24; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── THEME TOGGLE ── */
+.theme-toggle-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: background .2s;
+}
+.theme-toggle-btn:hover { background: var(--bg2); }
+
+/* ── STATUS MSG ── */
+.status { display: none; margin: 10px 12px; background: var(--bg2); padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); color: var(--text2); font-weight: 700; }
+.status.show { display: block; }
+.status.error { color: #ff6b6b; background: rgba(255,82,82,.08); border-color: rgba(255,82,82,.3); }
+
+/* ── CONTENT BODY ── */
+.content-body { padding: 14px 12px; }
+
+/* ── SECTION HEADING ── */
+.section-heading { display: flex; align-items: center; gap: 10px; margin: 8px 0 12px; }
+.section-heading h2 { margin: 0; font-size: 18px; color: var(--teal); font-weight: 900; }
+.section-icon { width: 24px; height: 24px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: rgba(0,188,212,.15); color: var(--teal); font-weight: 900; }
+.section-subtitle { color: var(--text3); font-size: 12px; margin: -4px 0 10px; }
+
+/* ── SUMMARY ── */
+.summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; margin-bottom: 18px; }
+.summary-card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 18px 16px; text-align: center; }
+.summary-label { font-size: 11px; font-weight: 900; color: var(--text3); margin-bottom: 8px; letter-spacing: .3px; }
+.summary-value { font-size: 24px; font-weight: 900; color: var(--text); }
+.summary-value.pax { color: #58e4ff !important; }
+.summary-value.gate { color: var(--teal); }
+.summary-card-remark { grid-column: 1 / -1; text-align: left; }
+.remark-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+.remark-table th { text-align: left; font-size: 10px; font-weight: 800; color: var(--text3); text-transform: uppercase; letter-spacing: .4px; padding: 4px 8px; border-bottom: 1px solid var(--border); }
+.remark-table .th-num { text-align: right; width: 50px; }
+.remark-table .th-sep { width: 1px; padding: 0; background: var(--border); }
+.remark-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--text); font-weight: 700; }
+.remark-table .td-num { text-align: right; color: var(--teal); font-weight: 900; width: 50px; }
+.remark-table .td-sep { width: 1px; padding: 0; background: var(--border); }
+.remark-table tr:last-child td { border-bottom: none; }
+.remark-table tr:hover td { background: rgba(0,188,212,.05); }
+.remark-table tr:hover .td-sep { background: var(--border); }
+
+/* ── FLIGHT SEARCH ── */
+.flight-search-section { margin-bottom: 16px; }
+.flight-search-card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 10px 14px; }
+.flight-search-row { display: flex; align-items: center; gap: 8px; }
+.flight-search-title { font-size: 14px; font-weight: 900; color: var(--teal); white-space: nowrap; flex-shrink: 0; }
+.flight-search-input-wrap { flex: 1; min-width: 0; }
+.flight-search-subtitle { font-size: 12px; color: var(--text3); margin-top: 3px; }
+.flight-search-input-wrap input { width: 100%; height: 42px; border: 1px solid var(--border); border-radius: 12px; padding: 0 14px; font-size: 14px; font-weight: 700; color: var(--text); background: var(--bg3); outline: none; }
+.flight-search-input-wrap input:focus { border-color: var(--teal); }
+.btn-clear-search { border: 1px solid var(--border); background: var(--bg3); color: var(--text2); height: 34px; padding: 0 12px; border-radius: 10px; font-weight: 900; cursor: pointer; }
+.flight-search-result { margin-top: 12px; color: var(--text3); font-size: 12px; font-weight: 700; }
+.flight-result-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 10px; }
+.flight-result-card { border: 1px solid var(--border); background: var(--bg3); border-radius: 14px; padding: 12px; }
+.flight-result-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
+.flight-result-title { font-size: 15px; font-weight: 900; color: var(--text); }
+.flight-result-badge { font-size: 10px; font-weight: 900; padding: 4px 8px; border-radius: 999px; background: var(--teal); color: #000; white-space: nowrap; }
+.flight-result-detail { display: grid; grid-template-columns: 72px 1fr; gap: 5px 8px; font-size: 12px; margin-top: 6px; }
+.flight-result-detail b { color: var(--text3); }
+.flight-result-detail span { color: var(--text); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.flight-result-actions { margin-top: 10px; display: flex; gap: 8px; justify-content: flex-end; }
+.btn-flight-detail { border: none; background: var(--teal); color: #000; height: 32px; padding: 0 12px; border-radius: 10px; font-size: 12px; font-weight: 900; cursor: pointer; }
+.btn-flight-detail:hover { background: var(--teal2); }
+.flight-search-empty { background: rgba(255,82,82,.08); border: 1px solid rgba(255,82,82,.3); color: #ff6b6b; border-radius: 12px; padding: 10px 12px; font-weight: 800; }
+
+/* ── CHARTS ── */
+.charts-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 18px; }
+.chart-card-full { grid-column: 1 / -1; }
+.chart-title { font-size: 15px; font-weight: 900; color: var(--text2); text-align: center; margin-bottom: 10px; }
+.chart-wrap { position: relative; width: 100%; height: 280px; }
+.chart-card-full .chart-wrap { height: 320px; }
+
+/* ── MATRIX CARD WRAPPER ── */
+.card { background: var(--card); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; }
+.matrix-scroll { width: 100%; overflow: auto; max-height: calc(100vh - 180px); position: relative; background: var(--bg2); }
+.matrix { position: relative; width: calc(var(--left-w) + (24 * var(--hour-w))); min-height: 300px; }
+.grid-row { display: grid; grid-template-columns: var(--belt-w) var(--fl-w) repeat(24,var(--hour-w)); min-height: var(--row-h); }
+.fl-cell { display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:900; color:var(--tosca); background:rgba(0,188,212,.07); border-right:1px solid var(--line); position:sticky; left:var(--belt-w); z-index:11; }
+.grid-header .fl-cell { background:#0a2040; color:var(--tosca-dark); font-size:11px; font-weight:900; letter-spacing:.5px; border-bottom:2px solid var(--tosca); z-index:81; position:sticky; left:var(--belt-w); }
+.total-row .fl-cell { background:rgba(0,188,212,.12); color:var(--tosca); font-size:13px; font-weight:900; }
+.grid-header { min-height: var(--header-h); position: sticky; top: 0; z-index: 60; }
+.cell { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--bg2); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; text-align: center; }
+.head { background: var(--head); font-weight: 900; font-size: 11px; color: var(--tosca); }
+.left-cell { background: var(--left); z-index: 25; }
+.sticky-belt    { position: sticky; left: 0; }
+.grid-header .sticky-belt { z-index: 80; }
+.grid-header .sticky-belt { position: relative !important; left: auto !important; will-change: transform; background: #0a2040; color: var(--tosca-dark); font-size: 12px; font-weight: 900; letter-spacing: .5px; border-bottom: 2px solid var(--tosca); z-index: 80; }
+.gate-box { line-height: 1; }
+.gate-name { font-size: 22px; font-weight: 900; color: var(--text); }
+.gate-status { display: inline-block; margin-top: 6px; padding: 4px 7px; border-radius: 8px; font-size: 10px; color: #000; background: var(--tosca); font-weight: 900; }
+.gate-off .gate-name { color: #ff6b6b; }
+.gate-off .gate-status { background: #c62828; color: #fff; }
+.small-num { font-weight: 900; font-size: 11px; color: var(--text2); }
+.flpax { flex-direction: column; gap: 4px; font-weight: 900; font-size: 11px; color: var(--text2); }
+.hour-green  { background: var(--green); }
+.hour-yellow { background: var(--yellow); }
+.hour-red    { background: var(--red); }
+.hour-pax { position: absolute; top: 6px; left: 8px; font-size: 13px; font-weight: 900; color: var(--tosca); z-index: 5; pointer-events: none; }
+.flight-layer { position: absolute; left: var(--left-w); top: var(--header-h); width: calc(24 * var(--hour-w)); pointer-events: none; z-index: 12; }
+.flight-bar { position: absolute; height: 28px; min-width: 120px; border-radius: 7px; color: #fff; font-size: 10px; font-weight: 900; letter-spacing: 0.2px; display: flex; align-items: center; justify-content: center; padding: 0 10px; white-space: nowrap; border: 2px solid rgba(255,255,255,.55); pointer-events: auto; cursor: grab; user-select: none; touch-action: none; transition: outline .12s ease, opacity .12s ease, top .08s ease; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0px 7px rgb(0 0 0), 0 0 7px rgba(0,0,0,.9); }
+.flight-bar.dragging { opacity: .88; cursor: grabbing; }
+.flight-bar.invalid-drop { outline: 3px solid #ff3b30; outline-offset: 2px; opacity: .65; }
+.flight-bar.remark-blink { animation: hardRemarkBlink 0.9s steps(2,start) infinite; outline: 3px solid #ffc107; outline-offset: 2px; }
+@keyframes hardRemarkBlink {
+  0%   { opacity:1; filter:brightness(1.35) saturate(1.35); }
+  50%  { opacity:.35; filter:brightness(.75) saturate(.8); }
+  100% { opacity:1; filter:brightness(1.35) saturate(1.35); }
+}
+.flight-bar.arrived-flight { border: 2px solid rgba(255,255,255,.2) !important; opacity: 0.6; }
+.flight-bar.locked-flight { cursor: not-allowed !important; }
+.flight-bar.locked-flight::after { content:"LOCK"; position:absolute; right:6px; top:-9px; background:var(--tosca); color:#000; font-size:8px; font-weight:900; padding:2px 5px; border-radius:999px; letter-spacing:.3px; }
+.total-row .cell { background: var(--blue-total); color: var(--tosca); font-weight: 900; }
+.total-row .left-cell { background: var(--bg3); color: var(--text2); }
+.total-box { flex-direction: column; gap: 3px; font-size: 11px; }
+.total-box b { font-size: 14px; color: var(--tosca); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 12px 14px; border-top: 1px solid var(--line); background: var(--bg2); color: var(--text2); font-size: 12px; }
+.legend-item, .legend-text { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.dot { width: 14px; height: 14px; border-radius: 99px; display: inline-block; }
+.dot.green { background: #00c853; }
+.loading { padding: 28px; text-align: center; font-weight: 900; color: var(--tosca); }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 9999; }
+.modal-backdrop.show { display: flex; }
+.modal { width: 100%; max-width: 480px; background: var(--bg2); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.modal-head { padding: 14px 16px; background: var(--tosca); color: #000; font-weight: 900; display: flex; justify-content: space-between; align-items: center; }
+.modal-body { padding: 14px 16px; }
+.detail-grid { display: grid; grid-template-columns: 120px 1fr; gap: 8px 10px; font-size: 13px; }
+.detail-grid div:nth-child(odd) { font-weight: 800; color: var(--muted); }
+.modal-close { background: rgba(0,0,0,.2); border: none; color: #000; padding: 6px 10px; border-radius: 8px; cursor: pointer; font-weight: 800; }
+.current-time-line { position: absolute; top: var(--header-h); width: 2px; background: #ff2d55; z-index: 40; pointer-events: none; }
+.current-time-line::before { content:""; position:absolute; top:-7px; left:50%; transform:translateX(-50%); width:0; height:0; border-left:7px solid transparent; border-right:7px solid transparent; border-bottom:8px solid #ff2d55; }
+.current-time-label { position:absolute; top:-28px; left:50%; transform:translateX(-50%); background:#ff2d55; color:#fff; font-size:10px; font-weight:900; padding:4px 7px; border-radius:999px; white-space:nowrap; }
+body.pdf-exporting-matrix { overflow: visible !important; }
+body.pdf-exporting-matrix #pdfMatrixArea { width: max-content !important; max-width: none !important; }
+body.pdf-exporting-matrix #pdfMatrixArea .card { width: max-content !important; max-width: none !important; overflow: visible !important; }
+body.pdf-exporting-matrix .matrix-scroll { overflow: visible !important; max-height: none !important; width: max-content !important; }
+body.pdf-exporting-matrix .matrix { overflow: visible !important; }
+body.pdf-exporting-matrix .legend { width: 100%; }
+body.pdf-exporting-matrix .remark-blink, body.pdf-exporting-overview .remark-blink { animation: none !important; }
+/* Dropdown Option */
+.option-dropdown { position: relative; width: auto; min-width: 120px; }
+.btn-option-menu { width: 100%; height: 38px; border: none; background: var(--tosca); color: #000; border-radius: 10px; font-weight: 900; cursor: pointer; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
+.btn-option-menu:hover { background: var(--tosca-dark); }
+.option-caret { font-size: 11px; transition: transform .16s ease; }
+.option-dropdown.show .option-caret { transform: rotate(180deg); }
+.option-menu { position: absolute; top: calc(100% + 8px); right: 0; width: 250px; background: var(--bg2); border: 1px solid var(--line); border-radius: 16px; padding: 8px; display: none; z-index: 999; }
+.option-dropdown.show .option-menu { display: block; }
+.option-menu::before { content:""; position:absolute; top:-7px; right:22px; width:12px; height:12px; background:var(--bg2); border-left:1px solid var(--line); border-top:1px solid var(--line); transform:rotate(45deg); }
+.option-menu-item { width: 100%; min-height: 54px; border: none; background: transparent; border-radius: 12px; padding: 9px 10px; cursor: pointer; display: flex; align-items: center; gap: 10px; color: var(--text); text-align: left; }
+.option-menu-item:hover { background: var(--bg3); }
+.option-menu-icon { width: 34px; height: 34px; border-radius: 12px; background: rgba(0,188,212,.12); display: inline-flex; align-items: center; justify-content: center; font-size: 17px; flex: 0 0 auto; }
+.option-menu-item b { display: block; font-size: 13px; font-weight: 900; color: var(--text); line-height: 1.2; }
+.option-menu-item small { display: block; margin-top: 2px; font-size: 10px; font-weight: 700; color: var(--muted); line-height: 1.2; }
+.option-export .option-menu-icon { background: rgba(255,82,82,.15); }
+.option-wa .option-menu-icon { background: rgba(0,230,118,.12); }
+.option-menu-item:disabled, .btn-option-menu:disabled { opacity: .65; cursor: wait; }
+/* WA Report Modal */
+.wa-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 10000; }
+.wa-modal-backdrop.show { display: flex; }
+.wa-modal { width: 100%; max-width: 720px; max-height: 92vh; background: var(--bg2); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; }
+.wa-modal-head { padding: 14px 16px; background: var(--tosca); color: #000; font-weight: 900; display: flex; justify-content: space-between; align-items: center; }
+.wa-modal-body { padding: 14px 16px; overflow: auto; }
+.wa-field { margin-bottom: 12px; }
+.wa-field label { display: block; font-size: 12px; font-weight: 900; color: var(--text2); margin-bottom: 6px; }
+.wa-field textarea { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-family: Arial, Helvetica, sans-serif; font-size: 13px; line-height: 1.45; color: var(--text); background: var(--bg3); resize: vertical; outline: none; }
+.wa-field textarea:focus { border-color: var(--tosca); }
+.wa-report-textarea { min-height: 360px; font-family: "Courier New",monospace !important; white-space: pre; }
+.wa-report-actions { display: flex; justify-content: flex-end; gap: 8px; margin: 8px 0 12px; }
+.btn-wa-secondary, .btn-wa-copy { border: none; height: 36px; border-radius: 10px; padding: 0 12px; font-weight: 900; cursor: pointer; }
+.btn-wa-secondary { background: var(--bg3); color: var(--text2); border: 1px solid var(--line); }
+.btn-wa-copy { background: var(--tosca); color: #000; }
+@media (max-width: 768px) {
+  body { font-size: 12px; }
+  .brand-logo { font-size: 14px; padding: 4px 8px; }
+  .brand-name { font-size: 11px; }
+  .brand-sub  { display: none; }
+  .clock      { font-size: 16px; }
+  .clock-date { font-size: 9px; }
+  .status-bar   { padding: 5px 8px; flex-wrap: nowrap; gap: 6px; }
+  .status-left  { font-size: 10px; white-space: nowrap; }
+  .status-badge { font-size: 10px; padding: 2px 7px; white-space: nowrap; }
+  .status-right { font-size: 10px; white-space: nowrap; gap: 4px; }
+  .controls { flex-wrap: nowrap; padding: 7px 8px; overflow-x: auto; }
+  .option-dropdown { width: 100% !important; min-width: 0; }
+  .btn-option-menu { width: 100% !important; justify-content: center; padding: 0 8px; }
+  .option-menu { position: fixed !important; top: 100px !important; left: 16px !important; right: 16px !important; width: auto !important; max-width: none !important; min-width: 0 !important; border-radius: 18px !important; padding: 10px !important; z-index: 99999 !important; background: var(--bg2) !important; border: 1px solid var(--border) !important; }
+  .option-menu::before { display: none !important; }
+  .option-menu-item { width: 100% !important; min-height: 58px !important; padding: 10px 12px !important; border-radius: 14px !important; }
+  .option-menu-item b { font-size: 14px !important; }
+  .option-menu-item small { font-size: 11px !important; white-space: normal !important; }
+  .option-menu-icon { width: 38px !important; height: 38px !important; font-size: 18px !important; }
+  .content-body { padding: 10px 8px; }
+  .summary-grid { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+  .summary-card { padding: 14px 10px; border-radius: 16px; }
+  .summary-label { font-size: 10px; }
+  .summary-value { font-size: 18px; }
+  .charts-grid { grid-template-columns: 1fr; gap: 14px; }
+  .chart-card, .chart-card-full { grid-column: auto; }
+  .chart-wrap { height: 250px; }
+  .chart-card-full .chart-wrap { height: 280px; }
+  :root { --belt-w:64px; --fl-w:34px; --hour-w:76px; --row-h:78px; }
+  .matrix-scroll { max-height: calc(100vh - 210px); }
+  .gate-name { font-size: 20px; }
+  .flight-bar { height: 26px; min-width: 110px; font-size: 10px; }
+  .detail-grid { grid-template-columns: 100px 1fr; font-size: 12px; }
+  .sticky-belt { position: sticky !important; left: 0 !important; z-index: 60 !important; }
+  .grid-header .sticky-belt { z-index: 90 !important; }
+  .flight-result-detail { display: grid !important; grid-template-columns: 58px minmax(0,1fr) 58px minmax(0,1fr) !important; gap: 4px 7px !important; font-size: 11px !important; }
+  .wa-modal-backdrop { padding: 10px; align-items: flex-start; }
+  .wa-modal { max-height: 94vh; border-radius: 16px; }
+  .wa-modal-body { padding: 12px; }
+  .wa-report-actions { flex-direction: column; }
+  .btn-wa-secondary, .btn-wa-copy { width: 100%; }
+  .wa-report-textarea { min-height: 330px; }
+}
+@media (max-width: 380px) {
+  .brand-logo { font-size: 12px; padding: 3px 6px; }
+  .btn-option-menu .option-caret { display: none; }
+}
+  
+/* ── HAMBURGER NAV ── */
+.ham-btn { background: none; border: 1.5px solid rgba(0,188,212,.3); border-radius: 8px; color: #00e5ff; font-size: 20px; cursor: pointer; padding: 4px 8px; flex-shrink: 0; line-height: 1; transition: background .15s; }
+.ham-btn:hover { background: rgba(0,188,212,.12); }
+.nav-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 4998; display: none; }
+.nav-overlay.show { display: block; }
+.nav-panel { position: fixed; top: 0; left: 0; width: 220px; height: 100%; background: #0a1e38; border-right: 1.5px solid var(--border); z-index: 4999; transform: translateX(-100%); transition: transform .22s ease; display: flex; flex-direction: column; }
+.nav-panel.show { transform: translateX(0); }
+.nav-panel-head { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.nav-panel-logo { background: var(--teal); color: #000; font-weight: 900; font-size: 13px; padding: 5px 9px; border-radius: 6px; letter-spacing: -.3px; }
+.nav-panel-title { font-size: 12px; font-weight: 700; color: #97ceff !important; }
+.nav-links { padding: 10px 8px; display: flex; flex-direction: column; gap: 3px; }
+.nav-link { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; text-decoration: none; color: #9cc4f5 !important; font-size: 13px; font-weight: 700; transition: background .15s; white-space: nowrap; border-left: 3px solid transparent; }
+.nav-link:hover { background: rgba(0,188,212,.1); color: var(--teal2); }
+.nav-link.active { background: rgba(0,188,212,.18); color: #aae8ef !important; border-left-color: var(--teal); }
+.nav-link-icon { font-size: 17px; width: 26px; text-align: center; flex-shrink: 0; }
+.nav-footer { margin-top: auto; padding: 12px 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+.nav-user-name { font-size: 11px; color: #6aafc8; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btn-logout { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; background: rgba(255,82,82,.1); border: 1px solid rgba(255,82,82,.3); color: #ff7070; font-size: 13px; font-weight: 700; cursor: pointer; width: 100%; transition: background .15s; }
+.btn-logout:hover { background: rgba(255,82,82,.2); }
+.brand-sub { color: #90cbff !important; }
+.flight-bar { font-size: 10px !important; }
+.flight-bar.arrived-flight { opacity: 0.7 !important; }
+.flight-bar.departed-flight { opacity: 0.7 !important; }
+.summary-value.pax { color: #58e4ff !important; }
+.clock      { color: #00e7fc !important; }
+.clock-date { color: #68b8ff !important; }
+.brand-name { color: #ffffff !important; }
+  /* ── WA SAVE TOAST ── */
+  .wa-save-toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: #00c853; color: #000; font-size: 13px; font-weight: 700;
+    padding: 9px 20px; border-radius: 24px; z-index: 99999;
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s, transform .25s;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0,0,0,.35);
+  }
+  .wa-save-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+  <script>document.documentElement.style.visibility="hidden";</script>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header class="fids-header">
+  <button class="ham-btn" id="hamBtn" title="Menu">☰</button>
+  <div class="brand">
+    <div class="brand-logo">BELT</div>
+    <div class="brand-info">
+      <div class="brand-name">Sultan Hasanuddin<br>International Airport</div>
+      <div class="brand-sub">Makassar (UPG) · Belt Realization</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="clock" id="clock">--:--:--</div>
+    <div class="clock-date" id="clockDate">–</div>
+  </div>
+</header>
+<div class="nav-overlay" id="navOverlay"></div>
+<div class="nav-panel" id="navPanel">
+  <div class="nav-panel-head">
+    <span class="nav-panel-logo">UPG</span>
+    <span class="nav-panel-title">Sultan Hasanuddin</span>
+  </div>
+  <nav class="nav-links">
+    <a href="index.html" class="nav-link"><span class="nav-link-icon">📺</span>FIDS</a>
+    <a href="real_gate.html" class="nav-link"><span class="nav-link-icon">🚪</span>Real Gate</a>
+    <a href="real_belt.html" class="nav-link active"><span class="nav-link-icon">🛄</span>Real Belt</a>
+    <a href="otp.html"       class="nav-link"><span class="nav-link-icon">📊</span>OTP Report</a>
+    <a href="admin.html" id="nav-admin-link" class="nav-link" style="display:none"><span class="nav-link-icon">🛡</span>Admin</a>
+  </nav>
+  <div class="nav-footer">
+    <div class="nav-user-name" id="nav-user-name">–</div>
+    <button class="btn-logout" id="btn-logout">
+      <span style="font-size:16px;">⏻</span> Logout
+    </button>
+  </div>
+</div>
+
+<!-- ── STATUS BAR ── -->
+<div class="status-bar">
+  <div class="status-left">
+    <span>Date:</span>
+    <input type="date" id="tanggal" class="date-input">
+  </div>
+  <div class="status-right">
+    <div class="dot-live"></div>
+    <span>&#128100; <span id="onlineCount">–</span></span>
+  </div>
+</div>
+
+<!-- ── CONTROLS ── -->
+<div class="controls">
+  <button class="refresh-countdown" onclick="if(!isLoadingData){loadData();}" title="Auto refresh every 5 minutes. Click to refresh now.">
+    <span class="refresh-icon">↻</span>
+    <strong id="refreshCountdown">05:00</strong>
+  </button>
+  <button type="button" class="theme-toggle-btn" id="themeToggle" title="Toggle Dark/Light">🌙</button>
+  <div class="option-dropdown" id="optionDropdown">
+    <button type="button" id="btnOptionMenu" class="btn-option-menu" aria-expanded="false">
+      <span class="option-label">Option</span>
+      <span class="option-caret">▾</span>
+    </button>
+    <div class="option-menu" id="optionMenu">
+      <button type="button" id="btnExportPdf" class="option-menu-item option-export">
+        <span class="option-menu-icon">📄</span>
+        <span><b>Export PDF</b><small>Save page as PDF</small></span>
+      </button>
+      <button type="button" id="btnWaReport" class="option-menu-item option-wa">
+        <span class="option-menu-icon">💬</span>
+        <span><b>WA Report</b><small>Generate laporan untuk WhatsApp</small></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── CONTENT ── -->
+<div class="content-body">
+
+  <!-- SEARCH FLIGHT -->
+  <section class="flight-search-section">
+    <div class="flight-search-card">
+      <div class="flight-search-row">
+        <span class="flight-search-title">Search</span>
+        <div class="flight-search-input-wrap">
+          <input type="text" id="flightSearchInput" placeholder="Contoh: JT, CGK, JAKARTA, Belt 3, Landed, PK-XXX..." autocomplete="off">
+        </div>
+        <button type="button" id="btnClearFlightSearch" class="btn-clear-search">Clear</button>
+      </div>
+      <div id="flightSearchResult" class="flight-search-result"></div>
+    </div>
+  </section>
+
+  <!-- RESUME -->
+  <section id="pdfResumeArea">
+    <div id="summaryGrid" class="summary-grid">
+      <div class="summary-card"><div class="summary-label">TOTAL FLIGHTS</div><div class="summary-value">0</div></div>
+      <div class="summary-card"><div class="summary-label">TOTAL PAX</div><div class="summary-value pax">0</div></div>
+      <div class="summary-card"><div class="summary-label">ACTIVE BELTS</div><div class="summary-value gate">0</div></div>
+    </div>
+  </section>
+
+  <!-- MATRIX -->
+  <section id="pdfMatrixArea">
+    <div class="section-heading">
+      <span class="section-icon">▦</span>
+      <h2>Matrix Belt Realization</h2>
+    </div>
+    <div class="section-subtitle">Data source from AIS and Piona</div>
+    <main class="card">
+      <div class="matrix-scroll" id="matrixScroll">
+        <div id="matrixRoot" class="loading">Loading data...</div>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><span class="dot green"></span>Ada pax di jam ini</div>
+        <div class="legend-text">Bar = from ATA to 1 hour after ATA</div>
+      </div>
+    </main>
+  </section>
+
+  <!-- CHARTS -->
+  <section id="pdfChartsArea">
+    <div class="section-heading">
+      <span class="section-icon">◔</span>
+      <h2>Operations Overview</h2>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card"><div class="chart-title">Flight Distribution per Belt</div><div class="chart-wrap"><canvas id="chartFlightBelt"></canvas></div></div>
+      <div class="chart-card"><div class="chart-title">Pax Distribution per Belt</div><div class="chart-wrap"><canvas id="chartPaxBelt"></canvas></div></div>
+      <div class="chart-card chart-card-full"><div class="chart-title">Hourly Arrival Pax</div><div class="chart-wrap"><canvas id="chartHourlyPax"></canvas></div></div>
+      <div class="chart-card chart-card-full"><div class="chart-title">Pax &amp; Flights by Airlines</div><div class="chart-wrap"><canvas id="chartAirlines"></canvas></div></div>
+      <div class="chart-card chart-card-full"><div class="chart-title">Pax &amp; Flights by Origin / City</div><div class="chart-wrap"><canvas id="chartOrigin"></canvas></div></div>
+    </div>
+  </section>
+
+</div><!-- end .content-body -->
+
+  <!-- Detail Modal -->
+  <div id="detailModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-head">
+        <span>Detail Flight</span>
+        <button type="button" class="modal-close" id="btnCloseModal">Close</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- WA Report Modal -->
+  <div id="waReportModal" class="wa-modal-backdrop">
+    <div class="wa-modal">
+      <div class="wa-modal-head">
+        <span>WA Report Belt Realization</span>
+        <button type="button" class="modal-close" id="btnCloseWaReport">Close</button>
+      </div>
+      <div class="wa-modal-body">
+        <div class="wa-field"><label for="waOpeningText">Opening Statement</label><textarea id="waOpeningText" rows="7"></textarea></div>
+        <div class="wa-field"><label for="waClosingText">Closing Statement</label><textarea id="waClosingText" rows="3"></textarea></div>
+        <div class="wa-report-actions">
+          <button type="button" id="btnGenerateWaReport" class="btn-wa-secondary">Update Report</button>
+          <button type="button" id="btnCopyWaReport" class="btn-wa-copy">Copy Text</button>
+        </div>
+        <div class="wa-field"><label for="waReportText">Hasil WA Report</label><textarea id="waReportText" class="wa-report-textarea" rows="18"></textarea></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ========================================================
+   CONFIG
+======================================================== */
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzLs6ujBfTTDKPFTdCxiFJZvnvd6hSuVffPcOGmI9DNOSf1DRMazeaVAEI6m5mlmiF7zA/exec';
+
+const AUTO_REFRESH_MS = 5 * 60 * 1000;
+let autoRefreshDeadline = 0;
+let autoRefreshIntervalId = null;
+let isLoadingData = false;
+let isDraggingFlight = false;
+
+const HOURS = Array.from({length:24},(_,i)=>String(i).padStart(2,'0')+':00');
+
+const DEFAULT_BELTS = ['1','2','3','4','5','6','7','8','9','10'];
+
+const BELT_META = {
+  '1':  {status:'INT'},
+  '2':  {status:'INT'},
+  '3':  {status:'INT'},
+  '4':  {status:'DOM'},
+  '5':  {status:'DOM'},
+  '6':  {status:'DOM'},
+  '7':  {status:'DOM'},
+  '8':  {status:'DOM'},
+  '9':  {status:'DOM'},
+  '10': {status:'DOM'},
+  'NO BELT': {status:'NO BELT', off:false}
+};
+
+const AIRLINE_MAP = {
+  JT:'LION AIR', ID:'BATIK AIR', IW:'WINGS AIR', IP:'PELITA AIR',
+  GA:'GARUDA', QG:'CITILINK', IU:'SUPER AIR JET', SJ:'SRIWIJAYA AIR',
+  IN:'NAM AIR', TR:'SCOOT', AK:'AIRASIA', QZ:'AIRASIA', OD:'BATIK AIR',
+  SQ:'SINGAPORE AIRLINES', MH:'MALAYSIA AIRLINES', KS:'SUSI AIR'
+};
+
+const PREFIX_COLOR_FIXED = {
+  JT:'#dc2626', SJ:'#0891b2', GA:'#2563eb', ID:'#7c3aed', IU:'#f59e0b',
+  QG:'#16a34a', IW:'#0e7490', IP:'#ea580c', TR:'#9333ea', AK:'#be123c',
+  QZ:'#65a30d', KS:'#312e81', SQ:'#1d4ed8', MH:'#0f766e', OD:'#9f1239',
+  '8B':'#047857', '5J':'#ca8a04'
+};
+
+const PREFIX_COLOR_PALETTE = [
+  '#dc2626','#0891b2','#2563eb','#7c3aed','#f59e0b','#16a34a',
+  '#0e7490','#ea580c','#9333ea','#be123c','#65a30d','#312e81',
+  '#1d4ed8','#0f766e','#9f1239','#ca8a04','#047857','#c2410c',
+  '#4338ca','#b45309','#0369a1','#a21caf','#15803d','#be185d',
+  '#4d7c0f','#0f172a','#475569','#7f1d1d','#164e63','#581c87'
+];
+
+const PREFIX_COLOR_REGISTRY = {};
+const USED_PREFIX_COLORS = {};
+let PREFIX_COLOR_AUTO_INDEX = 0;
+
+const state = {flights:[], belts:[], beltLayout:{byBelt:{},totalHeight:0}, charts:{}};
+
+/* ========================================================
+   INIT
+======================================================== */
+document.addEventListener('DOMContentLoaded', initApp);
+
+function initApp() {
+  document.getElementById('tanggal').addEventListener('change', loadData);
+  setupOptionDropdown();
+  setupFlightSearch();
+  setupWaReport();
+
+  const exportBtn = document.getElementById('btnExportPdf');
+  if (exportBtn) exportBtn.addEventListener('click', function() { closeOptionDropdown(); exportBeltRealizationPdf(); });
+
+  document.getElementById('btnCloseModal').addEventListener('click', closeModal);
+  document.getElementById('detailModal').addEventListener('click', function(e) { if (e.target.id==='detailModal') closeModal(); });
+
+  setDefaultTodayDate();
+  ensureChartPluginRegistered();
+  startAutoRefreshCountdown();
+  tickClock(); setInterval(tickClock, 1000);
+
+  const matrixScroll = document.getElementById('matrixScroll');
+  matrixScroll.addEventListener('scroll', function() {
+    const el = matrixScroll.querySelector('.grid-header > .sticky-belt');
+    if (el) el.style.transform = 'translateX(' + this.scrollLeft + 'px)';
+  }, { passive: true });
+
+  loadData();
+
+  setInterval(function() {
+    renderCurrentTimeLine();
+    refreshMatrixForCurrentTimeDelay();
+  }, 60000);
+}
+
+function tickClock() {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2,'0');
+  const mm = String(now.getMinutes()).padStart(2,'0');
+  const ss = String(now.getSeconds()).padStart(2,'0');
+  const el = document.getElementById('clock');
+  if (el) el.textContent = hh+'.'+mm+'.'+ss;
+  const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+  const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const dateEl = document.getElementById('clockDate');
+  if (dateEl) dateEl.textContent = days[now.getDay()]+', '+now.getDate()+' '+months[now.getMonth()]+' '+now.getFullYear();
+}
+
+function ensureChartPluginRegistered() {
+  if (typeof Chart!=='undefined' && typeof ChartDataLabels!=='undefined' && !window.__chartDataLabelsRegistered) {
+    Chart.register(ChartDataLabels);
+    window.__chartDataLabelsRegistered = true;
+  }
+}
+
+function setDefaultTodayDate() {
+  const input = document.getElementById('tanggal');
+  if (input) input.value = getTodayDateString();
+}
+
+function getTodayDateString() {
+  const now = new Date();
+  return now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+}
+
+/* ========================================================
+   LOAD DATA — JSONP via GAS Bridge
+======================================================== */
+function loadData() {
+  if (isLoadingData) return;
+  isLoadingData = true;
+  setRefreshCountdownLoading(true);
+
+  const tanggal = document.getElementById('tanggal').value || getTodayDateString();
+  const root = document.getElementById('matrixRoot');
+  showStatus('Loading data from server...');
+  root.className = 'loading';
+  root.innerHTML = 'Loading data...';
+
+  const cbName = '_gasBelt_' + Date.now();
+  const timeout = setTimeout(function() {
+    delete window[cbName];
+    onLoadError(new Error('Request timeout. Cek koneksi internet.'));
+  }, 20000);
+
+  window[cbName] = function(res) {
+    clearTimeout(timeout);
+    delete window[cbName];
+    onLoadSuccess(res, tanggal);
+  };
+
+  const script = document.createElement('script');
+  script.onerror = function() {
+    clearTimeout(timeout);
+    delete window[cbName];
+    onLoadError(new Error('Failed to reach GAS server.'));
+  };
+  script.src = GAS_URL + '?action=arrival&date=' + encodeURIComponent(tanggal) + '&callback=' + cbName;
+  document.head.appendChild(script);
+}
+
+function onLoadSuccess(res, tanggal) {
+  const root = document.getElementById('matrixRoot');
+
+  if (!res) {
+    showStatus('No response from server.', true);
+    root.className = 'loading'; root.innerHTML = 'Data could not be loaded.';
+    destroyAllCharts(); finishLoad(); return;
+  }
+
+  if (res.success === false) {
+    showStatus('Failed: ' + (res.message || 'Unknown error'), true);
+    root.className = 'loading'; root.innerHTML = 'Data could not be loaded.';
+    destroyAllCharts(); finishLoad(); return;
+  }
+
+  state.flights = mapFlights(Array.isArray(res) ? res : (res.data || res));
+
+  if (!state.flights.length) {
+    showStatus('No flight data for date ' + tanggal + '.', true);
+    root.className = 'loading'; root.innerHTML = 'Data flight kosong.';
+    destroyAllCharts(); finishLoad(); return;
+  }
+
+  const rowCountEl = document.getElementById('rowCount');
+  if (rowCountEl) rowCountEl.textContent = state.flights.length + ' flights';
+
+  renderAll();
+  showStatus('Date: ' + (res.tanggal || res.date || tanggal) + ' • ' + state.flights.length + ' flights shown.');
+  finishLoad();
+}
+
+function onLoadError(err) {
+  const root = document.getElementById('matrixRoot');
+  showStatus('Error: ' + (err.message || err), true);
+  root.className = 'loading';
+  root.innerHTML = 'Failed to load data.';
+  destroyAllCharts();
+  finishLoad();
+}
+
+function finishLoad() {
+  isLoadingData = false;
+  setRefreshCountdownLoading(false);
+  resetAutoRefreshCountdown();
+}
+
+/* ========================================================
+   RENDER ALL
+======================================================== */
+function renderAll() {
+  state.belts = buildBeltList(state.flights);
+  state.beltLayout = buildBeltLayout(state.flights, state.belts);
+  const beltStats = buildBeltStats(state.flights, state.belts);
+  const hourlyStats = buildHourlyStats(state.flights, state.belts);
+  refreshFlightSearchIfNeeded();
+  renderSummary(beltStats);
+  renderCharts(beltStats, hourlyStats);
+  renderMatrix(beltStats, hourlyStats);
+}
+
+/* ========================================================
+   MAP FLIGHTS
+======================================================== */
+function first(row, keys, fb) {
+  for (const k of keys) { if (row[k]!==undefined && row[k]!==null && row[k]!=='') return row[k]; }
+  return fb!==undefined ? fb : '';
+}
+
+function mapFlights(rows) {
+  if (!Array.isArray(rows)) {
+    for (const k of ['data','result','rows','records','list','items','flights']) {
+      if (rows[k] && Array.isArray(rows[k])) { rows = rows[k]; break; }
+    }
+  }
+  if (!Array.isArray(rows)) return [];
+
+  return rows.map(function(row, index) {
+    const nopen    = cleanText(first(row,['nopen','flight','Flight','no_flight','callsign']));
+    const schedule = toHHmm(first(row,['time','jam','schedule','STA','sta','sch','Sch','std','STD']));
+    const estimate = toHHmm(first(row,['estimate','ETA','eta','Est','est','etd','ETD']));
+    const actual   = toHHmm(first(row,['actual','ATA','ata','Act','act','atd','ATD']));
+    const belt     = cleanBelt(first(row,['belt','Belt','belt_id','belt_no','belt_number','belt_name','baggage_belt','conveyor']));
+    const bay_id   = cleanText(first(row,['bay_id','bay','ps','PS','parking_stand']));
+    const reg      = cleanText(first(row,['reg','registration','Registration','aircraft_reg'])).toUpperCase();
+    const pax      = Number(first(row,['pax','Pax','total_pax','penumpang'],0))||0;
+    const city     = cleanText(first(row,['city','City','kota','origin_city','ori_name','origin']));
+    const iata_code= cleanText(first(row,['iata_code','origin','Origin','ori','route','iata']));
+    const remark   = cleanText(first(row,['remark','Remark','status','Status'],'Scheduled'));
+    const flightCategory = detectFlightCategory(row, belt);
+    const mainMinute = hhmmToMinute(schedule);
+    return {
+      id: 'FLIGHT_' + (index+1),
+      nopen, iata_code, city,
+      airline: cleanText(first(row,['airline','airline_name','operator'])),
+      schedule: schedule||'00:00',
+      estimate, actual, pax, belt, remark, reg,
+      type: cleanText(first(row,['type','aircraft_type','actype'])),
+      bay_id, flight_category: flightCategory,
+      mainMinute: mainMinute===null ? 0 : mainMinute,
+      _laneIndex: 0
+    };
+  }).filter(function(f) { return f.nopen; });
+}
+
+/* ========================================================
+   OPTION DROPDOWN
+======================================================== */
+function setupOptionDropdown() {
+  const wrapper = document.getElementById('optionDropdown');
+  const btn = document.getElementById('btnOptionMenu');
+  const menu = document.getElementById('optionMenu');
+  if (!wrapper||!btn||!menu) return;
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    const isOpen = wrapper.classList.toggle('show');
+    btn.setAttribute('aria-expanded', isOpen?'true':'false');
+  });
+  menu.addEventListener('click', function(e) { e.stopPropagation(); });
+  document.addEventListener('click', closeOptionDropdown);
+  document.addEventListener('keydown', function(e) { if (e.key==='Escape') { closeOptionDropdown(); closeWaReportModal(); } });
+}
+
+function closeOptionDropdown() {
+  const wrapper = document.getElementById('optionDropdown');
+  const btn = document.getElementById('btnOptionMenu');
+  if (wrapper) wrapper.classList.remove('show');
+  if (btn) btn.setAttribute('aria-expanded','false');
+}
+
+/* ========================================================
+   WA REPORT
+======================================================== */
+function setupWaReport() {
+  const btn = document.getElementById('btnWaReport');
+  const closeBtn = document.getElementById('btnCloseWaReport');
+  const modal = document.getElementById('waReportModal');
+  const generateBtn = document.getElementById('btnGenerateWaReport');
+  const copyBtn = document.getElementById('btnCopyWaReport');
+  const opening = document.getElementById('waOpeningText');
+  const closing = document.getElementById('waClosingText');
+  if (btn) btn.addEventListener('click', function() { closeOptionDropdown(); openWaReportModal(); });
+  if (closeBtn) closeBtn.addEventListener('click', closeWaReportModal);
+  if (modal) modal.addEventListener('click', function(e) { if (e.target.id==='waReportModal') closeWaReportModal(); });
+  if (generateBtn) generateBtn.addEventListener('click', function() { generateWaReportText(); waSaveNow(); });
+  if (copyBtn) copyBtn.addEventListener('click', copyWaReportText);
+  if (opening) opening.addEventListener('input', function() { generateWaReportText(); waSave(); });
+  if (closing) closing.addEventListener('input', function() { generateWaReportText(); waSave(); });
+}
+
+var _waSaveTimer = null;
+function showWaToast(msg) {
+  var t = document.getElementById('waSaveToast');
+  if (!t) return;
+  t.textContent = msg || '✓ Saved to database';
+  var isError = msg && (msg.startsWith('✗') || msg.startsWith('⚠'));
+  t.style.background = isError ? '#d32f2f' : '#00c853';
+  t.style.color = '#fff';
+  t.classList.add('show');
+  clearTimeout(t._hideTimer);
+  t._hideTimer = setTimeout(function() { t.classList.remove('show'); }, isError ? 4000 : 2500);
+}
+function waSaveNow() {
+  if (!window._db) { showWaToast('⚠ Not connected to database'); return; }
+  clearTimeout(_waSaveTimer);
+  window._db.collection('wa_settings').doc('real_belt').set({
+    opening: (document.getElementById('waOpeningText') || {}).value || '',
+    closing: (document.getElementById('waClosingText') || {}).value || ''
+  }).then(function() {
+    showWaToast('✓ Saved to database');
+  }).catch(function(err) {
+    showWaToast('✗ Save failed: ' + (err.message || err.code || err));
+    console.error('[waSave] Firestore error:', err);
+  });
+}
+function waSave() {
+  if (!window._db) return;
+  clearTimeout(_waSaveTimer);
+  _waSaveTimer = setTimeout(waSaveNow, 800);
+}
+
+function openWaReportModal() {
+  if (!state.flights||!state.flights.length) { showStatus('Data flight belum tersedia untuk WA Report.', true); return; }
+  const opening = document.getElementById('waOpeningText');
+  const closing = document.getElementById('waClosingText');
+  const modal = document.getElementById('waReportModal');
+  const defOpen = getDefaultWaOpeningText();
+  const defClose = getDefaultWaClosingText();
+  function applyAndShow(op, cl) {
+    if (opening) opening.value = op;
+    if (closing) closing.value = cl;
+    generateWaReportText();
+    if (modal) modal.classList.add('show');
+  }
+  if (window._db) {
+    window._db.collection('wa_settings').doc('real_belt').get()
+      .then(function(doc) {
+        applyAndShow(
+          (doc.exists && doc.data().opening) ? doc.data().opening : defOpen,
+          (doc.exists && doc.data().closing) ? doc.data().closing : defClose
+        );
+      }).catch(function() { applyAndShow(defOpen, defClose); });
+  } else {
+    applyAndShow(defOpen, defClose);
+  }
+}
+
+function closeWaReportModal() {
+  const modal = document.getElementById('waReportModal');
+  if (modal) modal.classList.remove('show');
+}
+
+function generateWaReportText() {
+  const output = document.getElementById('waReportText');
+  if (!output) return;
+  const opening = document.getElementById('waOpeningText');
+  const closing = document.getElementById('waClosingText');
+  output.value = buildWaReportText(
+    opening ? opening.value.trim() : getDefaultWaOpeningText(),
+    closing ? closing.value.trim() : getDefaultWaClosingText()
+  );
+}
+
+function getDefaultWaOpeningText() {
+  const tanggal = document.getElementById('tanggal').value || getTodayDateString();
+  return ["Assalaamu'alaikum Wr. Wb.","","*REALISASI PENGGUNAAN BELT*","","Izin menyampaikan Realisasi Penggunaan Belt di Bandar Udara Sultan Hasanuddin Makassar","Hari/Tanggal : "+formatIndonesianLongDate(tanggal)].join('\n');
+}
+
+function getDefaultWaClosingText() {
+  return ["Demikian disampaikan terima kasih.","","Wassalaamu'alaikum Wr. Wb."].join('\n');
+}
+
+function buildWaReportText(openingText, closingText) {
+  const flights = state.flights.filter(hasFilledBelt);
+  const beltStats = buildWaBeltStats(flights);
+  const total = summarizeFlights(flights);
+  const beltLines = DEFAULT_BELTS.map(function(belt) {
+    const stat = beltStats[belt]||{flightCount:0,pax:0};
+    return '-BELT '+belt+' = '+formatNumber(stat.flightCount)+' Flight ('+formatNumber(stat.pax)+' pax)';
+  });
+  const domestic = summarizeFlights(flights.filter(function(f){return normalizeScope(f.flight_category)==='DOM';}));
+  const international = summarizeFlights(flights.filter(function(f){return normalizeScope(f.flight_category)==='INT';}));
+  return [
+    openingText,'','BELT REPORT',beltLines.join('\n'),'',
+    'FLIGHTS:',
+    '-Domestic = '+formatNumber(domestic.flightCount)+' Flight ('+formatNumber(domestic.pax)+' pax) = '+formatPercent(domestic.flightCount,total.flightCount),
+    '-International = '+formatNumber(international.flightCount)+' Flight ('+formatNumber(international.pax)+' pax) = '+formatPercent(international.flightCount,total.flightCount),
+    '-Total = '+formatNumber(total.flightCount)+' Flight ('+formatNumber(total.pax)+' pax)','',closingText
+  ].join('\n');
+}
+
+function buildWaBeltStats(flights) {
+  const stats = {};
+  DEFAULT_BELTS.forEach(function(b) { stats[b]={flightCount:0,pax:0}; });
+  flights.forEach(function(f) {
+    const belt = String(f.belt||'').trim().toUpperCase();
+    if (!stats[belt]) stats[belt]={flightCount:0,pax:0};
+    stats[belt].flightCount+=1;
+    stats[belt].pax+=Number(f.pax||0);
+  });
+  return stats;
+}
+
+function summarizeFlights(flights) {
+  return flights.reduce(function(sum,f) { sum.flightCount+=1; sum.pax+=Number(f.pax||0); return sum; },{flightCount:0,pax:0});
+}
+
+function formatPercent(value, total) {
+  value=Number(value||0); total=Number(total||0);
+  if (!total) return '0%';
+  return Math.round((value/total)*100)+'%';
+}
+
+function formatIndonesianLongDate(dateString) {
+  const days=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+  const months=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const date=new Date(String(dateString||getTodayDateString())+'T00:00:00');
+  if (isNaN(date.getTime())) return dateString||'-';
+  return days[date.getDay()]+', '+String(date.getDate()).padStart(2,'0')+' '+months[date.getMonth()]+' '+date.getFullYear();
+}
+
+async function copyWaReportText() {
+  const output = document.getElementById('waReportText');
+  const btn = document.getElementById('btnCopyWaReport');
+  if (!output) return;
+  generateWaReportText();
+  const text = output.value||'';
+  if (!text.trim()) { showStatus('WA Report masih kosong.', true); return; }
+  const oldText = btn ? btn.textContent : '';
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(text);
+    else { output.focus(); output.select(); document.execCommand('copy'); }
+    if (btn) { btn.textContent='Copied'; btn.disabled=true; setTimeout(function(){btn.textContent=oldText||'Copy Text';btn.disabled=false;},1400); }
+    showStatus('WA Report copied. Paste it in WhatsApp.');
+  } catch(err) {
+    output.focus(); output.select();
+    if (btn) { btn.textContent='Text Terblok'; setTimeout(function(){btn.textContent=oldText||'Copy Text';},1400); }
+    showStatus('Text selected. Press Copy from phone menu, then paste in WhatsApp.', true);
+  }
+}
+
+/* ========================================================
+   SEARCH FLIGHT
+======================================================== */
+function setupFlightSearch() {
+  const input = document.getElementById('flightSearchInput');
+  const clearBtn = document.getElementById('btnClearFlightSearch');
+  const result = document.getElementById('flightSearchResult');
+  if (!input||!result) return;
+  input.addEventListener('input', function() { renderFlightSearchResults(input.value); });
+  result.addEventListener('click', function(e) {
+    const btn = e.target.closest('[data-flight-detail-id]');
+    if (!btn) return;
+    const flight = state.flights.find(function(item){return item.id===btn.getAttribute('data-flight-detail-id');});
+    if (flight) showFlightDetail(flight);
+  });
+  if (clearBtn) clearBtn.addEventListener('click', function() { input.value=''; result.innerHTML='Type at least 2 characters to search for a flight.'; input.focus(); });
+}
+
+function refreshFlightSearchIfNeeded() {
+  const input = document.getElementById('flightSearchInput');
+  if (!input) return;
+  const query = input.value||'';
+  if (query.trim().length>=2) renderFlightSearchResults(query);
+  else { const result=document.getElementById('flightSearchResult'); if (result) result.innerHTML='Type at least 2 characters to search for a flight.'; }
+}
+
+function renderFlightSearchResults(query) {
+  const result = document.getElementById('flightSearchResult');
+  if (!result) return;
+  const keyword = String(query||'').trim().toUpperCase();
+  if (keyword.length<2) { result.innerHTML='Type at least 2 characters to search for a flight.'; return; }
+  if (!state.flights||!state.flights.length) { result.innerHTML='<div class="flight-search-empty">Data flight belum tersedia.</div>'; return; }
+  const matches = state.flights.filter(function(f){return getFlightSearchText(f).includes(keyword);}).slice(0,30);
+  if (!matches.length) { result.innerHTML='<div class="flight-search-empty">No flight matches the keyword: '+escapeHtml(query)+'</div>'; return; }
+  result.innerHTML='<div class="flight-result-grid">'+matches.map(buildFlightSearchCard).join('')+'</div>';
+}
+
+function buildFlightSearchCard(flight) {
+  return '<div class="flight-result-card"><div class="flight-result-top"><div class="flight-result-title">'+escapeHtml(flight.nopen||'-')+'</div><div class="flight-result-badge">'+escapeHtml(flight.remark||'-')+'</div></div><div class="flight-result-detail"><b>IATA</b><span>'+escapeHtml(flight.iata_code||'-')+'</span><b>City</b><span>'+escapeHtml(flight.city||'-')+'</span><b>STA</b><span>'+escapeHtml(flight.schedule||'-')+'</span><b>Belt</b><span>'+escapeHtml(flight.belt||'-')+'</span><b>PS</b><span>'+escapeHtml(flight.bay_id||'-')+'</span><b>Estimate</b><span>'+escapeHtml(flight.estimate||'-')+'</span><b>Actual</b><span>'+escapeHtml(flight.actual||'-')+'</span><b>Reg</b><span>'+escapeHtml(flight.reg||'-')+'</span><b>Type</b><span>'+escapeHtml(flight.type||'-')+'</span><b>Pax</b><span>'+formatNumber(flight.pax||0)+'</span></div><div class="flight-result-actions"><button type="button" class="btn-flight-detail" data-flight-detail-id="'+escapeHtml(flight.id)+'">Detail</button></div></div>';
+}
+
+function getFlightSearchText(flight) {
+  return [flight.nopen,flight.iata_code,flight.city,flight.schedule,flight.belt,flight.bay_id,flight.remark,flight.estimate,flight.actual,flight.reg,flight.type,flight.pax,flight.flight_category].map(function(v){return String(v||'').toUpperCase();}).join(' ');
+}
+
+/* ========================================================
+   SUMMARY + CHARTS
+======================================================== */
+function renderSummary(beltStats) {
+  const flightsWithBelt = state.flights.filter(hasFilledBelt);
+  const totalFlights = flightsWithBelt.length;
+  const totalPax = state.flights.reduce(function(sum,f){return sum+Number(f.pax||0);},0);
+  const activeBelts = state.belts.filter(function(b){return b!=='NO BELT'&&(beltStats[b]&&beltStats[b].flightCount>0);}).length;
+  const remarkRows = aggregateByRemark(flightsWithBelt);
+  const remarkRows2 = remarkRows.length ? remarkRows : [{label:'NO REMARK',count:0}];
+  var remarkTbody = '';
+  for (var i=0; i<remarkRows2.length; i+=2) {
+    var a=remarkRows2[i], b=remarkRows2[i+1];
+    remarkTbody += '<tr>'
+      +'<td>'+escapeHtml(a.label)+'</td><td class="td-num">'+formatNumber(a.count)+'</td>'
+      +'<td class="td-sep"></td>'
+      +(b ? '<td>'+escapeHtml(b.label)+'</td><td class="td-num">'+formatNumber(b.count)+'</td>' : '<td></td><td class="td-num"></td>')
+      +'</tr>';
+  }
+  const remarkHtml = '<table class="remark-table"><thead><tr><th>Status</th><th class="th-num">#</th><th class="th-sep"></th><th>Status</th><th class="th-num">#</th></tr></thead><tbody>'+remarkTbody+'</tbody></table>';
+  const container = document.getElementById('summaryGrid');
+  if (!container) return;
+  container.innerHTML = ['<div class="summary-card"><div class="summary-label">TOTAL FLIGHTS</div><div class="summary-value">'+formatNumber(totalFlights)+'</div></div>','<div class="summary-card"><div class="summary-label">TOTAL PAX</div><div class="summary-value pax">'+formatNumber(totalPax)+'</div></div>','<div class="summary-card"><div class="summary-label">ACTIVE BELTS</div><div class="summary-value gate">'+formatNumber(activeBelts)+'</div></div>','<div class="summary-card summary-card-remark"><div class="summary-label">FLIGHTS BY REMARK</div><div class="remark-summary-grid">'+remarkHtml+'</div></div>'].join('');
+}
+
+function aggregateByRemark(flights) {
+  const map = {};
+  flights.forEach(function(f) {
+    const label = normalizeRemarkLabel(f.remark);
+    if (!map[label]) map[label]={label:label,count:0};
+    map[label].count+=1;
+  });
+  return Object.keys(map).map(function(k){return map[k];}).sort(function(a,b){return b.count!==a.count?b.count-a.count:a.label.localeCompare(b.label);});
+}
+
+function normalizeRemarkLabel(remark) {
+  const text = String(remark||'').trim();
+  if (!text||text==='-'||text.toUpperCase()==='NULL'||text.toUpperCase()==='N/A') return 'NO REMARK';
+  return text.replace(/\s+/g,' ').toUpperCase();
+}
+
+function destroyAllCharts() {
+  Object.keys(state.charts).forEach(function(key) { if (state.charts[key]&&typeof state.charts[key].destroy==='function') state.charts[key].destroy(); });
+  state.charts = {};
+}
+
+function renderCharts(beltStats, hourlyStats) {
+  destroyAllCharts();
+  renderChartFlightBelt(beltStats);
+  renderChartPaxBelt(beltStats);
+  renderChartHourlyPax(hourlyStats);
+  renderChartAirlines();
+  renderChartOrigin();
+}
+
+function renderChartFlightBelt(beltStats) {
+  const labels = getChartBeltLabels();
+  state.charts.flightBelt = new Chart(document.getElementById('chartFlightBelt'),{type:'bar',data:{labels:labels,datasets:[{label:'Flights',data:labels.map(function(b){return beltStats[b]?beltStats[b].flightCount:0;}),backgroundColor:'#18a9b2',borderRadius:6}]},options:getBarChartOptions(false,0)});
+}
+
+function renderChartPaxBelt(beltStats) {
+  const labels = getChartBeltLabels();
+  state.charts.paxBelt = new Chart(document.getElementById('chartPaxBelt'),{type:'bar',data:{labels:labels,datasets:[{label:'Pax',data:labels.map(function(b){return beltStats[b]?beltStats[b].pax:0;}),backgroundColor:'#4e73df',borderRadius:6}]},options:getBarChartOptions(false,0)});
+}
+
+function renderChartHourlyPax(hourlyStats) {
+  const data = HOURS.map(function(_,index){return state.belts.reduce(function(sum,belt){return sum+((hourlyStats[belt]&&hourlyStats[belt][index])||0);},0);});
+  const sc=chartScaleColor(), gc=chartGridColor();
+  state.charts.hourlyPax = new Chart(document.getElementById('chartHourlyPax'),{type:'line',data:{labels:HOURS,datasets:[{label:'Pax',data:data,borderColor:'#00bcd4',backgroundColor:'rgba(0,188,212,0.12)',fill:true,tension:0.35,pointRadius:4,pointHoverRadius:5}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},datalabels:{align:'top',anchor:'end',color:'#90b4d8',font:{size:9,weight:'700'},formatter:function(v){return v>0?formatNumber(v):'0';}},tooltip:{callbacks:{label:function(ctx){return'Pax: '+formatNumber(ctx.parsed.y);}}}},scales:{y:{beginAtZero:true,grid:{color:gc},ticks:{color:sc,callback:function(v){return formatNumber(v);}}},x:{grid:{color:gc},ticks:{color:sc,maxRotation:45,minRotation:45}}}}});
+}
+
+function renderChartAirlines() {
+  const rows = aggregateByAirline();
+  state.charts.airlines = new Chart(document.getElementById('chartAirlines'),{type:'bar',data:{labels:rows.map(function(r){return r.label;}),datasets:[{label:'Pax',data:rows.map(function(r){return r.pax;}),backgroundColor:'#4e73df',borderRadius:5,yAxisID:'y'},{label:'Flights',data:rows.map(function(r){return r.flights;}),backgroundColor:'#18a9b2',borderRadius:5,yAxisID:'y1'}]},options:getDualAxisBarOptions(5000,30)});
+}
+
+function renderChartOrigin() {
+  const rows = aggregateByOrigin();
+  state.charts.origin = new Chart(document.getElementById('chartOrigin'),{type:'bar',data:{labels:rows.map(function(r){return r.label;}),datasets:[{label:'Pax',data:rows.map(function(r){return r.pax;}),backgroundColor:'#4e73df',borderRadius:5,yAxisID:'y'},{label:'Flights',data:rows.map(function(r){return r.flights;}),backgroundColor:'#18a9b2',borderRadius:5,yAxisID:'y1'}]},options:getDualAxisBarOptions(3000,25)});
+}
+
+function chartScaleColor() { return '#5a7898'; }
+function chartGridColor() { return 'rgba(28,48,80,0.8)'; }
+
+function getBarChartOptions(horizontal, suggestedMax) {
+  const sc=chartScaleColor(), gc=chartGridColor();
+  return {responsive:true,maintainAspectRatio:false,indexAxis:horizontal?'y':'x',plugins:{legend:{display:false},datalabels:{align:'end',anchor:'end',color:'#90b4d8',font:{size:9,weight:'700'},formatter:function(v){return formatNumber(v);}}},scales:{y:{beginAtZero:true,suggestedMax:suggestedMax||undefined,grid:{color:gc},ticks:{color:sc,callback:function(v){return formatNumber(v);}}},x:{grid:{color:gc},ticks:{color:sc,maxRotation:45,minRotation:45}}}};
+}
+
+function getDualAxisBarOptions(leftMax, rightMax) {
+  const sc=chartScaleColor(), gc=chartGridColor();
+  return {responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,labels:{color:'#90b4d8'}},datalabels:{color:'#90b4d8',font:{size:9,weight:'700'},anchor:'end',align:'end',formatter:function(v){return v>0?formatNumber(v):'';}}},scales:{y:{type:'linear',position:'left',beginAtZero:true,suggestedMax:leftMax,grid:{color:gc},title:{display:true,text:'Pax',color:sc},ticks:{color:sc,callback:function(v){return formatNumber(v);}}},y1:{type:'linear',position:'right',beginAtZero:true,suggestedMax:rightMax,grid:{drawOnChartArea:false},title:{display:true,text:'Flights',color:sc},ticks:{color:sc}},x:{grid:{color:gc},ticks:{color:sc,maxRotation:45,minRotation:45}}}};
+}
+
+function getChartBeltLabels() {
+  return state.belts.filter(function(b){return String(b||'').toUpperCase()!=='NO BELT';});
+}
+
+function aggregateByAirline() {
+  const map = {};
+  state.flights.filter(hasFilledBelt).forEach(function(f) {
+    const label = getAirlineName(f);
+    if (!map[label]) map[label]={label:label,pax:0,flights:0};
+    map[label].pax+=Number(f.pax||0);
+    map[label].flights+=1;
+  });
+  return Object.keys(map).map(function(k){return map[k];}).sort(function(a,b){return b.pax-a.pax;});
+}
+
+function aggregateByOrigin() {
+  const map = {};
+  state.flights.forEach(function(f) {
+    const label = f.iata_code||f.city||'UNKNOWN';
+    if (!map[label]) map[label]={label:label,pax:0,flights:0};
+    map[label].pax+=Number(f.pax||0);
+    map[label].flights+=1;
+  });
+  return Object.keys(map).map(function(k){return map[k];}).sort(function(a,b){return b.pax-a.pax;});
+}
+
+function getAirlineName(flight) {
+  if (flight.airline) return flight.airline;
+  const prefix = String(flight.nopen||'').replace(/[^A-Z0-9]/gi,'').substring(0,2).toUpperCase();
+  return AIRLINE_MAP[prefix]||prefix||'UNKNOWN';
+}
+
+/* ========================================================
+   MATRIX
+======================================================== */
+function renderMatrix(beltStats, hourlyStats) {
+  const root = document.getElementById('matrixRoot');
+  root.className = 'matrix';
+  root.innerHTML = '';
+  root.appendChild(buildHeaderRow());
+  state.belts.forEach(function(belt) {
+    root.appendChild(buildBeltRow(belt, beltStats[belt]||{flightCount:0,pax:0}, hourlyStats[belt]||Array(24).fill(0), state.beltLayout.byBelt[belt]));
+  });
+  root.appendChild(buildTotalRow(state.belts, hourlyStats, beltStats));
+  const layer = document.createElement('div');
+  layer.className = 'flight-layer';
+  layer.style.height = state.beltLayout.totalHeight + 'px';
+  state.flights.forEach(function(flight) { const bar=buildFlightBar(flight); if (bar) layer.appendChild(bar); });
+  root.appendChild(layer);
+  renderCurrentTimeLine();
+}
+
+function buildHeaderRow() {
+  const row = document.createElement('div');
+  row.className = 'grid-row grid-header';
+  row.appendChild(cell('BELT','head left-cell sticky-belt'));
+  row.appendChild(cell('FL','fl-cell'));
+  HOURS.forEach(function(hour) { row.appendChild(cell(hour,'head')); });
+  return row;
+}
+
+function buildBeltRow(belt, stat, hourly, layout) {
+  const meta = getBeltMeta(belt);
+  const row = document.createElement('div');
+  row.className = 'grid-row';
+  row.style.minHeight = layout.rowHeight + 'px';
+  row.style.height = layout.rowHeight + 'px';
+  const beltCell = document.createElement('div');
+  beltCell.className = 'cell left-cell sticky-belt ' + (isBeltOff(meta)?'gate-off':'');
+  beltCell.innerHTML = '<div class="gate-box"><div class="gate-name">'+escapeHtml(belt)+'</div></div>';
+  row.appendChild(beltCell);
+  const flCell = document.createElement('div');
+  flCell.className = 'fl-cell';
+  flCell.textContent = stat.flightCount || 0;
+  row.appendChild(flCell);
+  for (let hour=0; hour<24; hour++) {
+    const pax = hourly[hour]||0;
+    const hourCell = document.createElement('div');
+    hourCell.className = 'cell' + (pax>0?' hour-green':'');
+    if (pax>0) hourCell.innerHTML = '<div class="hour-pax">'+formatNumber(pax)+'</div>';
+    row.appendChild(hourCell);
+  }
+  return row;
+}
+
+function buildTotalRow(belts, hourlyStats, beltStats) {
+  const row = document.createElement('div');
+  row.className = 'grid-row total-row';
+  row.appendChild(cell('TOTAL','left-cell sticky-belt'));
+  const totalFl = belts.reduce(function(sum,b){ return sum+((beltStats&&beltStats[b])?beltStats[b].flightCount:0); },0);
+  const flTotalCell = document.createElement('div');
+  flTotalCell.className = 'fl-cell';
+  flTotalCell.textContent = totalFl || '';
+  row.appendChild(flTotalCell);
+  for (let hour=0; hour<24; hour++) {
+    let hourFlights=0, hourPax=0;
+    belts.forEach(function(belt) {
+      if (String(belt||'').toUpperCase()!=='NO BELT') hourFlights+=(hourlyStats[belt]&&hourlyStats[belt].counts?hourlyStats[belt].counts[hour]:0)||0;
+      hourPax+=(hourlyStats[belt]&&hourlyStats[belt][hour])||0;
+    });
+    const c=document.createElement('div');
+    c.className='cell total-box';
+    c.innerHTML='<b>'+formatNumber(hourFlights)+'</b><span>'+formatNumber(hourPax)+'</span>';
+    row.appendChild(c);
+  }
+  return row;
+}
+
+function buildFlightBar(flight) {
+  const beltInfo = state.beltLayout.byBelt[flight.belt];
+  if (!beltInfo) return null;
+  const geom = getFlightBarGeometry(flight);
+  const top = beltInfo.rowOffset + beltInfo.topPadding + (flight._laneIndex * beltInfo.lanePitch);
+  const bar = document.createElement('div');
+  bar.className = 'flight-bar';
+  bar.style.left = geom.left + 'px';
+  bar.style.top = top + 'px';
+  bar.style.width = geom.width + 'px';
+  bar.style.height = beltInfo.barHeight + 'px';
+  const bgColor = getNopenPrefixColor(flight.nopen);
+  bar.style.background = bgColor;
+  bar.style.color = '#ffffff';
+  if (isPriorityRemark(flight.remark)) bar.classList.add('remark-blink');
+  else if (isArrivedFlight(flight)) bar.classList.add('arrived-flight');
+  if (isLockedArrivedFlight(flight)) { bar.classList.add('locked-flight'); bar.title='Flight sudah ARRIVED dan Actual sudah terisi.'; }
+  else bar.title = 'Click for details. Drag to move Belt.';
+  bar.dataset.flightId = flight.id;
+  bar.textContent = getFlightBarText(flight);
+  attachBarEvents(bar, flight);
+  return bar;
+}
+
+function isPriorityRemark(remark) {
+  const text = String(remark||'').toUpperCase().replace(/\s+/g,'');
+  return text.includes('FIRSTBAG')||text.includes('LASTBAG')||text.includes('ONBELT')||text.includes('LANDING')||text.includes('TAXIING');
+}
+
+function isArrivedRemark(remark) {
+  return /ARRIVED|LANDED|ARRIVE/i.test(String(remark||''));
+}
+
+function isArrivedFlight(flight) { return isArrivedRemark(flight.remark)||hasActualValue(flight.actual); }
+function isLockedArrivedFlight(flight) { return isArrivedRemark(flight.remark)&&hasActualValue(flight.actual); }
+
+function hasActualValue(actual) {
+  const v=String(actual||'').trim().toUpperCase();
+  return v&&v!=='-'&&v!=='N/A'&&v!=='NA'&&v!=='NULL'&&v!=='00:00';
+}
+
+function attachBarEvents(bar, flight) {
+  let candidateBelt=flight.belt, isValidDrop=true, moved=false, startY=0;
+  bar.addEventListener('pointerdown', function(e) {
+    e.preventDefault();
+    if (isLockedArrivedFlight(flight)) { showStatus(flight.nopen+' cannot be moved.', true); showFlightDetail(flight); return; }
+    startY=e.clientY; candidateBelt=flight.belt; isValidDrop=true; moved=false;
+    bar.classList.add('dragging'); isDraggingFlight=true;
+    try { bar.setPointerCapture(e.pointerId); } catch(err) {}
+    function onMove(ev) {
+      if (Math.abs(ev.clientY-startY)>3) moved=true;
+      if (!moved) return;
+      const target=getBeltByPointerY(ev.clientY);
+      candidateBelt=target.belt;
+      isValidDrop=canDropFlightToBelt(flight,candidateBelt);
+      const info=state.beltLayout.byBelt[candidateBelt];
+      if (info) bar.style.top=(info.rowOffset+info.topPadding)+'px';
+      bar.style.left=getFlightBarGeometry(flight).left+'px';
+      bar.style.width=getFlightBarGeometry(flight).width+'px';
+      bar.textContent=getFlightBarText(flight);
+      isValidDrop?bar.classList.remove('invalid-drop'):bar.classList.add('invalid-drop');
+    }
+    function onUp(ev) {
+      try { bar.releasePointerCapture(ev.pointerId); } catch(err) {}
+      bar.removeEventListener('pointermove',onMove);
+      bar.removeEventListener('pointerup',onUp);
+      bar.removeEventListener('pointercancel',onUp);
+      bar.classList.remove('dragging'); isDraggingFlight=false;
+      if (!moved) { showFlightDetail(flight); return; }
+      if (!isValidDrop) { bar.classList.remove('invalid-drop'); renderAll(); showDropWarning(flight,candidateBelt); return; }
+      flight.belt=candidateBelt; bar.classList.remove('invalid-drop');
+      showStatus(flight.nopen+' moved to Belt '+candidateBelt+'.');
+      renderAll();
+    }
+    bar.addEventListener('pointermove',onMove);
+    bar.addEventListener('pointerup',onUp);
+    bar.addEventListener('pointercancel',onUp);
+  });
+}
+
+function canDropFlightToBelt(flight, targetBelt) {
+  const meta=getBeltMeta(targetBelt);
+  if (isBeltOff(meta)) return false;
+  const fs=normalizeScope(flight.flight_category), bs=getBeltScope(targetBelt);
+  return bs==='ANY'||fs===bs;
+}
+
+function showDropWarning(flight, targetBelt) {
+  const meta=getBeltMeta(targetBelt);
+  const fs=normalizeScope(flight.flight_category), bs=getBeltScope(targetBelt);
+  let reason='Invalid belt position.';
+  if (isBeltOff(meta)) reason='Belt '+targetBelt+' berstatus OFF.';
+  else if (bs!=='ANY'&&fs!==bs) reason='Flight '+fs+' cannot be placed on Belt '+bs+'.';
+  showStatus(flight.nopen+' failed to move to Belt '+targetBelt+'. '+reason, true);
+}
+
+function showFlightDetail(flight) {
+  const modal=document.getElementById('detailModal');
+  const body=document.getElementById('modalBody');
+  body.innerHTML='<div class="detail-grid"><div>Flight</div><div>'+escapeHtml(flight.nopen)+'</div><div>Origin</div><div>'+escapeHtml(flight.iata_code||'-')+'</div><div>City</div><div>'+escapeHtml(flight.city||'-')+'</div><div>STA</div><div>'+escapeHtml(flight.schedule||'-')+'</div><div>Estimate</div><div>'+escapeHtml(flight.estimate||'-')+'</div><div>Actual</div><div>'+escapeHtml(flight.actual||'-')+'</div><div>Pax</div><div>'+formatNumber(flight.pax)+'</div><div>Belt</div><div>'+escapeHtml(flight.belt||'-')+'</div><div>Flight Class</div><div>'+escapeHtml(flight.flight_category||'-')+'</div><div>Remark</div><div>'+escapeHtml(flight.remark||'-')+'</div><div>Reg</div><div>'+escapeHtml(flight.reg||'-')+'</div><div>Type</div><div>'+escapeHtml(flight.type||'-')+'</div><div>Bay ID</div><div>'+escapeHtml(flight.bay_id||'-')+'</div></div>';
+  modal.classList.add('show');
+}
+
+function closeModal() { document.getElementById('detailModal').classList.remove('show'); }
+
+/* ========================================================
+   CURRENT TIME LINE
+======================================================== */
+function renderCurrentTimeLine() {
+  const root=document.getElementById('matrixRoot');
+  if (!root||!root.classList.contains('matrix')) return;
+  const oldLine=document.getElementById('currentTimeLine');
+  if (oldLine) oldLine.remove();
+  if (document.getElementById('tanggal').value!==getTodayDateString()) return;
+  const now=new Date();
+  const currentMinute=now.getHours()*60+now.getMinutes();
+  const left=getLeftWidth()+((currentMinute/60)*getHourWidth());
+  const totalHeight=(state.beltLayout&&state.beltLayout.totalHeight?state.beltLayout.totalHeight:0)+getBaseRowHeight();
+  const line=document.createElement('div');
+  line.id='currentTimeLine'; line.className='current-time-line';
+  line.style.left=left+'px'; line.style.height=totalHeight+'px';
+  const label=document.createElement('div');
+  label.className='current-time-label'; label.textContent=minuteToHHmm(currentMinute);
+  line.appendChild(label);
+  root.appendChild(line);
+}
+
+/* ========================================================
+   AUTO REFRESH COUNTDOWN
+======================================================== */
+function startAutoRefreshCountdown() {
+  resetAutoRefreshCountdown();
+  if (autoRefreshIntervalId) clearInterval(autoRefreshIntervalId);
+  autoRefreshIntervalId=setInterval(function(){updateAutoRefreshCountdown();},1000);
+  updateAutoRefreshCountdown();
+}
+
+function resetAutoRefreshCountdown() { autoRefreshDeadline=Date.now()+AUTO_REFRESH_MS; updateAutoRefreshCountdown(); }
+
+function updateAutoRefreshCountdown() {
+  const el=document.getElementById('refreshCountdown');
+  if (!el) return;
+  if (isLoadingData) { el.textContent='LOAD'; return; }
+  const remainingMs=Math.max(0,autoRefreshDeadline-Date.now());
+  const totalSeconds=Math.ceil(remainingMs/1000);
+  el.textContent=String(Math.floor(totalSeconds/60)).padStart(2,'0')+':'+String(totalSeconds%60).padStart(2,'0');
+  if (remainingMs<=0) loadData();
+}
+
+function setRefreshCountdownLoading(isLoading) {
+  const box=document.querySelector('.refresh-countdown');
+  const el=document.getElementById('refreshCountdown');
+  if (box) box.classList.toggle('loading',Boolean(isLoading));
+  if (el&&isLoading) el.textContent='LOAD';
+}
+
+/* ========================================================
+   EXPORT PDF
+======================================================== */
+async function exportBeltRealizationPdf() {
+  const btn=document.getElementById('btnExportPdf');
+  const tanggal=document.getElementById('tanggal').value||getTodayDateString();
+  if (!state.flights||!state.flights.length) { showStatus('No data available to export.', true); return; }
+  if (typeof html2canvas==='undefined'||!window.jspdf) { showStatus('PDF library not ready. Refresh the page.', true); return; }
+  const oldText=btn?btn.textContent:'';
+  try {
+    if (btn) { btn.disabled=true; btn.textContent='Membuat PDF...'; }
+    showStatus('Menyiapkan Export PDF...');
+    const jsPDF=window.jspdf.jsPDF;
+    const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4',compress:true});
+    const margin=8;
+    addPdfHeader(pdf,tanggal,'Belt Realization');
+    document.body.classList.add('pdf-exporting-overview');
+    await waitForPaint();
+    const resumeEl=document.getElementById('pdfResumeArea');
+    if (resumeEl) { const c=await html2canvas(resumeEl,{scale:getPdfCanvasScale('normal'),useCORS:true,backgroundColor:'#f4f7fb',logging:false}); addCanvasToPdfPages(pdf,c,{margin:margin,startY:30}); }
+    const chartsEl=document.getElementById('pdfChartsArea');
+    if (chartsEl) { pdf.addPage('a4','landscape'); addPdfHeader(pdf,tanggal,'Operations Overview'); const c=await html2canvas(chartsEl,{scale:getPdfCanvasScale('normal'),useCORS:true,backgroundColor:'#f4f7fb',logging:false}); addCanvasToPdfPages(pdf,c,{margin:margin,startY:30}); }
+    document.body.classList.remove('pdf-exporting-overview');
+    pdf.addPage('a4','landscape');
+    addPdfHeader(pdf,tanggal,'Matrix Belt Realization');
+    document.body.classList.add('pdf-exporting-matrix');
+    await waitForPaint();
+    renderCurrentTimeLine();
+    const matrixEl=document.getElementById('pdfMatrixArea');
+    const matrixRoot=document.getElementById('matrixRoot');
+    const captureWidth=Math.max(matrixEl.scrollWidth,matrixRoot.scrollWidth,1400);
+    const captureHeight=Math.max(matrixEl.scrollHeight,matrixRoot.scrollHeight+120);
+    const matrixCanvas=await html2canvas(matrixEl,{scale:getPdfCanvasScale('matrix'),useCORS:true,backgroundColor:'#f4f7fb',logging:false,width:captureWidth,height:captureHeight,windowWidth:captureWidth,windowHeight:captureHeight});
+    document.body.classList.remove('pdf-exporting-matrix');
+    addCanvasToPdfPages(pdf,matrixCanvas,{margin:margin,startY:30});
+    pdf.save('Belt Realization - '+tanggal+'.pdf');
+    showStatus('PDF exported: Belt Realization - '+tanggal+'.pdf');
+  } catch(err) {
+    document.body.classList.remove('pdf-exporting-overview');
+    document.body.classList.remove('pdf-exporting-matrix');
+    showStatus('PDF export failed: '+(err.message||err), true);
+  } finally {
+    if (btn) { btn.disabled=false; btn.textContent=oldText; }
+  }
+}
+
+function addPdfHeader(pdf, tanggal, title) {
+  const pageWidth=pdf.internal.pageSize.getWidth();
+  pdf.setFillColor(244,247,251); pdf.rect(0,0,pageWidth,24,'F');
+  pdf.setTextColor(8,114,101); pdf.setFont('helvetica','bold'); pdf.setFontSize(16); pdf.text(title,8,11);
+  pdf.setTextColor(70,80,95); pdf.setFont('helvetica','normal'); pdf.setFontSize(9);
+  pdf.text('Date: '+tanggal,8,18); pdf.text('Data source: AIS',55,18);
+  pdf.text('Generated: '+formatExportDateTime(new Date()),pageWidth-8,18,{align:'right'});
+}
+
+function addCanvasToPdfPages(pdf, canvas, options) {
+  const margin=options.margin||8; let startY=options.startY||margin;
+  const pageWidth=pdf.internal.pageSize.getWidth(), pageHeight=pdf.internal.pageSize.getHeight();
+  const usableWidth=pageWidth-(margin*2);
+  const firstUsableHeight=pageHeight-startY-margin, normalUsableHeight=pageHeight-(margin*2);
+  const cw=canvas.width, ch=canvas.height;
+  let sourceY=0, pageIndex=0;
+  while (sourceY<ch) {
+    const availH=pageIndex===0?firstUsableHeight:normalUsableHeight;
+    const availPx=Math.floor((availH*cw)/usableWidth);
+    const sliceH=Math.min(availPx,ch-sourceY);
+    const pc=document.createElement('canvas'); pc.width=cw; pc.height=sliceH;
+    pc.getContext('2d').drawImage(canvas,0,sourceY,cw,sliceH,0,0,cw,sliceH);
+    const imgData=pc.toDataURL('image/jpeg',0.92);
+    const imgHeightMm=(sliceH*usableWidth)/cw;
+    if (pageIndex>0) { pdf.addPage('a4','landscape'); startY=margin; }
+    pdf.addImage(imgData,'JPEG',margin,startY,usableWidth,imgHeightMm);
+    sourceY+=sliceH; pageIndex++;
+  }
+}
+
+function waitForPaint() { return new Promise(function(resolve){ requestAnimationFrame(function(){setTimeout(resolve,350);}); }); }
+function getPdfCanvasScale(area) { return isMobileView()?(area==='matrix'?0.85:1):(area==='matrix'?1.35:2); }
+function isMobileView() { return window.matchMedia&&window.matchMedia('(max-width: 768px)').matches; }
+function formatExportDateTime(date) { return date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0')+' '+String(date.getHours()).padStart(2,'0')+':'+String(date.getMinutes()).padStart(2,'0'); }
+
+/* ========================================================
+   DATA HELPERS
+======================================================== */
+function buildBeltList(flights) {
+  const apiBelts = Array.from(new Set(flights.map(function(f){return f.belt;}).filter(Boolean)));
+  const belts = DEFAULT_BELTS.slice();
+  apiBelts.forEach(function(b){ if (b!=='NO BELT'&&!belts.includes(b)) belts.push(b); });
+  if (apiBelts.includes('NO BELT')) belts.push('NO BELT');
+  return belts;
+}
+
+function buildBeltLayout(flights, belts) {
+  const byBelt = {}; let currentOffset = 0;
+  belts.forEach(function(belt) {
+    const beltFlights = flights.filter(function(f){return f.belt===belt;}).sort(function(a,b){const ia=getFlightInterval(a),ib=getFlightInterval(b);return ia.start!==ib.start?ia.start-ib.start:ia.end-ib.end;});
+    const laneEndTimes = [];
+    const LANE_GAP = 5;
+    beltFlights.forEach(function(flight) {
+      const interval=getFlightInterval(flight); let laneIndex=0;
+      while (laneIndex<laneEndTimes.length&&laneEndTimes[laneIndex]+LANE_GAP>interval.start) laneIndex++;
+      if (laneIndex===laneEndTimes.length) laneEndTimes.push(interval.end);
+      else laneEndTimes[laneIndex]=interval.end;
+      flight._laneIndex=laneIndex;
+    });
+    const laneCount=Math.max(1,laneEndTimes.length);
+    const topPadding=32, lanePitch=30, barHeight=26, bottomPadding=10;
+    const rowHeight=Math.max(getBaseRowHeight(),topPadding+(laneCount*lanePitch)+bottomPadding);
+    byBelt[belt]={laneCount:laneCount,rowHeight:rowHeight,rowOffset:currentOffset,topPadding:topPadding,lanePitch:lanePitch,barHeight:barHeight};
+    currentOffset+=rowHeight;
+  });
+  return {byBelt:byBelt,totalHeight:currentOffset};
+}
+
+function buildBeltStats(flights, belts) {
+  const stats = {};
+  belts.forEach(function(b){stats[b]={flightCount:0,pax:0};});
+  flights.forEach(function(f) {
+    if (!stats[f.belt]) stats[f.belt]={flightCount:0,pax:0};
+    stats[f.belt].flightCount+=1; stats[f.belt].pax+=Number(f.pax||0);
+  });
+  return stats;
+}
+
+function buildHourlyStats(flights, belts) {
+  const stats = {};
+  belts.forEach(function(b){ const a=Array(24).fill(0); a.counts=Array(24).fill(0); stats[b]=a; });
+  flights.forEach(function(flight) {
+    const startMinute = getFlightStartMinute(flight);
+    if (startMinute<0||startMinute>1439) return;
+    const hour = Math.floor(startMinute/60);
+    ensureHourlyStatBelt(stats, flight.belt);
+    stats[flight.belt][hour]+=Number(flight.pax||0);
+    stats[flight.belt].counts[hour]+=1;
+  });
+  return stats;
+}
+
+function ensureHourlyStatBelt(stats, belt) {
+  if (!stats[belt]) { const a=Array(24).fill(0); a.counts=Array(24).fill(0); stats[belt]=a; }
+}
+
+/* Bar logic:
+   - No ATA        : STA → STA+60
+   - ATA > STA (delay) : STA → ATA+60
+   - ATA < STA (early) : ATA → ATA+60
+*/
+function getFlightStartMinute(flight) {
+  const sta = hhmmToMinute(flight.schedule);
+  if (sta!==null) return clamp(sta, 0, 1379);
+  return clamp(Number(flight.mainMinute||0), 0, 1379);
+}
+
+function getFlightInterval(flight) {
+  const staMinute = getFlightStartMinute(flight);
+  if (hasActualValue(flight.actual)) {
+    const ata = hhmmToMinute(flight.actual);
+    if (ata !== null) {
+      if (ata < staMinute) {
+        const s = clamp(ata, 0, 1379);
+        return {start: s, end: clamp(s + 60, s + 60, 1439)};
+      }
+      return {start: staMinute, end: clamp(ata + 60, staMinute + 60, 1439)};
+    }
+  }
+  return {start: staMinute, end: staMinute + 60};
+}
+
+function isSelectedDateToday() {
+  const input=document.getElementById('tanggal');
+  return (input?input.value:'')=== getTodayDateString();
+}
+
+function refreshMatrixForCurrentTimeDelay() {
+  if (isDraggingFlight||!isSelectedDateToday()||!state.flights||!state.flights.length) return;
+  const nowMinute=new Date().getHours()*60+new Date().getMinutes();
+  if (!state.flights.some(function(f){return !hasActualValue(f.actual)&&nowMinute>Number(f.mainMinute||0);})) return;
+  state.beltLayout = buildBeltLayout(state.flights, state.belts);
+  const beltStats=buildBeltStats(state.flights,state.belts);
+  const hourlyStats=buildHourlyStats(state.flights,state.belts);
+  renderMatrix(beltStats,hourlyStats);
+}
+
+function getFlightBarGeometry(flight) {
+  const interval=getFlightInterval(flight);
+  return {left:(interval.start/60)*getHourWidth(), width:Math.max(58,((interval.end-interval.start)/60)*getHourWidth()-3)};
+}
+
+function getFlightBarText(flight) {
+  return [flight.nopen||'-', flight.iata_code||'-', flight.schedule||'-'].join('/');
+}
+
+function getBeltMeta(belt) { return BELT_META[belt]||{status:'BELT',off:false}; }
+function isBeltOff(meta) { return Boolean(meta.off)||String(meta.status||'').toUpperCase().includes('OFF'); }
+
+function getBeltScope(belt) {
+  const status=String(getBeltMeta(belt).status||'').toUpperCase();
+  if (belt==='NO BELT') return 'ANY';
+  if (status.includes('INT')) return 'INT';
+  if (status.includes('DOM')) return 'DOM';
+  return 'ANY';
+}
+
+function detectFlightCategory(row, belt) {
+  const source=[row.flight_category,row.flight_type,row.category,row.dom_int,row.service_type,row.scope,row.domestic_international].map(cleanText).find(Boolean)||'';
+  if (/INT|INTERNATIONAL/i.test(source)) return 'INT';
+  if (/DOM|DOMESTIC/i.test(source)) return 'DOM';
+  const beltScope=getBeltScope(belt);
+  if (beltScope==='INT') return 'INT';
+  return 'DOM';
+}
+
+function normalizeScope(value) {
+  const text=String(value||'').toUpperCase();
+  if (text.includes('INT')) return 'INT';
+  if (text.includes('DOM')) return 'DOM';
+  return 'DOM';
+}
+
+function cleanBelt(value) {
+  let belt=String(value||'').trim().toUpperCase();
+  if (!belt||belt==='-'||belt==='NULL'||belt==='N/A'||belt==='NA'||belt==='UNASSIGNED') return 'NO BELT';
+  belt=belt.replace(/^BELT\s*/i,'').replace(/^B\s*/,'');
+  return belt||'NO BELT';
+}
+
+function hasFilledBelt(flight) {
+  const belt=String(flight.belt||'').trim().toUpperCase();
+  return belt&&belt!=='NO BELT'&&belt!=='UNASSIGNED'&&belt!=='-'&&belt!=='N/A'&&belt!=='NA'&&belt!=='NULL';
+}
+
+function getNopenPrefixColor(nopen) {
+  const key=String(nopen||'').replace(/[^A-Z0-9]/gi,'').substring(0,2).toUpperCase()||'XX';
+  if (PREFIX_COLOR_REGISTRY[key]) return PREFIX_COLOR_REGISTRY[key];
+  let color=PREFIX_COLOR_FIXED[key];
+  if (color&&!USED_PREFIX_COLORS[color]) { PREFIX_COLOR_REGISTRY[key]=color; USED_PREFIX_COLORS[color]=true; return color; }
+  for (let i=0;i<PREFIX_COLOR_PALETTE.length;i++) {
+    const c=PREFIX_COLOR_PALETTE[i];
+    if (!USED_PREFIX_COLORS[c]) { PREFIX_COLOR_REGISTRY[key]=c; USED_PREFIX_COLORS[c]=true; return c; }
+  }
+  let hue=(PREFIX_COLOR_AUTO_INDEX*137.508)%360; PREFIX_COLOR_AUTO_INDEX++;
+  color='hsl('+Math.round(hue)+', 72%, 42%)';
+  PREFIX_COLOR_REGISTRY[key]=color; USED_PREFIX_COLORS[color]=true;
+  return color;
+}
+
+function getContrastTextColor(bgColor) {
+  if (String(bgColor).startsWith('hsl')) return '#ffffff';
+  const hex=String(bgColor||'').replace('#','');
+  if (hex.length!==6) return '#ffffff';
+  const r=parseInt(hex.substring(0,2),16),g=parseInt(hex.substring(2,4),16),b=parseInt(hex.substring(4,6),16);
+  return ((r*299+g*587+b*114)/1000)>150?'#1f2937':'#ffffff';
+}
+
+/* ========================================================
+   UTILITY
+======================================================== */
+function toHHmm(value) {
+  if (!value) return '';
+  const str=String(value).trim();
+  const match=str.match(/(\d{1,2}):(\d{2})/);
+  if (match) return String(match[1]).padStart(2,'0')+':'+match[2];
+  const date=new Date(str);
+  if (!isNaN(date.getTime())) return String(date.getHours()).padStart(2,'0')+':'+String(date.getMinutes()).padStart(2,'0');
+  return '';
+}
+
+function hhmmToMinute(hhmm) { const m=String(hhmm||'').match(/^(\d{2}):(\d{2})$/); return m?Number(m[1])*60+Number(m[2]):null; }
+function minuteToHHmm(minute) { minute=clamp(Math.round(Number(minute||0)),0,1439); return String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0'); }
+function cleanText(value) { return String(value||'').trim(); }
+
+function cell(text, className) {
+  const div=document.createElement('div');
+  div.className='cell '+(className||'');
+  div.textContent=text;
+  return div;
+}
+
+function getHourWidth() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hour-w'))||82; }
+function getBaseRowHeight() { const v=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--row-h')); return isNaN(v)?80:v; }
+function getLeftWidth() {
+  return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--belt-w'))||74;
+}
+
+function getBeltByPointerY(clientY) {
+  const layer=document.querySelector('.flight-layer');
+  if (!layer) return {belt:state.belts[0],index:0};
+  const rect=layer.getBoundingClientRect(), y=clientY-rect.top;
+  for (let i=0;i<state.belts.length;i++) {
+    const belt=state.belts[i], info=state.beltLayout.byBelt[belt];
+    if (!info) continue;
+    if (y>=info.rowOffset&&y<info.rowOffset+info.rowHeight) return {belt:belt,index:i};
+  }
+  if (y<0) return {belt:state.belts[0],index:0};
+  const li=state.belts.length-1; return {belt:state.belts[li],index:li};
+}
+
+function formatNumber(n) { return Number(n||0).toLocaleString('en-US'); }
+function clamp(value, min, max) { return Math.max(min,Math.min(max,value)); }
+function escapeHtml(str) { return String(str||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;'); }
+
+function showStatus(message, isError) {
+  if (isError) console.warn('[Belt]', message);
+  else console.info('[Belt]', message);
+}
+
+// ── THEME TOGGLE ──
+(function(){
+  const root = document.documentElement;
+  const btn  = document.getElementById('themeToggle');
+  if (!btn) return;
+  function applyTheme(t) {
+    if (t === 'light') { root.setAttribute('data-theme','light'); btn.textContent='☀️'; }
+    else               { root.removeAttribute('data-theme');       btn.textContent='🌙'; }
+  }
+  applyTheme(localStorage.getItem('beltTheme') || 'dark');
+  btn.addEventListener('click', function(){
+    const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    localStorage.setItem('beltTheme', next);
+    applyTheme(next);
+  });
+})();
+
+// ── HAMBURGER NAV ──
+(function(){
+  const btn = document.getElementById('hamBtn');
+  const overlay = document.getElementById('navOverlay');
+  const panel = document.getElementById('navPanel');
+  function openNav() { if(panel) panel.classList.add('show'); if(overlay) overlay.classList.add('show'); }
+  function closeNav() { if(panel) panel.classList.remove('show'); if(overlay) overlay.classList.remove('show'); }
+  if (btn) btn.addEventListener('click', openNav);
+  if (overlay) overlay.addEventListener('click', closeNav);
+  document.addEventListener('keydown', function(e) { if (e.key==='Escape') closeNav(); });
+})();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => r.unregister());
+  });
+}
+</script>
+  <!-- Firebase Auth Guard -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/auth-guard.js"></script>
+<div class="wa-save-toast" id="waSaveToast"></div>
+</body>
+</html>

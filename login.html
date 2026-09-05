@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0a1628" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <title>Login – M-FIDS</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { visibility: hidden; background: #0a1628; }
+    body {
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0a1628;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #eaf6ff;
+    }
+    .card {
+      background: #0d1e35;
+      border: 1px solid #254a72;
+      border-radius: 16px;
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+      box-shadow: 0 8px 40px rgba(0,0,0,.5);
+    }
+    .logo { font-size: 28px; font-weight: 800; letter-spacing: 2px; color: #00bcd4; margin-bottom: 4px; }
+    .subtitle { font-size: 12px; color: #6aafc8; margin-bottom: 32px; letter-spacing: .5px; }
+    .btn-google {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 12px;
+      background: #fff;
+      color: #3c4043;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: box-shadow .2s;
+    }
+    .btn-google:hover { box-shadow: 0 4px 16px rgba(0,0,0,.3); }
+    .btn-google:disabled { opacity: .6; cursor: not-allowed; }
+    .btn-google svg { flex-shrink: 0; }
+    .error-msg {
+      margin-top: 16px;
+      padding: 10px 14px;
+      background: rgba(255,82,82,.12);
+      border: 1px solid rgba(255,82,82,.4);
+      border-radius: 8px;
+      color: #ff7070;
+      font-size: 13px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">M-FIDS</div>
+    <div class="subtitle" style="font-size:11px;color:#4a9fc4;margin-bottom:4px;letter-spacing:.3px;">Mobile Flight Information Display System</div>
+    <div class="subtitle">Sultan Hasanuddin International Airport</div>
+
+    <button class="btn-google" id="btn-google">
+      <svg width="18" height="18" viewBox="0 0 18 18">
+        <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
+        <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+        <path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/>
+        <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/>
+      </svg>
+      Sign in with Google
+    </button>
+
+    <div class="error-msg" id="error-msg"></div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script>
+    firebase.initializeApp(FIREBASE_CONFIG);
+    const auth   = firebase.auth();
+    const errEl  = document.getElementById("error-msg");
+    const btn    = document.getElementById("btn-google");
+
+    // Page starts hidden (set in CSS). Only reveal if user is NOT logged in.
+    auth.onAuthStateChanged(function(user) {
+      if (user) {
+        // Already logged in — redirect without ever showing login page
+        const base = location.pathname.replace(/\/[^/]*$/, '/');
+        const dest = new URLSearchParams(location.search).get("next") || base + "index.html";
+        location.replace(dest);
+        return;
+      }
+      // Not logged in — reveal the login card
+      document.documentElement.style.visibility = "visible";
+    });
+
+    // Show error from auth-guard (e.g. ?error=unauthorized)
+    const errParam = new URLSearchParams(location.search).get("error");
+    if (errParam === "unauthorized") {
+      errEl.textContent = "Your account does not have access. Please contact the administrator.";
+      errEl.style.display = "block";
+    }
+
+    btn.addEventListener("click", function() {
+      errEl.style.display = "none";
+      btn.disabled = true;
+      // Hide page before popup opens so nothing flashes after popup closes
+      document.documentElement.style.visibility = "hidden";
+
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider).catch(function(err) {
+        // Sign-in failed — show page again with error
+        document.documentElement.style.visibility = "visible";
+        btn.disabled = false;
+        errEl.textContent = err.message;
+        errEl.style.display = "block";
+      });
+      // On success: onAuthStateChanged above handles the redirect (page stays hidden)
+    });
+  </script>
+</body>
+</html>

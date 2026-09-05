@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0a1628" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <title>Access Blocked – M-FIDS</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0a1628;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #eaf6ff;
+    }
+    .card {
+      background: #0d1e35;
+      border: 1px solid #3a1a1a;
+      border-radius: 16px;
+      padding: 44px 36px;
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+      box-shadow: 0 8px 40px rgba(0,0,0,.5);
+    }
+    .logo { font-size: 22px; font-weight: 800; letter-spacing: 2px; color: #00bcd4; margin-bottom: 2px; }
+    .logo-sub { font-size: 10px; color: #4a9fc4; letter-spacing: .3px; margin-bottom: 4px; }
+    .airport { font-size: 11px; color: #4a7a9b; margin-bottom: 36px; }
+    .block-icon { font-size: 56px; margin-bottom: 16px; line-height: 1; }
+    .block-title { font-size: 20px; font-weight: 800; color: #ff5252; margin-bottom: 10px; letter-spacing: .5px; }
+    .block-divider { width: 40px; height: 3px; background: rgba(255,82,82,.4); border-radius: 2px; margin: 0 auto 20px; }
+    .block-msg { font-size: 13px; color: #6aafc8; line-height: 1.75; margin-bottom: 20px; }
+    .block-email {
+      display: inline-block;
+      background: rgba(255,82,82,.1);
+      border: 1px solid rgba(255,82,82,.3);
+      color: #ff7070;
+      border-radius: 8px;
+      padding: 7px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 28px;
+      word-break: break-all;
+      min-width: 120px;
+    }
+    .block-contact {
+      font-size: 12px;
+      color: #4a7a9b;
+      line-height: 1.7;
+      padding: 16px 0;
+      border-top: 1px solid #1a3050;
+      margin-bottom: 20px;
+    }
+    .btn-refresh {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 24px;
+      background: #0a2a45;
+      border: 1px solid #1a4a6a;
+      color: #6aafc8;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s, border-color .2s;
+    }
+    .btn-refresh:hover { background: #0d3558; border-color: #2a6a9a; color: #8ac8e0; }
+    .btn-refresh:disabled { opacity: .5; cursor: not-allowed; }
+    .status-msg {
+      margin-top: 14px;
+      font-size: 12px;
+      min-height: 18px;
+    }
+    .status-msg.still-blocked { color: #ff7070; }
+    .status-msg.checking { color: #6aafc8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">M-FIDS</div>
+    <div class="logo-sub">Mobile Flight Information Display System</div>
+    <div class="airport">Sultan Hasanuddin International Airport</div>
+
+    <div class="block-icon">🚫</div>
+    <div class="block-title">Access Blocked</div>
+    <div class="block-divider"></div>
+
+    <div class="block-msg">
+      Your account has been blocked by the administrator<br>
+      and cannot access this application.
+    </div>
+
+    <div class="block-email" id="block-email">–</div>
+
+    <div class="block-contact">
+      Please contact the administrator for further assistance<br>
+      or to request access to this application.
+    </div>
+
+    <button class="btn-refresh" id="btn-refresh" disabled>
+      ↻ Check Access
+    </button>
+    <div class="status-msg" id="status-msg"></div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script>
+    firebase.initializeApp(FIREBASE_CONFIG);
+    var auth   = firebase.auth();
+    var db     = firebase.firestore();
+    var btn    = document.getElementById("btn-refresh");
+    var status = document.getElementById("status-msg");
+    var emailEl = document.getElementById("block-email");
+    var currentUser = null;
+
+    function emailToKey(email) {
+      return email.toLowerCase().replace(/\./g, '_').replace(/@/g, '__');
+    }
+
+    // IMPORTANT: No redirect on this page — this is a dead-end for blocked users.
+    // Auth state is only used to show the email and enable the Refresh button.
+    auth.onAuthStateChanged(function(user) {
+      currentUser = user;
+      if (user) {
+        emailEl.textContent = user.email;
+        btn.disabled = false;
+      }
+      // If user is null: page still shows — do NOT redirect anywhere.
+    });
+
+    btn.addEventListener("click", function() {
+      if (!currentUser) {
+        status.className = "status-msg still-blocked";
+        status.textContent = "Not signed in. Please open a new tab to sign in.";
+        return;
+      }
+      btn.disabled = true;
+      status.className = "status-msg checking";
+      status.textContent = "Checking access…";
+
+      var key = emailToKey(currentUser.email);
+      db.collection("blocked_users").doc(key).get().then(function(doc) {
+        if (!doc.exists) {
+          status.textContent = "Access granted! Redirecting…";
+          var base = location.pathname.replace(/\/[^/]*$/, '/');
+          location.replace(base + "index.html");
+        } else {
+          status.className = "status-msg still-blocked";
+          status.textContent = "Your account is still blocked.";
+          btn.disabled = false;
+        }
+      }).catch(function() {
+        status.className = "status-msg still-blocked";
+        status.textContent = "Could not check status. Please try again.";
+        btn.disabled = false;
+      });
+    });
+  </script>
+</body>
+</html>
