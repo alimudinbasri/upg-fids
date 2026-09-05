@@ -12,8 +12,6 @@
   ];
 
   // ── SPLASH SCREEN ───────────────────────────────────────────────────────────
-  var _splashStart = Date.now();
-
   function _injectSplash() {
     var st = document.createElement('style');
     st.textContent =
@@ -94,14 +92,12 @@
   }
 
   function _removeSplash() {
-    var elapsed = Date.now() - _splashStart;
-    var wait = Math.max(0, 1000 - elapsed);
-    setTimeout(function() {
-      var el = document.getElementById('mfids-sp');
-      if (!el) return;
-      el.style.opacity = '0';
-      setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, 460);
-    }, wait);
+    // No artificial minimum hold - the splash disappears the moment auth is
+    // ready. It only stays as long as auth/Firestore actually took.
+    var el = document.getElementById('mfids-sp');
+    if (!el) return;
+    el.style.opacity = '0';
+    setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, 200);
   }
   // ────────────────────────────────────────────────────────────────────────────
 
