@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0a1628" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <title>Under Maintenance – M-FIDS</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0a1628;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #eaf6ff;
+      padding: 20px;
+    }
+    .card {
+      background: #0d1e35;
+      border: 1px solid #254a72;
+      border-radius: 16px;
+      padding: 44px 36px;
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+      box-shadow: 0 8px 40px rgba(0,0,0,.5);
+    }
+    .logo { font-size: 22px; font-weight: 800; letter-spacing: 2px; color: #00bcd4; margin-bottom: 2px; }
+    .logo-sub { font-size: 10px; color: #4a9fc4; letter-spacing: .3px; margin-bottom: 4px; }
+    .airport { font-size: 11px; color: #4a7a9b; margin-bottom: 36px; }
+    .m-icon { font-size: 56px; margin-bottom: 16px; line-height: 1; animation: spin 3.5s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .m-title { font-size: 20px; font-weight: 800; color: #ffc107; margin-bottom: 10px; letter-spacing: .5px; }
+    .m-divider { width: 40px; height: 3px; background: rgba(255,193,7,.4); border-radius: 2px; margin: 0 auto 20px; }
+    .m-msg { font-size: 13px; color: #6aafc8; line-height: 1.75; margin-bottom: 28px; }
+    .btn-retry {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 24px;
+      background: #0a2a45;
+      border: 1px solid #1a4a6a;
+      color: #6aafc8;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s, border-color .2s;
+    }
+    .btn-retry:hover { background: #0d3558; border-color: #2a6a9a; color: #8ac8e0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">M-FIDS</div>
+    <div class="logo-sub">Mobile Flight Information Display System</div>
+    <div class="airport">Sultan Hasanuddin International Airport</div>
+
+    <div class="m-icon">🛠️</div>
+    <div class="m-title">Under Maintenance</div>
+    <div class="m-divider"></div>
+
+    <div class="m-msg">
+      We're currently performing scheduled maintenance<br>
+      to improve your experience.<br>
+      Please check back again shortly.
+    </div>
+
+    <button class="btn-retry" onclick="location.reload()">↻ Try Again</button>
+  </div>
+</body>
+</html>
