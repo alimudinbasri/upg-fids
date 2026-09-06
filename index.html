@@ -600,7 +600,7 @@
         <span class="option-menu-icon">📄</span>
         <span><b>Export PDF</b><small>Save FIDS table as PDF</small></span>
       </button>
-      <button type="button" id="btnWaReport" class="option-menu-item option-wa" style="display:none">
+      <button type="button" id="btnWaReport" class="option-menu-item option-wa">
         <span class="option-menu-icon">💬</span>
         <span><b>WA Report</b><small>Laporan Gate & Belt untuk WhatsApp</small></span>
       </button>
@@ -620,17 +620,17 @@
       <button type="button" class="modal-close" id="btnCloseWaReport">Close</button>
     </div>
     <div class="wa-modal-body">
-      <div class="wa-tags-ref">
+      <div class="wa-tags-ref wa-admin-only" style="display:none">
         <b>Available Tags:</b><br>
         {airport}, {day}, {date}, {gate_dom_flight}, {gate_dom_pax}, {gate_dom_%}, {gate_int_flight}, {gate_int_pax}, {gate_int_%}, {gate_tot_flight}, {gate_tot_pax}, {belt_dom_flight}, {belt_dom_%}, {belt_int_flight}, {belt_int_%}, {belt_tot_flight}<br>
         Repeating block tags: {gate}, {gate_flight}, {gate_pax} inside [[GATE_BLOCK]]...[[/GATE_BLOCK]]<br>
         {group}, {group_flight}, {group_pax}, {group_%} inside [[GATE_GROUP_BLOCK]]...[[/GATE_GROUP_BLOCK]]<br>
         {belt}, {belt_flight} inside [[BELT_BLOCK]]...[[/BELT_BLOCK]]
       </div>
-      <div class="wa-field"><label for="waTemplateText">Template</label><textarea id="waTemplateText" rows="22"></textarea></div>
+      <div class="wa-field wa-admin-only" style="display:none"><label for="waTemplateText">Template</label><textarea id="waTemplateText" rows="22"></textarea></div>
       <div class="wa-report-actions">
-        <button type="button" id="btnResetWaTemplate" class="btn-wa-secondary">Reset to Default</button>
-        <button type="button" id="btnGenerateWaReport" class="btn-wa-secondary">Update Report</button>
+        <button type="button" id="btnResetWaTemplate" class="btn-wa-secondary wa-admin-only" style="display:none">Reset to Default</button>
+        <button type="button" id="btnGenerateWaReport" class="btn-wa-secondary wa-admin-only" style="display:none">Update Report</button>
         <button type="button" id="btnCopyWaReport" class="btn-wa-copy">Copy Text</button>
       </div>
       <div class="wa-field"><label for="waReportText">WA Report Result</label><textarea id="waReportText" class="wa-report-textarea" rows="22"></textarea></div>
@@ -673,11 +673,10 @@
 </div><!-- .table-wrap -->
 
 
-<script src="js/app-config.js"></script>
 <script>
 // ── CONFIG ──
 const CFG = {
-  gasUrl:      APP_CONFIG.gasUrl,
+  gasUrl:      "https://script.google.com/macros/s/AKfycbzLs6ujBfTTDKPFTdCxiFJZvnvd6hSuVffPcOGmI9DNOSf1DRMazeaVAEI6m5mlmiF7zA/exec",
   aisArrival:  "http://ais.upg.injourneyairports.id/apiais/index.php/Arrivop?tanggal=",
   aisDeparture:"http://ais.upg.injourneyairports.id/apiais/index.php/Departop?tanggal=",
 };

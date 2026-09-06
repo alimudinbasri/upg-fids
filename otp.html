@@ -52,9 +52,13 @@
   --citycode: #6b5900;
 }
 :root[data-theme="light"] .fids-header { background: linear-gradient(135deg,#0d2137 0%,#0a2845 60%,#082040 100%); }
+:root[data-theme="light"] .status-badge,
+:root[data-theme="light"] .section-icon,
+:root[data-theme="light"] .type-badge.ARR { color: var(--teal-dim); }
 .clock      { color: #00e7fc !important; }
 .clock-date { color: #68b8ff !important; }
 .brand-name { color: #ffffff !important; }
+.brand-sub  { color: #8fb8d8 !important; }
 
 *  { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system-ui,sans-serif; font-size: 13px; min-height: 100dvh; }
@@ -109,9 +113,9 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
 .refresh-countdown { display: inline-flex; align-items: center; gap: 5px; background: transparent; border: 1.5px solid var(--border); color: var(--text3); height: 34px; padding: 0 10px; border-radius: 22px; font-size: 12px; font-weight: 700; flex-shrink: 0; cursor: pointer; transition: border-color .18s, color .18s; }
 .refresh-countdown:hover { border-color: var(--teal-dim); color: var(--teal); }
 .refresh-countdown strong { color: var(--teal); font-variant-numeric: tabular-nums; }
-.refresh-countdown.loading { border-color: rgba(245,158,11,.5); color: #fbbf24; }
+.refresh-countdown.loading { border-color: rgba(245,158,11,.5); color: var(--amber); }
 .refresh-countdown.loading .refresh-icon { animation: spin .8s linear infinite; }
-.refresh-countdown.loading strong { color: #fbbf24; }
+.refresh-countdown.loading strong { color: var(--amber); }
 .theme-toggle-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-sm); width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 15px; flex-shrink: 0; }
 .theme-toggle-btn:hover { background: var(--bg2); }
 
@@ -153,7 +157,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
 /* ── STATUS MSG ── */
 .status-msg { display: none; margin: 10px 12px; background: var(--bg2); padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); color: var(--text2); font-weight: 700; }
 .status-msg.show { display: block; }
-.status-msg.error { color: #ff6b6b; background: rgba(255,82,82,.08); border-color: rgba(255,82,82,.3); }
+.status-msg.error { color: var(--red); background: rgba(255,82,82,.08); border-color: rgba(255,82,82,.3); }
 
 /* ── CONTENT ── */
 .content-body { padding: 14px 12px; display: flex; flex-direction: column; gap: 18px; }
@@ -167,7 +171,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
 .summary-card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 18px 16px; text-align: center; }
 .summary-label { font-size: 11px; font-weight: 900; color: var(--text3); margin-bottom: 8px; letter-spacing: .3px; }
 .summary-value { font-size: 15px; font-weight: 900; color: var(--text); }
-.summary-value.green { color: #00e676; }
+.summary-value.green { color: var(--green); }
 .summary-value.amber { color: var(--amber); }
 .summary-value.red   { color: var(--red); }
 .summary-value.teal  { color: var(--teal2); }
@@ -186,7 +190,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
 .bar-legend { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
 .leg-item { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--text3); }
 .leg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.std-badge { margin-left: auto; background: rgba(255,82,82,.12); border: 1px solid rgba(255,82,82,.3); color: #ff7070; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+.std-badge { margin-left: auto; background: rgba(255,82,82,.12); border: 1px solid rgba(255,82,82,.3); color: var(--red); font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
 
 /* ── CATEGORY CARDS ── */
 .cat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
@@ -278,7 +282,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
 .status-pill.landed    { background: rgba(0,230,118,.18); color: var(--green); border: 1px solid #00c853; }
 .status-pill.departed  { background: rgba(255,193,7,.15); color: var(--amber); border: 1px solid #ffab00; }
 .status-pill.default   { background: rgba(90,143,160,.12); color: var(--text3); border: 1px solid var(--border); }
-.delay-info { font-size: 9px; color: #ff9800; font-weight: 700; }
+.delay-info { font-size: 9px; color: var(--amber); font-weight: 700; }
 .remark-sub { font-size: 9px; color: var(--text3); font-weight: 600; }
 .tbl-empty { padding: 28px; text-align: center; color: var(--text3); font-weight: 700; }
 .loading-row { padding: 28px; text-align: center; color: var(--teal); font-weight: 700; }
@@ -451,15 +455,15 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
       <button type="button" class="modal-close" id="btnCloseWaReport">Close</button>
     </div>
     <div class="wa-modal-body">
-      <div class="wa-tags-ref">
+      <div class="wa-tags-ref wa-admin-only" style="display:none">
         <b>Available Tags:</b><br>
         {airport}, {day}, {date}, {filter}, {total_flight}, {ontime_flight}, {ontime_%}, {delay_flight}, {delay_%}, {cancel_flight}, {cancel_%}, {otp_%}<br>
         Repeating block tags: {cat_no}, {cat_range}, {cat_flight} inside [[CATEGORY_BLOCK]]...[[/CATEGORY_BLOCK]]
       </div>
-      <div class="wa-field"><label>Template</label><textarea id="waTemplateText" rows="20"></textarea></div>
+      <div class="wa-field wa-admin-only" style="display:none"><label>Template</label><textarea id="waTemplateText" rows="20"></textarea></div>
       <div class="wa-report-actions">
-        <button type="button" id="btnResetWaTemplate" class="btn-wa-secondary">Reset to Default</button>
-        <button type="button" id="btnGenerateWaReport" class="btn-wa-secondary">↺ Update Report</button>
+        <button type="button" id="btnResetWaTemplate" class="btn-wa-secondary wa-admin-only" style="display:none">Reset to Default</button>
+        <button type="button" id="btnGenerateWaReport" class="btn-wa-secondary wa-admin-only" style="display:none">↺ Update Report</button>
         <button type="button" id="btnCopyWaReport" class="btn-wa-copy">📋 Copy Text</button>
       </div>
       <div class="wa-field"><label>WA Report Result</label><textarea id="waReportText" class="wa-report-textarea" rows="20" readonly></textarea></div>
@@ -870,7 +874,7 @@ function render() {
 
   const otp = parseFloat(otpPct);
   const pctEl = document.getElementById('otpPct');
-  pctEl.style.color = isNaN(otp) ? 'var(--text3)' : otp>=88 ? '#00e676' : otp>=75 ? 'var(--amber)' : 'var(--red)';
+  pctEl.style.color = isNaN(otp) ? 'var(--text3)' : otp>=88 ? 'var(--green)' : otp>=75 ? 'var(--amber)' : 'var(--red)';
 
   // Category counts
   for (let i=1; i<=6; i++) {

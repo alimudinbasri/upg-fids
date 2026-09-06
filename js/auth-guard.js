@@ -279,10 +279,13 @@
       const adminLink = document.getElementById("nav-admin-link");
       if (adminLink) adminLink.style.display = "flex";
 
-      // WA report template is shared/editable config — restrict visibility
-      // (and therefore editing) to admins only.
-      const waBtn = document.getElementById("btnWaReport");
-      if (waBtn) waBtn.style.display = "flex";
+      // The WA report template (tags reference, template editor, reset/update
+      // buttons) is shared/global config — only admins may edit it. Everyone
+      // can still open WA Report and use Copy Text, so only elements marked
+      // .wa-admin-only are gated here.
+      document.querySelectorAll(".wa-admin-only").forEach(function(el) {
+        el.style.display = "";
+      });
     }
 
     db.collection("presence").onSnapshot(function(snap) {
