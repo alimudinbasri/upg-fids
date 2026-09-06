@@ -125,6 +125,7 @@ body {
   color: var(--teal); padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
 }
 .status-right { display: flex; align-items: center; gap: 6px; color: #00e676; font-size: 11px; font-weight: 600; }
+:root[data-theme="light"] .status-right { color: #00873e; }
 .dot-live { width: 7px; height: 7px; border-radius: 50%; background: #00e676; animation: pulse 2s infinite; flex-shrink: 0; }
 @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
 
@@ -161,6 +162,8 @@ body {
 .refresh-countdown.loading { border-color: rgba(245,158,11,.5); color: #fbbf24; }
 .refresh-countdown.loading .refresh-icon { animation: spin .8s linear infinite; }
 .refresh-countdown.loading strong { color: #fbbf24; }
+:root[data-theme="light"] .refresh-countdown.loading,
+:root[data-theme="light"] .refresh-countdown.loading strong { color: #a15c00; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── THEME TOGGLE ── */
@@ -182,6 +185,7 @@ body {
 .status { display: none; margin: 10px 12px; background: var(--bg2); padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); color: var(--text2); font-weight: 700; }
 .status.show { display: block; }
 .status.error { color: #ff6b6b; background: rgba(255,82,82,.08); border-color: rgba(255,82,82,.3); }
+:root[data-theme="light"] .status.error { color: #b3261e; }
 
 /* ── CONTENT BODY ── */
 .content-body { padding: 14px 12px; }
@@ -198,6 +202,7 @@ body {
 .summary-label { font-size: 11px; font-weight: 900; color: var(--text3); margin-bottom: 8px; letter-spacing: .3px; }
 .summary-value { font-size: 24px; font-weight: 900; color: var(--text); }
 .summary-value.pax { color: #58e4ff !important; }
+:root[data-theme="light"] .summary-value.pax { color: #0072b0 !important; }
 .summary-value.gate { color: var(--teal); }
 .summary-card-remark { grid-column: 1 / -1; text-align: left; }
 .remark-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
@@ -234,6 +239,7 @@ body {
 .btn-flight-detail { border: none; background: var(--teal); color: #000; height: 32px; padding: 0 12px; border-radius: 10px; font-size: 12px; font-weight: 900; cursor: pointer; }
 .btn-flight-detail:hover { background: var(--teal2); }
 .flight-search-empty { background: rgba(255,82,82,.08); border: 1px solid rgba(255,82,82,.3); color: #ff6b6b; border-radius: 12px; padding: 10px 12px; font-weight: 800; }
+:root[data-theme="light"] .flight-search-empty { color: #b3261e; }
 
 /* ── CHARTS ── */
 .charts-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
@@ -251,6 +257,7 @@ body {
 .grid-header { min-height: var(--header-h); position: sticky; top: 0; z-index: 60; }
 .cell { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--bg2); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; text-align: center; }
 .head { background: var(--head); font-weight: 900; font-size: 11px; color: var(--tosca); }
+:root[data-theme="light"] .head { color: var(--teal-dim); }
 .left-cell { background: var(--left); z-index: 25; }
 .sticky-gate { position: sticky; left: 0; }
 .sticky-seat { position: sticky; left: var(--gate-w); z-index: 35; }
@@ -259,12 +266,13 @@ body {
 .grid-header .sticky-gate, .grid-header .sticky-seat, .grid-header .sticky-max, .grid-header .sticky-flpax { z-index: 80; }
 /* Freeze shadow — left columns cast a shadow toward scrollable area */
 .left-cell.sticky-flpax { }
-.grid-header .sticky-gate { position: relative !important; left: auto !important; will-change: transform; background: #0a2040; color: var(--tosca-dark); font-size: 12px; font-weight: 900; letter-spacing: .5px; border-bottom: 2px solid var(--tosca); z-index: 80; }
+.grid-header .sticky-gate { position: relative !important; left: auto !important; will-change: transform; background: #0a2040; color: #00e5ff; font-size: 12px; font-weight: 900; letter-spacing: .5px; border-bottom: 2px solid var(--tosca); z-index: 80; }
 .grid-header { }
 .gate-box { line-height: 1; }
 .gate-name { font-size: 22px; font-weight: 900; color: var(--text); }
 .gate-status { display: inline-block; margin-top: 6px; padding: 4px 7px; border-radius: 8px; font-size: 10px; color: #000; background: var(--tosca); font-weight: 900; }
 .gate-off .gate-name { color: #ff6b6b; }
+:root[data-theme="light"] .gate-off .gate-name { color: #c62828; }
 .gate-off .gate-status { background: #c62828; color: #fff; }
 .small-num { font-weight: 900; font-size: 11px; color: var(--text2); }
 .flpax { flex-direction: column; gap: 4px; font-weight: 900; font-size: 11px; color: var(--text2); }
@@ -272,6 +280,7 @@ body {
 .hour-yellow { background: var(--yellow); }
 .hour-red { background: var(--red); }
 .hour-pax { position: absolute; top: 6px; left: 8px; font-size: 13px; font-weight: 900; color: var(--tosca); z-index: 5; pointer-events: none; }
+:root[data-theme="light"] .hour-pax { color: var(--text2); }
 .flight-layer { position: absolute; left: var(--left-w); top: var(--header-h); width: calc(24 * var(--hour-w)); pointer-events: none; z-index: 12; }
 .flight-bar { position: absolute; height: 28px; min-width: 120px; border-radius: 7px; color: #fff; font-size: 10px; font-weight: 900; letter-spacing: 0.2px; display: flex; align-items: center; justify-content: center; padding: 0 10px; white-space: nowrap; border: 2px solid rgba(255,255,255,.55); pointer-events: auto; cursor: grab; user-select: none; touch-action: none; transition: outline .12s ease, opacity .12s ease, top .08s ease; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0px 7px rgb(0 0 0), 0 0 7px rgba(0,0,0,.9); }
 .flight-bar.dragging { opacity: .88; cursor: grabbing; }
@@ -285,10 +294,10 @@ body {
 .flight-bar.departed-flight { border: 2px solid rgba(255,255,255,.2) !important; opacity: 0.6; }
 .flight-bar.locked-flight { cursor: not-allowed !important; }
 .flight-bar.locked-flight::after { content:"LOCK"; position:absolute; right:6px; top:-9px; background:var(--tosca); color:#000; font-size:8px; font-weight:900; padding:2px 5px; border-radius:999px; letter-spacing:.3px; }
-.total-row .cell { background: var(--blue-total); color: var(--tosca); font-weight: 900; }
+.total-row .cell { background: var(--blue-total); color: var(--text2); font-weight: 900; }
 .total-row .left-cell { background: var(--bg3); color: var(--text2); }
 .total-box { flex-direction: column; gap: 3px; font-size: 11px; }
-.total-box b { font-size: 14px; color: var(--tosca); }
+.total-box b { font-size: 14px; color: var(--text2); }
 .legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 12px 14px; border-top: 1px solid var(--line); background: var(--bg2); color: var(--text2); font-size: 12px; }
 .legend-item, .legend-text { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .dot { width: 14px; height: 14px; border-radius: 99px; display: inline-block; }
@@ -428,6 +437,7 @@ body.pdf-exporting-matrix .remark-blink, body.pdf-exporting-overview .remark-bli
 .flight-bar.arrived-flight { opacity: 0.7 !important; }
 .flight-bar.departed-flight { opacity: 0.7 !important; }
 .summary-value.pax { color: #58e4ff !important; }
+:root[data-theme="light"] .summary-value.pax { color: #0072b0 !important; }
 .clock      { color: #00e7fc !important; }
 .clock-date { color: #68b8ff !important; }
 .brand-name { color: #ffffff !important; }
@@ -614,16 +624,16 @@ body.pdf-exporting-matrix .remark-blink, body.pdf-exporting-overview .remark-bli
         <button type="button" class="modal-close" id="btnCloseWaReport">Close</button>
       </div>
       <div class="wa-modal-body">
-        <div class="wa-tags-ref">
+        <div class="wa-tags-ref wa-admin-only" style="display:none">
           <b>Available Tags:</b><br>
           {airport}, {day}, {date}, {dom_flight}, {dom_pax}, {dom_%}, {int_flight}, {int_pax}, {int_%}, {tot_flight}, {tot_pax}<br>
           Repeating block tags: {gate}, {gate_flight}, {gate_pax} inside [[GATE_BLOCK]]...[[/GATE_BLOCK]]<br>
           {group}, {group_flight}, {group_pax}, {group_%} inside [[GATE_GROUP_BLOCK]]...[[/GATE_GROUP_BLOCK]]
         </div>
-        <div class="wa-field"><label for="waTemplateText">Template</label><textarea id="waTemplateText" rows="18"></textarea></div>
+        <div class="wa-field wa-admin-only" style="display:none"><label for="waTemplateText">Template</label><textarea id="waTemplateText" rows="18"></textarea></div>
         <div class="wa-report-actions">
-          <button type="button" id="btnResetWaTemplate" class="btn-wa-secondary">Reset to Default</button>
-          <button type="button" id="btnGenerateWaReport" class="btn-wa-secondary">Update Report</button>
+          <button type="button" id="btnResetWaTemplate" class="btn-wa-secondary wa-admin-only" style="display:none">Reset to Default</button>
+          <button type="button" id="btnGenerateWaReport" class="btn-wa-secondary wa-admin-only" style="display:none">Update Report</button>
           <button type="button" id="btnCopyWaReport" class="btn-wa-copy">Copy Text</button>
         </div>
         <div class="wa-field"><label for="waReportText">Hasil WA Report</label><textarea id="waReportText" class="wa-report-textarea" rows="18"></textarea></div>
@@ -1504,9 +1514,9 @@ function attachBarEvents(bar, flight) {
   let candidateGate=flight.gate, isValidDrop=true, moved=false, startY=0, startX=0;
   bar.addEventListener('pointerdown', function(e) {
     e.preventDefault();
-    if (isLockedDepartedFlight(flight)) { showStatus(flight.nopen+' cannot be moved.', true); showFlightDetail(flight); return; }
+    const locked = isLockedDepartedFlight(flight);
     startY=e.clientY; startX=e.clientX; candidateGate=flight.gate; isValidDrop=true; moved=false;
-    bar.classList.add('dragging'); isDraggingFlight=true;
+    if (!locked) { bar.classList.add('dragging'); isDraggingFlight=true; }
     try { bar.setPointerCapture(e.pointerId); } catch(err) {}
     function onMove(ev) {
       // Bars are drawn as wide horizontal rectangles, so a drag gesture is
@@ -1515,7 +1525,7 @@ function attachBarEvents(bar, flight) {
       // the 3px threshold and get treated as a click (opening flight detail
       // instead of dragging).
       if (Math.abs(ev.clientY-startY)>3 || Math.abs(ev.clientX-startX)>3) moved=true;
-      if (!moved) return;
+      if (!moved || locked) return;
       const target=getGateByPointerY(ev.clientY);
       candidateGate=target.gate;
       isValidDrop=canDropFlightToGate(flight,candidateGate);
@@ -1532,6 +1542,14 @@ function attachBarEvents(bar, flight) {
       bar.removeEventListener('pointerup',onUp);
       bar.removeEventListener('pointercancel',onUp);
       bar.classList.remove('dragging'); isDraggingFlight=false;
+      if (locked) {
+        // Only a genuine tap (no drag attempt) should pop the detail modal —
+        // a drag gesture on a locked flight should just explain why it can't
+        // be moved, not also open the detail popup on top of that.
+        if (!moved) showFlightDetail(flight);
+        else showStatus(flight.nopen+' cannot be moved.', true);
+        return;
+      }
       if (!moved) { showFlightDetail(flight); return; }
       if (!isValidDrop) { bar.classList.remove('invalid-drop'); renderAll(); showDropWarning(flight,candidateGate); return; }
       flight.gate=candidateGate; bar.classList.remove('invalid-drop');
