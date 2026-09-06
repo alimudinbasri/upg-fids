@@ -79,9 +79,11 @@ service cloud.firestore {
     }
 
     // WA Report settings (opening/closing text per page) — shared config,
-    // any logged-in user may view/edit (matches current app behavior: no isAdmin gate in JS)
+    // read by any logged-in user (needed to generate the WA report), but
+    // only admins may edit it since it's shared across all users of a page.
     match /wa_settings/{pageId} {
-      allow read, write: if request.auth != null;
+      allow read:  if request.auth != null;
+      allow write: if isAdmin();
     }
 
     // Flight data cache, kept fresh by a Google Apps Script time-driven trigger
