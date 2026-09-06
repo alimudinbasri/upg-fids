@@ -503,7 +503,7 @@
   }
   /* ── WA SAVE TOAST ── */
   .wa-save-toast {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+    position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(20px);
     background: #00c853; color: #000; font-size: 13px; font-weight: 700;
     padding: 9px 20px; border-radius: 24px; z-index: 99999;
     opacity: 0; pointer-events: none;
@@ -512,6 +512,16 @@
     box-shadow: 0 4px 16px rgba(0,0,0,.35);
   }
   .wa-save-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .sync-footer {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 500;
+    background: var(--bg2); border-top: 1px solid var(--border);
+    padding: 6px 14px; font-size: 11px; color: var(--text3);
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    text-align: center;
+  }
+  .sync-footer .sf-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+  .sync-footer.stale .sf-dot { background: var(--amber); }
 </style>
   <script>document.documentElement.style.visibility="hidden";</script>
 </head>
@@ -881,6 +891,20 @@ function setStaleNotice(msg, isError) {
   el.classList.toggle("error", !!isError);
 }
 
+// ── SYNC FOOTER ──
+function updateSyncFooter(when) {
+  const el = document.getElementById("syncFooter");
+  const txt = document.getElementById("syncFooterText");
+  if (!el || !txt) return;
+  const days = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+  const months = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+  const d = when || new Date();
+  const dateStr = days[d.getDay()] + ", " + String(d.getDate()).padStart(2,"0") + " " + months[d.getMonth()] + " " + d.getFullYear();
+  const timeStr = String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0") + ":" + String(d.getSeconds()).padStart(2,"0");
+  txt.textContent = "Data berhasil sinkron dengan server pada " + dateStr + ", pukul " + timeStr;
+  el.classList.remove("stale");
+}
+
 // ── LOAD DATA ──
 async function loadData() {
   if (isLoading) return;
@@ -897,6 +921,8 @@ async function loadData() {
       renderFlights();
       const mins = Math.max(0, Math.round((Date.now()-cached.ts)/60000));
       setStaleNotice("⏳ Menampilkan data tersimpan (" + (mins<1?"baru saja":mins+" menit lalu") + "), sedang memperbarui…");
+      updateSyncFooter(new Date(cached.ts));
+      document.getElementById("syncFooter")?.classList.add("stale");
     }
   }
 
@@ -912,10 +938,15 @@ async function loadData() {
     saveCache(date, allFlights);
     setError(null);
     setStaleNotice(null);
+    updateSyncFooter(new Date());
   } catch(err) {
     console.error(err);
     if (allFlights.length===0) setError("Failed to load data: "+err.message);
-    else setStaleNotice("⚠ Gagal memperbarui data (" + err.message + "). Menampilkan data terakhir yang berhasil dimuat.", true);
+    else {
+      setStaleNotice("⚠ Gagal memperbarui data (" + err.message + "). Menampilkan data terakhir yang berhasil dimuat.", true);
+      const footerEl = document.getElementById("syncFooter");
+      if (footerEl) footerEl.classList.add("stale");
+    }
   } finally {
     isLoading=false; setLoading(false); renderFlights(); _startCountdown();
   }
@@ -1580,5 +1611,6 @@ if ("serviceWorker" in navigator) {
   <script src="js/firebase-config.js"></script>
   <script src="js/auth-guard.js"></script>
 <div class="wa-save-toast" id="waSaveToast"></div>
+<div class="sync-footer" id="syncFooter"><span class="sf-dot"></span><span id="syncFooterText">Menunggu sinkronisasi data pertama…</span></div>
 </body>
 </html>
