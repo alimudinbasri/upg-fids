@@ -1444,15 +1444,20 @@ function hasActualValue(actual) {
 }
 
 function attachBarEvents(bar, flight) {
-  let candidateBelt=flight.belt, isValidDrop=true, moved=false, startY=0;
+  let candidateBelt=flight.belt, isValidDrop=true, moved=false, startY=0, startX=0;
   bar.addEventListener('pointerdown', function(e) {
     e.preventDefault();
     if (isLockedArrivedFlight(flight)) { showStatus(flight.nopen+' cannot be moved.', true); showFlightDetail(flight); return; }
-    startY=e.clientY; candidateBelt=flight.belt; isValidDrop=true; moved=false;
+    startY=e.clientY; startX=e.clientX; candidateBelt=flight.belt; isValidDrop=true; moved=false;
     bar.classList.add('dragging'); isDraggingFlight=true;
     try { bar.setPointerCapture(e.pointerId); } catch(err) {}
     function onMove(ev) {
-      if (Math.abs(ev.clientY-startY)>3) moved=true;
+      // Bars are drawn as wide horizontal rectangles, so a drag gesture is
+      // often mostly horizontal even though only vertical movement changes
+      // belt — checking clientY alone let a horizontal-only drag fall under
+      // the 3px threshold and get treated as a click (opening flight detail
+      // instead of dragging).
+      if (Math.abs(ev.clientY-startY)>3 || Math.abs(ev.clientX-startX)>3) moved=true;
       if (!moved) return;
       const target=getBeltByPointerY(ev.clientY);
       candidateBelt=target.belt;
