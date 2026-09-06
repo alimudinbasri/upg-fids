@@ -1,15 +1,11 @@
-// Auth Guard — include this in every protected page (after firebase-config.js)
+// Auth Guard — include this in every protected page (after js/app-config.js and firebase-config.js)
 (function () {
   const LOGIN_PAGE = (function() {
     const base = location.pathname.replace(/\/[^/]*$/, '/');
     return base + "login.html";
   })();
 
-  const ADMIN_EMAILS = [
-    "alimudinbasri@gmail.com",
-    "alimudin.basri@injourneyairports.id",
-    "upg.pl@injourneyairports.id"
-  ];
+  const ADMIN_EMAILS = APP_CONFIG.adminEmails;
 
   // ── SPLASH SCREEN ───────────────────────────────────────────────────────────
   function _injectSplash() {
@@ -282,6 +278,11 @@
     if (isAdmin) {
       const adminLink = document.getElementById("nav-admin-link");
       if (adminLink) adminLink.style.display = "flex";
+
+      // WA report template is shared/editable config — restrict visibility
+      // (and therefore editing) to admins only.
+      const waBtn = document.getElementById("btnWaReport");
+      if (waBtn) waBtn.style.display = "flex";
     }
 
     db.collection("presence").onSnapshot(function(snap) {

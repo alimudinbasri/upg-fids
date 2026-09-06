@@ -260,6 +260,23 @@
     <label class="maint-row-title" for="maint-message" style="display:block;margin-bottom:6px;">Pesan untuk pengunjung (opsional)</label>
     <textarea class="maint-msg-field" id="maint-message" placeholder="Contoh: Sedang ada perbaikan pada sumber data AIS. Mohon tunggu beberapa saat."></textarea>
     <div class="maint-status" id="maint-status"></div>
+
+    <div class="maint-row" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+      <div class="maint-row-label">
+        <div class="maint-row-title">Bersihkan Activity Log Lama</div>
+        <div class="maint-row-sub">Menghapus catatan kunjungan halaman (activity_logs) yang lebih lama dari batas waktu di bawah. Log ini terus bertambah setiap ada yang membuka halaman, jadi perlu dibersihkan secara berkala.</div>
+      </div>
+    </div>
+    <div class="admin-add-row">
+      <select class="admin-email-input" id="log-purge-days" style="flex:0 0 auto;min-width:160px;">
+        <option value="30">Lebih dari 30 hari</option>
+        <option value="60">Lebih dari 60 hari</option>
+        <option value="90" selected>Lebih dari 90 hari</option>
+        <option value="180">Lebih dari 180 hari</option>
+      </select>
+      <button class="btn btn-primary" id="btn-purge-logs">🗑 Hapus Log Lama</button>
+    </div>
+    <div class="maint-status" id="log-purge-status"></div>
   </div>
 </div>
 
@@ -269,13 +286,10 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="js/app-config.js"></script>
 <script src="js/firebase-config.js"></script>
 <script>
-  const HARDCODED_ADMINS = [
-    "alimudinbasri@gmail.com",
-    "alimudin.basri@injourneyairports.id",
-    "upg.pl@injourneyairports.id"
-  ];
+  const HARDCODED_ADMINS = APP_CONFIG.adminEmails;
 
   const BASE = location.pathname.replace(/\/[^/]*$/, '/');
 
@@ -297,6 +311,16 @@
       document.documentElement.style.visibility = "visible";
       const nameEl = document.getElementById("nav-user-name");
       if (nameEl) nameEl.textContent = user.displayName || user.email;
+
+      // Only Primary Admins (HARDCODED_ADMINS) may add/remove admins —
+      // firestore.rules only allows isHardcodedAdmin() to write to /admins,
+      // so hide the controls for dynamic admins instead of letting them
+      // click into a permission-denied error.
+      window.IS_PRIMARY_ADMIN = HARDCODED_ADMINS.includes((user.email || "").toLowerCase());
+      if (!window.IS_PRIMARY_ADMIN) {
+        const addRow = document.querySelector(".admin-add-row");
+        if (addRow) addRow.style.display = "none";
+      }
 
     // Log admin visit
     db.collection("activity_logs").add({
@@ -532,7 +556,7 @@
         rows.push('<div class="mgmt-row">'
           + '<span class="mgmt-row-email">' + email + '</span>'
           + '<span class="mgmt-row-badge">Admin</span>'
-          + '<button class="btn-del-admin" data-email="' + email + '">🗑 Remove</button>'
+          + (window.IS_PRIMARY_ADMIN ? '<button class="btn-del-admin" data-email="' + email + '">🗑 Remove</button>' : '')
           + '</div>');
       });
 
@@ -845,6 +869,59 @@
   document.getElementById("maint-message").addEventListener("input", function() {
     clearTimeout(_maintSaveTimer);
     _maintSaveTimer = setTimeout(saveMaintenanceConfig, 800);
+  });
+
+  // ── ACTIVITY LOG CLEANUP ──
+  // activity_logs gets one new doc per page view and has no automatic
+  // expiry, so it grows without bound. This lets an admin purge old
+  // entries in batches (Firestore caps a single batch write at 500 ops).
+  function purgeOldActivityLogs(cutoffDate) {
+    const btn    = document.getElementById("btn-purge-logs");
+    const status = document.getElementById("log-purge-status");
+    var totalDeleted = 0;
+
+    function deleteNextBatch() {
+      db.collection("activity_logs")
+        .where("timestamp", "<", firebase.firestore.Timestamp.fromDate(cutoffDate))
+        .limit(400)
+        .get()
+        .then(function(snap) {
+          if (snap.empty) {
+            btn.disabled = false;
+            status.className = "maint-status off";
+            status.textContent = "Selesai. Total " + totalDeleted + " log lama dihapus.";
+            return;
+          }
+          const batch = db.batch();
+          snap.docs.forEach(function(doc) { batch.delete(doc.ref); });
+          batch.commit().then(function() {
+            totalDeleted += snap.size;
+            status.textContent = "Menghapus… (" + totalDeleted + " terhapus)";
+            deleteNextBatch();
+          }).catch(function(err) {
+            btn.disabled = false;
+            status.className = "maint-status";
+            status.textContent = "Gagal menghapus: " + err.message;
+          });
+        })
+        .catch(function(err) {
+          btn.disabled = false;
+          status.className = "maint-status";
+          status.textContent = "Gagal memuat log: " + err.message;
+        });
+    }
+
+    btn.disabled = true;
+    status.className = "maint-status";
+    status.textContent = "Menghapus…";
+    deleteNextBatch();
+  }
+
+  document.getElementById("btn-purge-logs").addEventListener("click", function() {
+    const days = parseInt(document.getElementById("log-purge-days").value, 10);
+    if (!confirm("Hapus semua activity log yang lebih lama dari " + days + " hari?\nTindakan ini tidak bisa dibatalkan.")) return;
+    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    purgeOldActivityLogs(cutoffDate);
   });
 </script>
 </body>

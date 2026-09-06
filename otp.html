@@ -434,7 +434,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
         <span class="option-menu-icon">📄</span>
         <span><b>Export PDF</b><small>Save OTP report as PDF</small></span>
       </button>
-      <button type="button" id="btnWaReport" class="option-menu-item option-wa">
+      <button type="button" id="btnWaReport" class="option-menu-item option-wa" style="display:none">
         <span class="option-menu-icon" style="background:rgba(37,211,102,.15);">💬</span>
         <span><b>WA Report</b><small>OTP report summary for WhatsApp</small></span>
       </button>
@@ -534,11 +534,12 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
 
 </div>
 
+<script src="js/app-config.js"></script>
 <script>
 /* ============================================================
    CONFIG
 ============================================================ */
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzLs6ujBfTTDKPFTdCxiFJZvnvd6hSuVffPcOGmI9DNOSf1DRMazeaVAEI6m5mlmiF7zA/exec';
+const GAS_URL = APP_CONFIG.gasUrl;
 
 /* ============================================================
    UTILITIES — sama persis dengan fids.html
