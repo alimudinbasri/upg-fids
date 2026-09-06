@@ -92,5 +92,13 @@ service cloud.firestore {
       allow write: if request.auth != null &&
         request.auth.token.email == 'gas-sync@upg-fids.internal';
     }
+
+    // Site-wide maintenance mode toggle. Public read (auth-guard.js must be able
+    // to check this before a user is even logged in, so it can redirect straight
+    // to maintenance.html); only admins can flip it.
+    match /site_config/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }

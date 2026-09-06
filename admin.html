@@ -150,6 +150,23 @@
     .tab-count { background: rgba(0,188,212,.15); color: var(--teal); font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 10px; margin-left: 4px; }
     .blocked-meta { font-size: 10px; color: var(--text3); white-space: nowrap; }
 
+    /* ── MAINTENANCE PANEL ── */
+    .maint-row { display: flex; align-items: center; gap: 12px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+    .maint-row-label { flex: 1; }
+    .maint-row-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .maint-row-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+    .switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .switch-slider { position: absolute; cursor: pointer; inset: 0; background: var(--border); border-radius: 24px; transition: background .15s; }
+    .switch-slider::before { content: ""; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: transform .15s; }
+    .switch input:checked + .switch-slider { background: var(--red); }
+    .switch input:checked + .switch-slider::before { transform: translateX(20px); }
+    .maint-msg-field { width: 100%; min-height: 80px; background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 8px 10px; font-size: 12px; outline: none; font-family: inherit; resize: vertical; box-sizing: border-box; }
+    .maint-msg-field:focus { border-color: var(--teal); }
+    .maint-status { font-size: 11px; margin-top: 8px; min-height: 14px; }
+    .maint-status.on { color: var(--red); }
+    .maint-status.off { color: var(--green); }
+
     /* ── STATE / NOTICE ── */
     .state-msg { text-align: center; padding: 40px; color: var(--text3); font-size: 14px; }
     .notice { margin: 0 16px 12px; padding: 8px 14px; border-radius: 6px; font-size: 12px; display: none; }
@@ -200,6 +217,7 @@
     <button class="mgmt-tab-btn active" data-tab="activity">📋 Activity Log <span class="tab-count" id="tab-count-activity"></span></button>
     <button class="mgmt-tab-btn" data-tab="admin">🛡 Admin <span class="tab-count" id="tab-count-admin"></span></button>
     <button class="mgmt-tab-btn" data-tab="block">🚫 Block <span class="tab-count" id="tab-count-block"></span></button>
+    <button class="mgmt-tab-btn" data-tab="maintenance">🛠 Maintenance</button>
   </div>
 
   <!-- Panel: Activity Log -->
@@ -225,6 +243,23 @@
     <div class="mgmt-list" id="blocked-list">
       <span class="mgmt-empty">Loading…</span>
     </div>
+  </div>
+
+  <!-- Panel: Maintenance -->
+  <div class="mgmt-tab-panel" id="tab-panel-maintenance">
+    <div class="maint-row">
+      <div class="maint-row-label">
+        <div class="maint-row-title">Maintenance Mode</div>
+        <div class="maint-row-sub">Saat aktif, FIDS / OTP / Gate / Belt akan redirect ke halaman Under Maintenance untuk semua user (Admin tetap bisa akses halaman ini).</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="maint-toggle" />
+        <span class="switch-slider"></span>
+      </label>
+    </div>
+    <label class="maint-row-title" for="maint-message" style="display:block;margin-bottom:6px;">Pesan untuk pengunjung (opsional)</label>
+    <textarea class="maint-msg-field" id="maint-message" placeholder="Contoh: Sedang ada perbaikan pada sumber data AIS. Mohon tunggu beberapa saat."></textarea>
+    <div class="maint-status" id="maint-status"></div>
   </div>
 </div>
 
@@ -463,9 +498,10 @@
         tabPanels.forEach(function(p) { p.classList.remove("active"); });
         btn.classList.add("active");
         document.getElementById("tab-panel-" + btn.dataset.tab).classList.add("active");
-        if (btn.dataset.tab === "activity") loadActivityLog();
-        if (btn.dataset.tab === "admin")    loadAdminList();
-        if (btn.dataset.tab === "block")    loadBlockedList();
+        if (btn.dataset.tab === "activity")    loadActivityLog();
+        if (btn.dataset.tab === "admin")       loadAdminList();
+        if (btn.dataset.tab === "block")       loadBlockedList();
+        if (btn.dataset.tab === "maintenance") loadMaintenanceConfig();
       });
     });
   })();
@@ -763,6 +799,53 @@
     });
   }
 
+  // ── MAINTENANCE MODE ──
+  var _maintSaveTimer = null;
+  function loadMaintenanceConfig() {
+    const toggle = document.getElementById("maint-toggle");
+    const msgEl  = document.getElementById("maint-message");
+    const status = document.getElementById("maint-status");
+    status.textContent = "Loading…";
+    status.className = "maint-status";
+
+    db.collection("site_config").doc("maintenance").get().then(function(doc) {
+      const d = doc.exists ? doc.data() : {};
+      toggle.checked = !!d.enabled;
+      msgEl.value = d.message || "";
+      renderMaintStatus();
+    }).catch(function(err) {
+      status.textContent = "Failed to load: " + err.message;
+    });
+  }
+
+  function renderMaintStatus() {
+    const toggle = document.getElementById("maint-toggle");
+    const status = document.getElementById("maint-status");
+    status.textContent = toggle.checked ? "⚠ Maintenance mode AKTIF — semua user dialihkan ke halaman maintenance." : "Maintenance mode nonaktif — aplikasi berjalan normal.";
+    status.className = "maint-status " + (toggle.checked ? "on" : "off");
+  }
+
+  function saveMaintenanceConfig() {
+    const toggle = document.getElementById("maint-toggle");
+    const msgEl  = document.getElementById("maint-message");
+    renderMaintStatus();
+    db.collection("site_config").doc("maintenance").set({
+      enabled: toggle.checked,
+      message: msgEl.value.trim(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedBy: (auth.currentUser && auth.currentUser.email) || ""
+    }, { merge: true }).then(function() {
+      showNotice(toggle.checked ? "Maintenance mode diaktifkan." : "Maintenance mode dinonaktifkan.", "success");
+    }).catch(function(err) {
+      showNotice("Gagal menyimpan: " + err.message, "error");
+    });
+  }
+
+  document.getElementById("maint-toggle").addEventListener("change", saveMaintenanceConfig);
+  document.getElementById("maint-message").addEventListener("input", function() {
+    clearTimeout(_maintSaveTimer);
+    _maintSaveTimer = setTimeout(saveMaintenanceConfig, 800);
+  });
 </script>
 </body>
 </html>

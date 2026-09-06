@@ -113,6 +113,16 @@
     return email.toLowerCase().replace(/\./g, '_').replace(/@/g, '__');
   }
 
+  // Site-wide maintenance mode — checked independently of auth state (public
+  // read), so it redirects even a not-yet-logged-in visitor straight to
+  // maintenance.html instead of making them log in first for nothing.
+  db.collection("site_config").doc("maintenance").get().then(function(doc) {
+    if (doc.exists && doc.data().enabled) {
+      const base = location.pathname.replace(/\/[^/]*$/, '/');
+      window.location.replace(base + "maintenance.html");
+    }
+  }).catch(function() {});
+
   auth.onAuthStateChanged(function (user) {
     if (!user) {
       window.location.replace(LOGIN_PAGE);

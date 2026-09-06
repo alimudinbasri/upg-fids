@@ -63,7 +63,7 @@
     <div class="m-title">Under Maintenance</div>
     <div class="m-divider"></div>
 
-    <div class="m-msg">
+    <div class="m-msg" id="m-msg">
       We're currently performing scheduled maintenance<br>
       to improve your experience.<br>
       Please check back again shortly.
@@ -71,5 +71,23 @@
 
     <button class="btn-retry" onclick="location.reload()">↻ Try Again</button>
   </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script>
+    // Best-effort custom message from the admin toggle. This page must stay
+    // usable even if this fails entirely, so any error just keeps the
+    // default text above.
+    try {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      firebase.firestore().collection("site_config").doc("maintenance").get()
+        .then(function(doc) {
+          var msg = doc.exists && doc.data().message;
+          if (msg) document.getElementById("m-msg").textContent = msg;
+        })
+        .catch(function() {});
+    } catch (e) {}
+  </script>
 </body>
 </html>
