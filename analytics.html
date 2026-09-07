@@ -284,6 +284,7 @@
     </button>
     <div class="dr-panel" id="drPanel">
       <div class="dr-presets" id="drPresets">
+        <button type="button" class="dr-preset-item" data-preset="1">Hari ini</button>
         <button type="button" class="dr-preset-item" data-preset="7">7 hari terakhir</button>
         <button type="button" class="dr-preset-item" data-preset="30">30 hari terakhir</button>
         <button type="button" class="dr-preset-item" data-preset="90">90 hari terakhir</button>
@@ -308,7 +309,7 @@
     </div>
   </div>
   <button type="button" class="af-toggle-btn" id="btnToggleAdvFilters">
-    <span id="advToggleCaret">▸</span> <span class="panel-title">Filter Lanjutan</span> <span class="panel-sub" id="advToggleSub"></span>
+    <span id="advToggleCaret">▸</span> <span class="panel-title">Filter</span> <span class="panel-sub" id="advToggleSub"></span>
   </button>
   <button type="button" class="theme-toggle-btn" id="themeToggle" title="Toggle Dark/Light">🌙</button>
   <span class="range-label" id="rangeLabel">–</span>
@@ -801,7 +802,7 @@ function setPreset(days) {
   state.from = fmtDate(from); state.to = fmtDate(to);
   updateDrTriggerLabel();
 }
-setPreset(30);
+setPreset(1);
 
 /* ── Custom calendar date-range picker ── */
 var dr = { open:false, viewMonth: new Date(today.getFullYear(), today.getMonth(), 1), selStart: state.from, selEnd: state.to, pickingSecond: false };
