@@ -487,7 +487,7 @@
     </div>
   </div>
 
-  <div class="foot-note">Flight data is fetched live from the AIS system via Google Apps Script for every day in the selected range. Already-loaded days are cached in this browser for faster reloads — a longer date range may take longer to load the first time.</div>
+  <div class="foot-note">Flight data is read from the <span class="mono">flights_cache</span> Firestore collection for each day in the selected range, falling back to a live AIS/Google Apps Script fetch for any day not yet cached (e.g. today). Already-loaded days are also cached in this browser for faster reloads — a longer date range may still take longer to load the first time.</div>
 </div>
 
 <script src="js/app-config.js"></script>
@@ -634,21 +634,73 @@ function saveDayToLS(dateStr, flights) {
   try { localStorage.setItem(LS_PREFIX+dateStr, JSON.stringify({flights:flights, ts:Date.now()})); } catch(e) {}
 }
 
-function fetchDay(dateStr) {
-  if (dayCache[dateStr]) return Promise.resolve(dayCache[dateStr]);
+// window._db is set by js/auth-guard.js (which runs after this script, once
+// login is confirmed) — wait for it instead of initializing Firebase again here.
+function waitForDb() {
+  return new Promise(function(resolve){
+    if (window._db) { resolve(window._db); return; }
+    var iv = setInterval(function(){ if (window._db) { clearInterval(iv); resolve(window._db); } }, 50);
+  });
+}
+
+// Best-effort parse of a flights_cache/{date} document. The exact shape hasn't
+// been confirmed yet, so this tries the shapes that would naturally come out
+// of the same GAS endpoint used for the live fallback (an {arrival,departure}
+// or {ARR,DEP} pair of raw rows, or a single pre-tagged {flights:[...]} array).
+// Anything unrecognized (or an empty result) is treated as a cache miss.
+function parseFlightsCacheDoc(data, dateStr) {
+  if (!data) return null;
+  var arrRaw, depRaw;
+  if (Array.isArray(data.arrival) || Array.isArray(data.departure)) {
+    arrRaw = data.arrival||[]; depRaw = data.departure||[];
+  } else if (Array.isArray(data.ARR) || Array.isArray(data.DEP)) {
+    arrRaw = data.ARR||[]; depRaw = data.DEP||[];
+  } else if (Array.isArray(data.flights)) {
+    depRaw = data.flights.filter(function(r){ return /DEP|departure/i.test(r.type||''); });
+    arrRaw = data.flights.filter(function(r){ return /ARR|arrival/i.test(r.type||''); });
+  } else {
+    return null;
+  }
+  var arrRows = arrRaw.map(function(r){ return buildFlight(r,'ARR',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
+  var depRows = depRaw.map(function(r){ return buildFlight(r,'DEP',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
+  return arrRows.concat(depRows);
+}
+
+function fetchDayFromCache(dateStr) {
+  return waitForDb().then(function(db){
+    return db.collection('flights_cache').doc(dateStr).get();
+  }).then(function(doc){
+    return doc.exists ? parseFlightsCacheDoc(doc.data(), dateStr) : null;
+  }).catch(function(err){
+    console.warn('flights_cache read failed for', dateStr, err);
+    return null;
+  });
+}
+
+function fetchDayLive(dateStr) {
   return Promise.all([jsonp('arrival', dateStr), jsonp('departure', dateStr)]).then(function(results){
     var arrRows = extractRows(results[0]).map(function(r){ return buildFlight(r,'ARR',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
     var depRows = extractRows(results[1]).map(function(r){ return buildFlight(r,'DEP',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
-    var dayFlights = arrRows.concat(depRows);
+    return arrRows.concat(depRows);
+  });
+}
+
+function fetchDay(dateStr) {
+  if (dayCache[dateStr]) return Promise.resolve(dayCache[dateStr]);
+  // Try the Firestore cache first (fast, no GAS round-trip). Fall back to a
+  // live AIS fetch when the day isn't cached yet (e.g. today, before the
+  // daily sync has run) or the cached document came back empty/unparseable.
+  return fetchDayFromCache(dateStr).then(function(cached){
+    if (cached && cached.length) return cached;
+    return fetchDayLive(dateStr);
+  }).catch(function(err){
+    console.warn('Failed to fetch flights for', dateStr, err);
+    return loadDayFromLS(dateStr) || [];
+  }).then(function(dayFlights){
     dayFlights.forEach(function(f){ ALL_ROUTES_SEEN[f.route]=f.city; ALL_BAYS_SEEN[f.bay]=1; });
     dayCache[dateStr] = dayFlights;
     saveDayToLS(dateStr, dayFlights);
     return dayFlights;
-  }).catch(function(err){
-    console.warn('Failed to fetch flights for', dateStr, err);
-    var cached = loadDayFromLS(dateStr);
-    if (cached) { dayCache[dateStr] = cached; cached.forEach(function(f){ ALL_ROUTES_SEEN[f.route]=f.city; ALL_BAYS_SEEN[f.bay]=1; }); return cached; }
-    return [];
   });
 }
 
