@@ -101,13 +101,16 @@
     .preset-btn:hover { border-color: var(--teal); color: var(--text); }
     .preset-btn.active { background: var(--teal); color: #001318; border-color: var(--teal); }
     .filter-spacer { flex: 1; min-width: 8px; }
-    .range-label { font-size: 11px; color: var(--text3); margin-left: auto; }
-    .theme-toggle-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-sm); padding: 6px 10px; cursor: pointer; font-size: 15px; line-height: 1; flex-shrink: 0; }
+    .dr-picker { order: 1; }
+    .theme-toggle-btn { order: 2; margin-left: auto; background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-sm); padding: 6px 10px; cursor: pointer; font-size: 15px; line-height: 1; flex-shrink: 0; }
+    .range-label { order: 3; flex: 1 1 100%; font-size: 11px; color: var(--text3); }
 
     /* ── ADVANCED FILTER PANEL ── */
-    .af-toggle-btn { display: flex; align-items: center; gap: 8px; background: none; border: none; cursor: pointer; padding: 2px 4px; font-family: inherit; }
-    .af-toggle-btn #advToggleCaret { color: var(--teal); font-size: 11px; transition: transform .15s; display: inline-block; }
+    .af-toggle-btn { display: flex; align-items: center; gap: 8px; background: none; border: none; cursor: pointer; padding: 2px 4px; font-family: inherit; color: var(--text); text-align: left; }
+    .af-toggle-btn #advToggleCaret { color: var(--teal); font-size: 11px; transition: transform .15s; display: inline-block; flex-shrink: 0; }
+    .af-toggle-btn .panel-title { color: var(--text); }
     .af-toggle-btn:hover .panel-title { color: var(--teal); }
+    .panel-head { flex-wrap: wrap; row-gap: 8px; }
     .adv-filter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap: 14px; }
     .af-group { display: flex; flex-direction: column; gap: 6px; }
     .af-group label { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text3); }
@@ -192,7 +195,8 @@
     .legend-row i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
 
     /* Heatmap */
-    .heatmap { display: grid; grid-template-columns: 30px repeat(24, 1fr); gap: 2px; }
+    #heatmapWrap { overflow-x: auto; }
+    .heatmap { display: grid; grid-template-columns: 30px repeat(24, 1fr); gap: 2px; min-width: 520px; }
     .heatmap .hm-label { font-size: 9px; color: var(--text3); display: flex; align-items: center; }
     .heatmap .hm-cell { aspect-ratio: 1; border-radius: 3px; cursor: default; display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; overflow: hidden; }
     .heatmap .hm-hour-label { font-size: 8px; color: var(--text3); text-align: center; }
