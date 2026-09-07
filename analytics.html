@@ -54,15 +54,17 @@
     .brand-sub  { color: #8fb8d8 !important; }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html { overflow-x: hidden; }
-    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 13px; min-height: 100dvh; overflow-x: hidden; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 13px; min-height: 100dvh; }
     ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: var(--bg); }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
     .mono { font-variant-numeric: tabular-nums; }
 
+    /* ── STICKY HEADER GROUP ── */
+    .sticky-top { position: sticky; top: 0; z-index: 100; }
+
     /* ── HEADER ── */
-    .fids-header { background: linear-gradient(135deg,#0d2137 0%,#0a2845 60%,#082040 100%); border-bottom: 2px solid var(--teal-dim); padding: 14px 16px 12px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+    .fids-header { background: linear-gradient(135deg,#0d2137 0%,#0a2845 60%,#082040 100%); border-bottom: 2px solid var(--teal-dim); padding: 14px 16px 12px; display: flex; align-items: center; gap: 12px; }
     .brand { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
     .brand-logo { background: var(--teal); color: #000; font-weight: 900; font-size: 20px; letter-spacing: -.5px; padding: 6px 12px; border-radius: var(--radius-sm); flex-shrink: 0; line-height: 1; }
     .brand-info { min-width: 0; }
@@ -93,7 +95,7 @@
     .btn-logout:hover { background: rgba(255,82,82,.2); }
 
     /* ── FILTER BAR ── */
-    .filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 16px; background: var(--bg2); border-bottom: 1px solid var(--border); position: sticky; top: 70px; z-index: 90; }
+    .filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 16px; background: var(--bg2); border-bottom: 1px solid var(--border); }
     .filter-bar label { font-size: 11px; color: var(--text3); font-weight: 600; }
     .date-input, .search-input { background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 6px 10px; font-size: 12px; font-family: inherit; }
     .date-input:focus, .search-input:focus { outline: none; border-color: var(--teal); }
@@ -238,20 +240,6 @@
 <body>
   <script>document.documentElement.style.visibility="hidden";</script>
 
-<header class="fids-header">
-  <button class="ham-btn" id="hamBtn" title="Menu">☰</button>
-  <div class="brand">
-    <div class="brand-logo">📈</div>
-    <div class="brand-info">
-      <div class="brand-name">Sultan Hasanuddin<br>International Airport</div>
-      <div class="brand-sub">Makassar (UPG) · Analytics</div>
-    </div>
-  </div>
-  <div class="header-right">
-    <div class="clock" id="clock">--:--:--</div>
-    <div class="clock-date" id="clockDate">–</div>
-  </div>
-</header>
 <div class="nav-overlay" id="navOverlay"></div>
 <div class="nav-panel" id="navPanel">
   <div class="nav-panel-head">
@@ -272,6 +260,21 @@
   </div>
 </div>
 
+<div class="sticky-top">
+<header class="fids-header">
+  <button class="ham-btn" id="hamBtn" title="Menu">☰</button>
+  <div class="brand">
+    <div class="brand-logo">📈</div>
+    <div class="brand-info">
+      <div class="brand-name">Sultan Hasanuddin<br>International Airport</div>
+      <div class="brand-sub">Makassar (UPG) · Analytics</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="clock" id="clock">--:--:--</div>
+    <div class="clock-date" id="clockDate">–</div>
+  </div>
+</header>
 <div class="filter-bar">
   <div class="dr-picker" id="drPicker">
     <button type="button" class="dr-trigger" id="drTrigger">
@@ -304,6 +307,7 @@
   </div>
   <span class="range-label" id="rangeLabel">–</span>
   <button type="button" class="theme-toggle-btn" id="themeToggle" title="Toggle Dark/Light">🌙</button>
+</div>
 </div>
 
 <div class="wrap">
