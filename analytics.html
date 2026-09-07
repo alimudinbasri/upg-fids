@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <title>Analytics – M-FIDS</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+  <style>
+    :root {
+      --bg:        #0a1628;
+      --bg2:       #0d1e35;
+      --bg3:       #122444;
+      --card:      #0d1e35;
+      --text:      #eaf6ff;
+      --text2:     #90cce0;
+      --text3:     #6aafc8;
+      --border:    #2a4868;
+      --teal:      #00bcd4;
+      --teal2:     #00e5ff;
+      --teal-dim:  #008fa3;
+      --amber:     #ffc107;
+      --green:     #00e676;
+      --red:       #ff5252;
+      --radius-sm: 8px;
+      --heat-100:#3a1620; --heat-300:#7f1d2b; --heat-500:#c8202e; --heat-700:#ff5252;
+      --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#00b400; --s7:#9085e9; --s8:#e66767;
+    }
+    :root[data-theme="light"] {
+      --bg:        #edf3fb;
+      --bg2:       #ffffff;
+      --bg3:       #ddeaf7;
+      --card:      #ffffff;
+      --text:      #091422;
+      --text2:     #18365a;
+      --text3:     #2c5070;
+      --border:    #8ab0d0;
+      --teal:      #0097a7;
+      --teal2:     #00838f;
+      --teal-dim:  #006978;
+      --amber:     #b85200;
+      --green:     #1b7a38;
+      --red:       #c62828;
+      --heat-100:#fbe4e4; --heat-300:#f3a9a9; --heat-500:#d64545; --heat-700:#8a1f1f;
+      --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#4a3aa7; --s8:#e34948;
+    }
+    :root[data-theme="light"] .fids-header { background: linear-gradient(135deg,#0d2137 0%,#0a2845 60%,#082040 100%); }
+    .clock      { color: #00e7fc !important; }
+    .clock-date { color: #68b8ff !important; }
+    .brand-name { color: #ffffff !important; }
+    .brand-sub  { color: #8fb8d8 !important; }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 13px; min-height: 100dvh; overflow-x: hidden; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .mono { font-variant-numeric: tabular-nums; }
+
+    /* ── HEADER ── */
+    .fids-header { background: linear-gradient(135deg,#0d2137 0%,#0a2845 60%,#082040 100%); border-bottom: 2px solid var(--teal-dim); padding: 14px 16px 12px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+    .brand { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+    .brand-logo { background: var(--teal); color: #000; font-weight: 900; font-size: 20px; letter-spacing: -.5px; padding: 6px 12px; border-radius: var(--radius-sm); flex-shrink: 0; line-height: 1; }
+    .brand-info { min-width: 0; }
+    .brand-name { font-size: 13px; font-weight: 700; }
+    .brand-sub  { font-size: 11px; margin-top: 1px; }
+    .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
+    .clock { font-size: 22px; font-weight: 700; letter-spacing: 1px; font-variant-numeric: tabular-nums; line-height: 1; }
+    .clock-date { font-size: 10px; }
+    .ham-btn { background: none; border: 1.5px solid rgba(0,188,212,.3); border-radius: 8px; color: #00e5ff; font-size: 20px; cursor: pointer; padding: 4px 8px; flex-shrink: 0; line-height: 1; transition: background .15s; }
+    .ham-btn:hover { background: rgba(0,188,212,.12); }
+
+    /* ── NAV ── */
+    .nav-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 4998; display: none; }
+    .nav-overlay.show { display: block; }
+    .nav-panel { position: fixed; top: 0; left: 0; width: 220px; height: 100%; background: #0a1e38; border-right: 1.5px solid var(--border); z-index: 4999; transform: translateX(-100%); transition: transform .22s ease; display: flex; flex-direction: column; }
+    .nav-panel.show { transform: translateX(0); }
+    .nav-panel-head { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .nav-panel-logo { background: var(--teal); color: #000; font-weight: 900; font-size: 13px; padding: 5px 9px; border-radius: 6px; letter-spacing: -.3px; }
+    .nav-panel-title { font-size: 12px; font-weight: 700; color: #97ceff !important; }
+    .nav-links { padding: 10px 8px; display: flex; flex-direction: column; gap: 3px; }
+    .nav-link { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; text-decoration: none; color: #9cc4f5 !important; font-size: 13px; font-weight: 700; transition: background .15s; white-space: nowrap; border-left: 3px solid transparent; }
+    .nav-link:hover { background: rgba(0,188,212,.1); }
+    .nav-link.active { background: rgba(0,188,212,.18); color: #aae8ef !important; border-left-color: var(--teal); }
+    .nav-link-icon { font-size: 17px; width: 26px; text-align: center; flex-shrink: 0; }
+    .nav-footer { margin-top: auto; padding: 12px 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+    .nav-user-name { font-size: 11px; color: #6aafc8; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .btn-logout { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; background: rgba(255,82,82,.1); border: 1px solid rgba(255,82,82,.3); color: #ff7070; font-size: 13px; font-weight: 700; cursor: pointer; width: 100%; transition: background .15s; }
+    .btn-logout:hover { background: rgba(255,82,82,.2); }
+
+    /* ── FILTER BAR ── */
+    .filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 16px; background: var(--bg2); border-bottom: 1px solid var(--border); position: sticky; top: 70px; z-index: 90; }
+    .filter-bar label { font-size: 11px; color: var(--text3); font-weight: 600; }
+    .date-input, .search-input { background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 6px 10px; font-size: 12px; font-family: inherit; }
+    .date-input:focus, .search-input:focus { outline: none; border-color: var(--teal); }
+    .preset-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .preset-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text3); border-radius: 999px; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; transition: .15s; white-space: nowrap; }
+    .preset-btn:hover { border-color: var(--teal); color: var(--text); }
+    .preset-btn.active { background: var(--teal); color: #001318; border-color: var(--teal); }
+    .filter-spacer { flex: 1; min-width: 8px; }
+    .range-label { font-size: 11px; color: var(--text3); margin-left: auto; }
+    .theme-toggle-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-sm); padding: 6px 10px; cursor: pointer; font-size: 15px; line-height: 1; flex-shrink: 0; }
+
+    /* ── ADVANCED FILTER PANEL ── */
+    .adv-filter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap: 14px; }
+    .af-group { display: flex; flex-direction: column; gap: 6px; }
+    .af-group label { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text3); }
+    .af-group label small { text-transform: none; font-weight: 500; letter-spacing: 0; color: var(--text3); opacity: .8; }
+    .toggle-group { display: flex; gap: 4px; flex-wrap: wrap; }
+    .toggle-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text3); border-radius: 7px; padding: 6px 10px; font-size: 11px; font-weight: 600; cursor: pointer; transition: .15s; }
+    .toggle-btn:hover { border-color: var(--teal); color: var(--text); }
+    .toggle-btn.active { background: var(--teal); color: #001318; border-color: var(--teal); }
+    select.date-input[multiple] { min-height: 84px; padding: 4px; }
+    select.date-input[multiple] option { padding: 3px 6px; border-radius: 4px; }
+    select.date-input[multiple] option:checked { background: var(--teal); color: #001318; }
+    #fHourFrom, #fHourTo { min-width: 68px; }
+
+    /* ── LAYOUT ── */
+    .wrap { max-width: 1360px; margin: 0 auto; padding: 18px 16px 60px; }
+
+    /* KPI */
+    .kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 16px; }
+    @media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2,1fr); } }
+    .kpi-tile { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+    .kpi-label { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text3); }
+    .kpi-value { font-size: 26px; font-weight: 800; margin-top: 6px; line-height: 1; }
+    .kpi-delta { font-size: 11px; margin-top: 7px; font-weight: 600; }
+    .kpi-delta.up { color: var(--green); }
+    .kpi-delta.down { color: var(--red); }
+    .kpi-delta.flat { color: var(--text3); }
+
+    /* Section headings */
+    .sec-heading { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--teal-dim); margin: 26px 0 12px; display: flex; align-items: center; gap: 10px; }
+    .sec-heading::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+    .sec-heading:first-of-type { margin-top: 0; }
+
+    /* Card grid */
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+    @media (max-width: 980px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+    .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .panel.span2 { grid-column: span 2; }
+    @media (max-width: 980px) { .panel.span2 { grid-column: span 1; } }
+    .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+    .panel-title { font-size: 14px; font-weight: 700; }
+    .panel-sub { font-size: 11px; color: var(--text3); }
+    .panel-body { flex: 1; min-height: 0; }
+    .chart-box { position: relative; height: 240px; }
+    .chart-box.tall { height: 300px; }
+    .chart-box.short { height: 170px; }
+    .insight { font-size: 11.5px; color: var(--text2); background: var(--bg3); border-radius: 8px; padding: 8px 10px; display: flex; gap: 7px; }
+    .insight b { color: var(--text); }
+    .legend-row { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 11px; color: var(--text3); }
+    .legend-row span { display: inline-flex; align-items: center; gap: 5px; }
+    .legend-row i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+
+    /* Heatmap */
+    .heatmap { display: grid; grid-template-columns: 30px repeat(24, 1fr); gap: 2px; }
+    .heatmap .hm-label { font-size: 9px; color: var(--text3); display: flex; align-items: center; }
+    .heatmap .hm-cell { aspect-ratio: 1; border-radius: 3px; cursor: default; }
+    .heatmap .hm-hour-label { font-size: 8px; color: var(--text3); text-align: center; }
+    .hm-scale { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text3); margin-top: 4px; }
+    .hm-scale i { width: 14px; height: 10px; border-radius: 2px; display: inline-block; }
+
+    /* Tables */
+    .table-wrap-scroll { overflow-x: auto; }
+    table.data-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+    table.data-tbl th { text-align: left; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text3); padding: 6px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
+    table.data-tbl th:hover { color: var(--text); }
+    table.data-tbl th .arrow { opacity: .4; margin-left: 3px; }
+    table.data-tbl th.sorted .arrow { opacity: 1; color: var(--teal); }
+    table.data-tbl td { padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,.04); white-space: nowrap; }
+    :root[data-theme="light"] table.data-tbl td { border-bottom-color: rgba(0,0,0,.05); }
+    table.data-tbl tr:hover td { background: var(--bg3); }
+    table.data-tbl td.num, table.data-tbl th.num { text-align: right; }
+    .bar-cell { display: flex; align-items: center; gap: 8px; }
+    .bar-track { flex: 1; height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; min-width: 60px; }
+    .bar-fill { height: 100%; border-radius: 4px; background: var(--teal); }
+    .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; }
+    .pill.ontime { background: rgba(0,230,118,.14); color: var(--green); }
+    .pill.delay  { background: rgba(255,193,7,.16); color: var(--amber); }
+    .pill.cancel { background: rgba(255,82,82,.14); color: var(--red); }
+    .pill.dom { background: rgba(0,188,212,.14); color: var(--teal); }
+    .pill.int { background: rgba(144,133,233,.18); color: #b3a7ff; }
+    :root[data-theme="light"] .pill.int { color: #4a3aa7; }
+
+    .table-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .table-toolbar .search-input { min-width: 220px; flex: 1; }
+    .pager { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text3); margin-top: 6px; }
+    .pager button { background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 11px; }
+    .pager button:disabled { opacity: .4; cursor: not-allowed; }
+
+    .foot-note { text-align: center; font-size: 11px; color: var(--text3); margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+  <script>document.documentElement.style.visibility="hidden";</script>
+
+<header class="fids-header">
+  <button class="ham-btn" id="hamBtn" title="Menu">☰</button>
+  <div class="brand">
+    <div class="brand-logo">📈</div>
+    <div class="brand-info">
+      <div class="brand-name">Sultan Hasanuddin<br>International Airport</div>
+      <div class="brand-sub">Makassar (UPG) · Analytics</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="clock" id="clock">--:--:--</div>
+    <div class="clock-date" id="clockDate">–</div>
+  </div>
+</header>
+<div class="nav-overlay" id="navOverlay"></div>
+<div class="nav-panel" id="navPanel">
+  <div class="nav-panel-head">
+    <span class="nav-panel-logo">UPG</span>
+    <span class="nav-panel-title">Sultan Hasanuddin</span>
+  </div>
+  <nav class="nav-links">
+    <a href="index.html" class="nav-link"><span class="nav-link-icon">📺</span>FIDS</a>
+    <a href="real_gate.html" class="nav-link"><span class="nav-link-icon">🚪</span>Real Gate</a>
+    <a href="real_belt.html" class="nav-link"><span class="nav-link-icon">🛄</span>Real Belt</a>
+    <a href="otp.html"       class="nav-link"><span class="nav-link-icon">📊</span>OTP Report</a>
+    <a href="analytics.html" class="nav-link active"><span class="nav-link-icon">📈</span>Analytics</a>
+    <a href="admin.html" id="nav-admin-link" class="nav-link" style="display:none"><span class="nav-link-icon">🛡</span>Admin</a>
+  </nav>
+  <div class="nav-footer">
+    <div class="nav-user-name" id="nav-user-name">–</div>
+    <button class="btn-logout" id="btn-logout"><span style="font-size:16px;">⏻</span> Logout</button>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <label>Dari</label>
+  <input type="date" id="fFrom" class="date-input">
+  <label>Sampai</label>
+  <input type="date" id="fTo" class="date-input">
+  <div class="preset-row" id="presetRow">
+    <button class="preset-btn" data-preset="7">7 hari</button>
+    <button class="preset-btn" data-preset="30">30 hari</button>
+    <button class="preset-btn" data-preset="90">90 hari</button>
+    <button class="preset-btn" data-preset="month">Bulan ini</button>
+    <button class="preset-btn" data-preset="all">Semua</button>
+  </div>
+  <span class="range-label" id="rangeLabel">–</span>
+  <button type="button" class="theme-toggle-btn" id="themeToggle" title="Toggle Dark/Light">🌙</button>
+</div>
+
+<div class="wrap">
+
+  <div class="panel" id="advFilterPanel" style="margin-bottom:16px;">
+    <div class="panel-head">
+      <span class="panel-title">Filter Lanjutan</span>
+      <button type="button" class="preset-btn" id="btnResetFilters">↺ Reset Semua Filter</button>
+    </div>
+    <div class="adv-filter-grid">
+      <div class="af-group">
+        <label>Tipe</label>
+        <div class="toggle-group" id="tgType">
+          <button type="button" class="toggle-btn active" data-value="">Semua</button>
+          <button type="button" class="toggle-btn" data-value="ARR">Arrival</button>
+          <button type="button" class="toggle-btn" data-value="DEP">Departure</button>
+        </div>
+      </div>
+      <div class="af-group">
+        <label>Kelas</label>
+        <div class="toggle-group" id="tgCls">
+          <button type="button" class="toggle-btn active" data-value="">Semua</button>
+          <button type="button" class="toggle-btn" data-value="DOM">Domestik</button>
+          <button type="button" class="toggle-btn" data-value="INT">Internasional</button>
+        </div>
+      </div>
+      <div class="af-group">
+        <label>Jam (dari – sampai)</label>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <select id="fHourFrom" class="date-input"></select>
+          <span style="color:var(--text3)">–</span>
+          <select id="fHourTo" class="date-input"></select>
+        </div>
+      </div>
+      <div class="af-group">
+        <label>Nomor Penerbangan</label>
+        <input type="text" id="fFlightNo" class="search-input" placeholder="mis. JT-812">
+      </div>
+      <div class="af-group">
+        <label>Maskapai <small>(bisa multi)</small></label>
+        <select id="fAirline" class="date-input" multiple size="4"></select>
+      </div>
+      <div class="af-group">
+        <label>Rute <small>(bisa multi)</small></label>
+        <select id="fRoute" class="date-input" multiple size="4"></select>
+      </div>
+      <div class="af-group">
+        <label>Gate <small>(bisa multi)</small></label>
+        <select id="fGate" class="date-input" multiple size="4"></select>
+      </div>
+      <div class="af-group">
+        <label>Belt <small>(bisa multi)</small></label>
+        <select id="fBelt" class="date-input" multiple size="4"></select>
+      </div>
+      <div class="af-group">
+        <label>Parkir Pesawat <small>(bisa multi)</small></label>
+        <select id="fBay" class="date-input" multiple size="4"></select>
+      </div>
+    </div>
+    <div class="panel-sub" id="activeFilterSummary" style="margin-top:10px;"></div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-tile"><div class="kpi-label">Total Penerbangan</div><div class="kpi-value mono" id="kpiFlights">–</div><div class="kpi-delta mono" id="kpiFlightsDelta"></div></div>
+    <div class="kpi-tile"><div class="kpi-label">Total Penumpang</div><div class="kpi-value mono" id="kpiPax">–</div><div class="kpi-delta mono" id="kpiPaxDelta"></div></div>
+    <div class="kpi-tile"><div class="kpi-label">On-Time Performance</div><div class="kpi-value mono" id="kpiOtp">–</div><div class="kpi-delta mono" id="kpiOtpDelta"></div></div>
+    <div class="kpi-tile"><div class="kpi-label">Rata-rata Delay</div><div class="kpi-value mono" id="kpiDelay">–</div><div class="kpi-delta mono" id="kpiDelayDelta"></div></div>
+  </div>
+
+  <h3 class="sec-heading">Tren &amp; Pola Waktu</h3>
+  <div class="grid2">
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">Tren Volume Penerbangan</span><span class="panel-sub" id="trendSub">per hari</span></div>
+      <div class="panel-body chart-box"><canvas id="chartTrend"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">Peta Panas Jam Sibuk</span><span class="panel-sub">jam × hari dalam seminggu</span></div>
+      <div class="panel-body" id="heatmapWrap"></div>
+      <div class="hm-scale"><span>Renggang</span><i style="background:var(--heat-100)"></i><i style="background:var(--heat-300)"></i><i style="background:var(--heat-500)"></i><i style="background:var(--heat-700)"></i><span>Padat</span></div>
+      <div class="insight" id="peakInsight">–</div>
+    </div>
+  </div>
+
+  <h3 class="sec-heading">Rute &amp; Maskapai</h3>
+  <div class="grid2">
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">Rute Tersibuk</span><span class="panel-sub">klik baris untuk fokus</span></div>
+      <div class="panel-body chart-box tall"><canvas id="chartRoutes"></canvas></div>
+      <div class="table-wrap-scroll">
+        <table class="data-tbl" id="tblRoutes">
+          <thead><tr><th data-key="route">Rute</th><th data-key="flights" class="num">Flight</th><th data-key="pax" class="num">Pax</th><th data-key="otp" class="num">OTP</th><th data-key="cls">Kelas</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">Pangsa Maskapai</span><span class="panel-sub" id="airlineInsight2"></span></div>
+      <div class="panel-body chart-box tall"><canvas id="chartAirlines"></canvas></div>
+      <div class="table-wrap-scroll">
+        <table class="data-tbl" id="tblAirlines">
+          <thead><tr><th data-key="airline">Maskapai</th><th data-key="flights" class="num">Flight</th><th data-key="pax" class="num">Pax</th><th data-key="otp" class="num">OTP</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="sec-heading">Operasional &amp; OTP</h3>
+  <div class="grid3">
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">Utilisasi Gate</span><span class="panel-sub">DEP</span></div>
+      <div class="panel-body chart-box"><canvas id="chartGates"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">Utilisasi Belt</span><span class="panel-sub">ARR</span></div>
+      <div class="panel-body chart-box"><canvas id="chartBelts"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">Komposisi Kategori Delay</span><span class="panel-sub">PM 89/2015</span></div>
+      <div class="panel-body chart-box"><canvas id="chartCategory"></canvas></div>
+    </div>
+  </div>
+  <div class="grid2" style="margin-top:14px;">
+    <div class="panel span2">
+      <div class="panel-head"><span class="panel-title">Tren OTP Mingguan</span><span class="panel-sub">tepat waktu vs delay vs batal</span></div>
+      <div class="panel-body chart-box"><canvas id="chartOtpTrend"></canvas></div>
+    </div>
+  </div>
+
+  <h3 class="sec-heading">Segmentasi</h3>
+  <div class="grid2">
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">Domestik vs Internasional</span><span class="panel-sub">per bulan</span></div>
+      <div class="panel-body chart-box"><canvas id="chartDomInt"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">ARR vs DEP per Jam</span><span class="panel-sub">rata-rata harian pada rentang terpilih</span></div>
+      <div class="panel-body chart-box"><canvas id="chartArrDep"></canvas></div>
+    </div>
+  </div>
+
+  <h3 class="sec-heading">Log Penerbangan</h3>
+  <div class="panel">
+    <div class="table-toolbar">
+      <input type="text" id="logSearch" class="search-input" placeholder="Cari flight, rute, maskapai, gate/belt…">
+      <span class="panel-sub mono" id="logCount"></span>
+    </div>
+    <div class="table-wrap-scroll">
+      <table class="data-tbl" id="tblLog">
+        <thead><tr>
+          <th data-key="date">Tanggal<span class="arrow">↕</span></th>
+          <th data-key="time">Jam<span class="arrow">↕</span></th>
+          <th data-key="flightNo">Flight<span class="arrow">↕</span></th>
+          <th data-key="type">Tipe<span class="arrow">↕</span></th>
+          <th data-key="route">Rute<span class="arrow">↕</span></th>
+          <th data-key="cls">Kelas<span class="arrow">↕</span></th>
+          <th data-key="gb">Gate/Belt<span class="arrow">↕</span></th>
+          <th data-key="bay">Parkir<span class="arrow">↕</span></th>
+          <th data-key="delayMin" class="num">Delay<span class="arrow">↕</span></th>
+          <th data-key="status">Status<span class="arrow">↕</span></th>
+          <th data-key="pax" class="num">Pax<span class="arrow">↕</span></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <button id="pagerPrev">‹ Sebelumnya</button>
+      <span id="pagerInfo">–</span>
+      <button id="pagerNext">Berikutnya ›</button>
+    </div>
+  </div>
+
+  <div class="foot-note">Seluruh angka pada halaman ini adalah <b>data simulasi</b> (dibuat deterministik di browser), belum tersambung ke <span class="mono">flights_cache</span> — halaman ini adalah pratinjau fungsional untuk memvalidasi rancangan dashboard sebelum data historis asli tersedia.</div>
+</div>
+
+<script>
+/* ============================================================
+   DETERMINISTIC DATA SIMULATION
+   Seeded PRNG so reloading the page doesn't reshuffle the numbers.
+============================================================ */
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+var rng = mulberry32(20260906);
+function rand() { return rng(); }
+function randInt(a,b) { return Math.floor(rand()*(b-a+1))+a; }
+function weightedPick(items) {
+  var total = items.reduce(function(s,it){return s+it.w;},0);
+  var r = rand()*total;
+  for (var i=0;i<items.length;i++) { r -= items[i].w; if (r<=0) return items[i]; }
+  return items[items.length-1];
+}
+
+var AIRLINES = [
+  {code:'JT', name:'Lion Air',        w:26},
+  {code:'GA', name:'Garuda Indonesia',w:17},
+  {code:'QG', name:'Citilink',        w:15},
+  {code:'ID', name:'Batik Air',       w:14},
+  {code:'IU', name:'Super Air Jet',   w:11},
+  {code:'IW', name:'Wings Air',       w:8},
+  {code:'SJ', name:'Sriwijaya Air',   w:5},
+  {code:'IN', name:'NAM Air',         w:4}
+];
+var ROUTES = [
+  {code:'CGK', city:'Jakarta',    cls:'DOM', w:22, paxMin:130, paxMax:189},
+  {code:'DPS', city:'Denpasar',   cls:'DOM', w:15, paxMin:120, paxMax:180},
+  {code:'BPN', city:'Balikpapan', cls:'DOM', w:12, paxMin:110, paxMax:170},
+  {code:'MDC', city:'Manado',     cls:'DOM', w:10, paxMin:100, paxMax:160},
+  {code:'KDI', city:'Kendari',    cls:'DOM', w:9,  paxMin:60,  paxMax:120},
+  {code:'AMQ', city:'Ambon',      cls:'DOM', w:7,  paxMin:80,  paxMax:150},
+  {code:'TIM', city:'Timika',     cls:'DOM', w:6,  paxMin:60,  paxMax:110},
+  {code:'BIK', city:'Biak',       cls:'DOM', w:5,  paxMin:60,  paxMax:110},
+  {code:'LUW', city:'Luwuk',      cls:'DOM', w:4,  paxMin:40,  paxMax:72},
+  {code:'SOQ', city:'Sorong',     cls:'DOM', w:4,  paxMin:60,  paxMax:110},
+  {code:'PLM', city:'Palembang',  cls:'DOM', w:3,  paxMin:100, paxMax:160},
+  {code:'JED', city:'Jeddah',     cls:'INT', w:1.4,paxMin:280, paxMax:380},
+  {code:'KUL', city:'Kuala Lumpur',cls:'INT',w:1.6,paxMin:140, paxMax:189}
+];
+var GATES = ['1','2','3','4','5','6','6A','7','8','9','9A','10','11','11A','11B','12'];
+var BELTS = ['1','2','3','4','5','6','7','8','9','10'];
+
+var DATASET_DAYS = 180;
+var today = new Date(); today.setHours(0,0,0,0);
+var datasetStart = new Date(today); datasetStart.setDate(datasetStart.getDate() - (DATASET_DAYS-1));
+
+function fmtDate(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function fmtHM(mins) { mins=((mins%1440)+1440)%1440; return String(Math.floor(mins/60)).padStart(2,'0')+':'+String(mins%60).padStart(2,'0'); }
+
+// Hour-of-day traffic weight profile (index = hour 0-23), airport-realistic double peak
+var HOUR_WEIGHTS = [1,1,1,1,2,6,10,9,6,4,4,5,6,6,5,5,6,8,10,9,7,4,2,1];
+
+var FLIGHTS = (function generate() {
+  var out = [];
+  for (var d=0; d<DATASET_DAYS; d++) {
+    var day = new Date(datasetStart); day.setDate(day.getDate()+d);
+    var dow = day.getDay(); // 0 Sun .. 6 Sat
+    var dateStr = fmtDate(day);
+    var progress = d/(DATASET_DAYS-1); // 0..1 mild growth trend
+    var weekendBoost = (dow===5||dow===6||dow===0) ? 1.12 : 1.0;
+    var base = 78 * (0.92 + 0.16*progress) * weekendBoost; // per ARR/DEP direction
+    // occasional surge day (public-holiday-like) roughly monthly
+    var surge = (d % 27 === 5) ? 1.35 : 1.0;
+    var totalToday = Math.round(base*2*surge);
+
+    // bad-weather / ATC delay day roughly every ~19 days
+    var badDay = (d % 19 === 9);
+
+    for (var i=0;i<totalToday;i++) {
+      var type = i%2===0 ? 'ARR' : 'DEP';
+      var hour = weightedPick(HOUR_WEIGHTS.map(function(w,h){return {h:h,w:w};})).h;
+      var minute = randInt(0,59);
+      var schedMin = hour*60+minute;
+      var route = weightedPick(ROUTES);
+      var airline = weightedPick(AIRLINES);
+      var flightNo = airline.code+'-'+String(randInt(100,999));
+      var pax = randInt(route.paxMin, route.paxMax);
+
+      // delay model
+      var delayRoll = rand();
+      var delayMin = 0, category = 0;
+      var cancelChance = badDay ? 0.03 : 0.006;
+      if (rand() < cancelChance) {
+        category = 6; delayMin = 0;
+      } else {
+        var thresh = badDay ? 0.55 : 0.82; // chance on-time
+        if (delayRoll < thresh) { delayMin = randInt(-5,14); category = 0; }
+        else {
+          var over = delayRoll - thresh;
+          var span = 1-thresh;
+          var severity = over/span; // 0..1
+          if (severity < 0.45) { delayMin = randInt(30,60); category = 1; }
+          else if (severity < 0.70) { delayMin = randInt(61,120); category = 2; }
+          else if (severity < 0.86) { delayMin = randInt(121,180); category = 3; }
+          else if (severity < 0.96) { delayMin = randInt(181,240); category = 4; }
+          else { delayMin = randInt(241,320); category = 5; }
+        }
+      }
+
+      var gate = type==='DEP' ? GATES[randInt(0,GATES.length-1)] : null;
+      var belt = type==='ARR' ? BELTS[randInt(0,BELTS.length-1)] : null;
+      var gb = type==='DEP' ? 'G'+gate : 'B'+belt;
+      var bay = (rand()<0.72 ? 'C' : 'R') + randInt(1, 42); // Contact / Remote parking stand
+
+      out.push({
+        date: dateStr, dow: dow,
+        time: fmtHM(schedMin),
+        hour: hour,
+        type: type,
+        flightNo: flightNo,
+        airline: airline.code, airlineName: airline.name,
+        route: route.code, city: route.city, cls: route.cls,
+        gate: gate, belt: belt, gb: gb, bay: bay,
+        pax: category===6 ? 0 : pax,
+        delayMin: category===6 ? 0 : Math.max(0,delayMin),
+        category: category
+      });
+    }
+  }
+  return out;
+})();
+
+/* ============================================================
+   THEME
+============================================================ */
+function currentTheme() { return document.documentElement.getAttribute('data-theme')==='light' ? 'light' : 'dark'; }
+function cv(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function palette() {
+  return {
+    text: cv('--text'), text3: cv('--text3'), border: cv('--border'),
+    teal: cv('--teal'), amber: cv('--amber'), green: cv('--green'), red: cv('--red'),
+    heat: [cv('--heat-100'), cv('--heat-300'), cv('--heat-500'), cv('--heat-700')],
+    cat: [cv('--s1'),cv('--s2'),cv('--s3'),cv('--s4'),cv('--s5'),cv('--s6'),cv('--s7'),cv('--s8')]
+  };
+}
+
+(function(){
+  var root = document.documentElement;
+  var btn  = document.getElementById('themeToggle');
+  function applyTheme(t) {
+    if (t === 'light') { root.setAttribute('data-theme','light'); btn.textContent='☀️'; }
+    else               { root.removeAttribute('data-theme');       btn.textContent='🌙'; }
+  }
+  applyTheme(localStorage.getItem('analyticsTheme') || 'dark');
+  btn.addEventListener('click', function(){
+    var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    localStorage.setItem('analyticsTheme', next);
+    applyTheme(next);
+    renderAll(); // charts are canvas-drawn — must redraw with the new theme's colors
+  });
+})();
+
+(function(){
+  var btn = document.getElementById('hamBtn');
+  var overlay = document.getElementById('navOverlay');
+  var panel = document.getElementById('navPanel');
+  function openNav(){ panel.classList.add('show'); overlay.classList.add('show'); }
+  function closeNav(){ panel.classList.remove('show'); overlay.classList.remove('show'); }
+  btn.addEventListener('click', openNav);
+  overlay.addEventListener('click', closeNav);
+  document.addEventListener('keydown', function(e){ if (e.key==='Escape') closeNav(); });
+})();
+
+function tickClock() {
+  var now = new Date();
+  document.getElementById('clock').textContent = String(now.getHours()).padStart(2,'0')+'.'+String(now.getMinutes()).padStart(2,'0')+'.'+String(now.getSeconds()).padStart(2,'0');
+  var days=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+  var months=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  document.getElementById('clockDate').textContent = days[now.getDay()]+', '+now.getDate()+' '+months[now.getMonth()]+' '+now.getFullYear();
+}
+tickClock(); setInterval(tickClock,1000);
+
+/* ============================================================
+   FILTER STATE
+============================================================ */
+var state = { from: null, to: null, search: '', sortKey:'date', sortDir:'desc', page:1, pageSize:25,
+              routesSortKey:'flights', routesSortDir:'desc', airlinesSortKey:'flights', airlinesSortDir:'desc',
+              type:'', cls:'', hourFrom:0, hourTo:23, flightNo:'',
+              airlines:[], routes:[], gates:[], belts:[], bays:[] };
+
+/* ── Populate advanced-filter option lists from the dataset ── */
+(function populateAdvFilters(){
+  var hf = document.getElementById('fHourFrom'), ht = document.getElementById('fHourTo');
+  for (var h=0; h<24; h++) {
+    hf.appendChild(new Option(String(h).padStart(2,'0')+':00', h));
+    ht.appendChild(new Option(String(h).padStart(2,'0')+':00', h));
+  }
+  ht.value = 23;
+
+  function fillSelect(sel, values) { values.forEach(function(v){ sel.appendChild(new Option(v.label, v.value)); }); }
+  fillSelect(document.getElementById('fAirline'), AIRLINES.map(function(a){return {label:a.code+' — '+a.name, value:a.code};}));
+  fillSelect(document.getElementById('fRoute'), ROUTES.map(function(r){return {label:r.code+' — '+r.city, value:r.code};}));
+  fillSelect(document.getElementById('fGate'), GATES.map(function(g){return {label:'Gate '+g, value:g};}));
+  fillSelect(document.getElementById('fBelt'), BELTS.map(function(b){return {label:'Belt '+b, value:b};}));
+  var bays = Array.from(new Set(FLIGHTS.map(function(f){return f.bay;}))).sort();
+  fillSelect(document.getElementById('fBay'), bays.map(function(b){return {label:b, value:b};}));
+})();
+
+function multiValues(sel) { return Array.from(sel.selectedOptions).map(function(o){return o.value;}); }
+
+document.querySelectorAll('#tgType .toggle-btn').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('#tgType .toggle-btn').forEach(function(x){x.classList.remove('active');});
+    b.classList.add('active'); state.type = b.dataset.value; state.page=1; renderAll();
+  });
+});
+document.querySelectorAll('#tgCls .toggle-btn').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('#tgCls .toggle-btn').forEach(function(x){x.classList.remove('active');});
+    b.classList.add('active'); state.cls = b.dataset.value; state.page=1; renderAll();
+  });
+});
+document.getElementById('fHourFrom').addEventListener('change', function(e){ state.hourFrom = parseInt(e.target.value,10); state.page=1; renderAll(); });
+document.getElementById('fHourTo').addEventListener('change', function(e){ state.hourTo = parseInt(e.target.value,10); state.page=1; renderAll(); });
+document.getElementById('fFlightNo').addEventListener('input', function(e){ state.flightNo = e.target.value.trim().toUpperCase(); state.page=1; renderAll(); });
+['fAirline','fRoute','fGate','fBelt','fBay'].forEach(function(id){
+  document.getElementById(id).addEventListener('change', function(e){
+    var key = {fAirline:'airlines',fRoute:'routes',fGate:'gates',fBelt:'belts',fBay:'bays'}[id];
+    state[key] = multiValues(e.target);
+    state.page = 1; renderAll();
+  });
+});
+document.getElementById('btnResetFilters').addEventListener('click', function(){
+  state.type=''; state.cls=''; state.hourFrom=0; state.hourTo=23; state.flightNo='';
+  state.airlines=[]; state.routes=[]; state.gates=[]; state.belts=[]; state.bays=[];
+  document.querySelectorAll('#tgType .toggle-btn, #tgCls .toggle-btn').forEach(function(x){x.classList.remove('active');});
+  document.querySelector('#tgType .toggle-btn[data-value=""]').classList.add('active');
+  document.querySelector('#tgCls .toggle-btn[data-value=""]').classList.add('active');
+  document.getElementById('fHourFrom').value = 0;
+  document.getElementById('fHourTo').value = 23;
+  document.getElementById('fFlightNo').value = '';
+  ['fAirline','fRoute','fGate','fBelt','fBay'].forEach(function(id){ Array.from(document.getElementById(id).options).forEach(function(o){o.selected=false;}); });
+  state.page = 1;
+  renderAll();
+});
+
+function syncMultiSelect(id, values) {
+  var sel = document.getElementById(id);
+  Array.from(sel.options).forEach(function(o){ o.selected = values.indexOf(o.value)>=0; });
+}
+function toggleRouteFocus(route) {
+  state.routes = (state.routes.length===1 && state.routes[0]===route) ? [] : [route];
+  syncMultiSelect('fRoute', state.routes);
+  state.page = 1; renderAll();
+}
+function toggleAirlineFocus(airline) {
+  state.airlines = (state.airlines.length===1 && state.airlines[0]===airline) ? [] : [airline];
+  syncMultiSelect('fAirline', state.airlines);
+  state.page = 1; renderAll();
+}
+
+function renderActiveFilterSummary() {
+  var parts = [];
+  if (state.type) parts.push('Tipe: '+state.type);
+  if (state.cls) parts.push('Kelas: '+state.cls);
+  if (state.hourFrom!==0 || state.hourTo!==23) parts.push('Jam: '+String(state.hourFrom).padStart(2,'0')+':00–'+String(state.hourTo).padStart(2,'0')+':00');
+  if (state.flightNo) parts.push('No. Penerbangan: "'+state.flightNo+'"');
+  if (state.airlines.length) parts.push('Maskapai: '+state.airlines.join(', '));
+  if (state.routes.length) parts.push('Rute: '+state.routes.join(', '));
+  if (state.gates.length) parts.push('Gate: '+state.gates.join(', '));
+  if (state.belts.length) parts.push('Belt: '+state.belts.join(', '));
+  if (state.bays.length) parts.push('Parkir: '+state.bays.join(', '));
+  document.getElementById('activeFilterSummary').textContent = parts.length ? ('Filter aktif — '+parts.join(' · ')) : 'Tidak ada filter tambahan aktif.';
+}
+
+var fFrom = document.getElementById('fFrom'), fTo = document.getElementById('fTo');
+fFrom.min = fTo.min = fmtDate(datasetStart);
+fFrom.max = fTo.max = fmtDate(today);
+
+function setPreset(days) {
+  var to = new Date(today);
+  var from;
+  if (days==='all') from = new Date(datasetStart);
+  else if (days==='month') { from = new Date(today.getFullYear(), today.getMonth(), 1); }
+  else { from = new Date(today); from.setDate(from.getDate()-(days-1)); }
+  if (from < datasetStart) from = new Date(datasetStart);
+  state.from = fmtDate(from); state.to = fmtDate(to);
+  fFrom.value = state.from; fTo.value = state.to;
+}
+setPreset(30);
+
+document.querySelectorAll('#presetRow .preset-btn').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('#presetRow .preset-btn').forEach(function(x){x.classList.remove('active');});
+    b.classList.add('active');
+    setPreset(b.dataset.preset === 'all' || b.dataset.preset==='month' ? b.dataset.preset : parseInt(b.dataset.preset,10));
+    state.page = 1;
+    renderAll();
+  });
+});
+document.querySelector('#presetRow .preset-btn[data-preset="30"]').classList.add('active');
+
+[fFrom, fTo].forEach(function(inp){
+  inp.addEventListener('change', function(){
+    document.querySelectorAll('.preset-btn').forEach(function(x){x.classList.remove('active');});
+    state.from = fFrom.value; state.to = fTo.value;
+    state.page = 1;
+    renderAll();
+  });
+});
+
+document.getElementById('logSearch').addEventListener('input', function(e){
+  state.search = e.target.value.trim().toLowerCase();
+  state.page = 1;
+  renderLogTable();
+});
+
+/* ============================================================
+   FILTERING & AGGREGATION
+============================================================ */
+function matchesAdvanced(f) {
+  if (state.type && f.type !== state.type) return false;
+  if (state.cls && f.cls !== state.cls) return false;
+  if (f.hour < state.hourFrom || f.hour > state.hourTo) return false;
+  if (state.flightNo && f.flightNo.indexOf(state.flightNo) === -1) return false;
+  if (state.airlines.length && state.airlines.indexOf(f.airline) === -1) return false;
+  if (state.routes.length && state.routes.indexOf(f.route) === -1) return false;
+  if (state.gates.length && (f.gate===null || state.gates.indexOf(f.gate) === -1)) return false;
+  if (state.belts.length && (f.belt===null || state.belts.indexOf(f.belt) === -1)) return false;
+  if (state.bays.length && state.bays.indexOf(f.bay) === -1) return false;
+  return true;
+}
+function inRange(f) { return f.date >= state.from && f.date <= state.to && matchesAdvanced(f); }
+function filtered() { return FLIGHTS.filter(inRange); }
+function previousPeriod() {
+  var from = new Date(state.from+'T00:00:00'), to = new Date(state.to+'T00:00:00');
+  var spanDays = Math.round((to-from)/86400000)+1;
+  var prevTo = new Date(from); prevTo.setDate(prevTo.getDate()-1);
+  var prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate()-(spanDays-1));
+  var pf = fmtDate(prevFrom), pt = fmtDate(prevTo);
+  return FLIGHTS.filter(function(f){ return f.date>=pf && f.date<=pt && matchesAdvanced(f); });
+}
+
+function sum(arr,fn){ return arr.reduce(function(s,x){return s+fn(x);},0); }
+function otpPct(arr){ if(!arr.length) return 0; var ok=arr.filter(function(f){return f.category===0;}).length; var withCancel=arr.length; return 100*ok/withCancel; }
+function avgDelay(arr){ var d=arr.filter(function(f){return f.category>0 && f.category<6;}); if(!d.length) return 0; return sum(d,function(f){return f.delayMin;})/d.length; }
+
+function deltaHtml(el, cur, prev, unit, higherIsBetter) {
+  if (prev===0 && cur===0) { el.textContent='–'; el.className='kpi-delta mono flat'; return; }
+  var diff = cur-prev;
+  var pct = prev===0 ? 100 : (diff/prev*100);
+  var good = higherIsBetter ? diff>=0 : diff<=0;
+  el.className = 'kpi-delta mono ' + (Math.abs(pct)<0.5 ? 'flat' : (good?'up':'down'));
+  var arrow = diff>0?'▲':(diff<0?'▼':'—');
+  el.textContent = arrow+' '+Math.abs(pct).toFixed(1)+'% vs periode sebelumnya';
+}
+
+/* ============================================================
+   RENDER: KPI
+============================================================ */
+function renderKpi(cur, prev) {
+  var flights=cur.length, pflights=prev.length;
+  var pax=sum(cur,function(f){return f.pax;}), ppax=sum(prev,function(f){return f.pax;});
+  var otp=otpPct(cur), potp=otpPct(prev);
+  var dly=avgDelay(cur), pdly=avgDelay(prev);
+  document.getElementById('kpiFlights').textContent = flights.toLocaleString('id-ID');
+  document.getElementById('kpiPax').textContent = pax.toLocaleString('id-ID');
+  document.getElementById('kpiOtp').textContent = otp.toFixed(1)+'%';
+  document.getElementById('kpiDelay').textContent = dly.toFixed(0)+' mnt';
+  deltaHtml(document.getElementById('kpiFlightsDelta'), flights, pflights, '', true);
+  deltaHtml(document.getElementById('kpiPaxDelta'), pax, ppax, '', true);
+  deltaHtml(document.getElementById('kpiOtpDelta'), otp, potp, '%', true);
+  deltaHtml(document.getElementById('kpiDelayDelta'), dly, pdly, 'mnt', false);
+  document.getElementById('rangeLabel').textContent = state.from+' → '+state.to+' ('+cur.length+' flight)';
+}
+
+/* ============================================================
+   CHARTS (Chart.js) — instances kept so theme toggle can redraw
+============================================================ */
+var CH = {};
+function destroy(key){ if (CH[key]) { CH[key].destroy(); CH[key]=null; } }
+function baseGridColor(pal){ return currentTheme()==='light' ? 'rgba(11,27,43,.08)' : 'rgba(255,255,255,.06)'; }
+
+function renderTrend(cur) {
+  destroy('trend');
+  var pal = palette();
+  var byDate = {};
+  cur.forEach(function(f){ byDate[f.date]=(byDate[f.date]||0)+1; });
+  var days = Object.keys(byDate).sort();
+  var weekly = days.length > 70;
+  var labels, values;
+  if (weekly) {
+    var buckets = {};
+    days.forEach(function(d){
+      var dt = new Date(d+'T00:00:00');
+      var onejan = new Date(dt.getFullYear(),0,1);
+      var wk = Math.ceil((((dt-onejan)/86400000)+onejan.getDay()+1)/7);
+      var key = dt.getFullYear()+'-W'+String(wk).padStart(2,'0');
+      buckets[key]=(buckets[key]||0)+byDate[d];
+    });
+    labels = Object.keys(buckets).sort(); values = labels.map(function(k){return buckets[k];});
+    document.getElementById('trendSub').textContent = 'per minggu';
+  } else {
+    labels = days; values = days.map(function(d){return byDate[d];});
+    document.getElementById('trendSub').textContent = 'per hari';
+  }
+  var ctx = document.getElementById('chartTrend').getContext('2d');
+  CH.trend = new Chart(ctx, { type:'line', data:{ labels: labels, datasets:[{ data: values, borderColor: pal.teal, backgroundColor: pal.teal+'22', fill:true, tension:.3, pointRadius:0, borderWidth:2 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
+      x:{ ticks:{ color:pal.text3, maxTicksLimit:8, font:{size:9} }, grid:{ display:false } },
+      y:{ beginAtZero:true, ticks:{ color:pal.text3, font:{size:9} }, grid:{ color:baseGridColor(pal) } } } } });
+}
+
+function renderHeatmap(cur) {
+  var pal = palette();
+  var grid = new Array(7).fill(0).map(function(){return new Array(24).fill(0);});
+  cur.forEach(function(f){ grid[f.dow][f.hour]++; });
+  var max = Math.max.apply(null, grid.map(function(r){return Math.max.apply(null,r);})) || 1;
+  var dayNames = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+  var html = '';
+  var order = [1,2,3,4,5,6,0];
+  order.forEach(function(dow){
+    html += '<div class="hm-label">'+dayNames[dow]+'</div>';
+  });
+  // Build as CSS grid: rows are days, so re-layout differently
+  var wrap = document.getElementById('heatmapWrap');
+  var out = '<div class="heatmap">';
+  order.forEach(function(dow){
+    out += '<div class="hm-label">'+dayNames[dow]+'</div>';
+    for (var h=0; h<24; h++) {
+      var v = grid[dow][h];
+      var ratio = v/max;
+      var color = v===0 ? 'var(--bg3)' : ratio<0.33 ? pal.heat[0] : ratio<0.6 ? pal.heat[1] : ratio<0.85 ? pal.heat[2] : pal.heat[3];
+      out += '<div class="hm-cell" title="'+dayNames[dow]+' '+String(h).padStart(2,'0')+':00 — '+v+' flight" style="background:'+color+'"></div>';
+    }
+  });
+  out += '<div></div>';
+  for (var h2=0; h2<24; h2+=1) out += '<div class="hm-hour-label">'+(h2%3===0?h2:'')+'</div>';
+  out += '</div>';
+  wrap.innerHTML = out;
+
+  // insight
+  var peak = {dow:0,hour:0,v:-1};
+  for (var d=0;d<7;d++) for (var h3=0;h3<24;h3++) if (grid[d][h3]>peak.v) peak={dow:d,hour:h3,v:grid[d][h3]};
+  document.getElementById('peakInsight').innerHTML = '◆ Jam tersibuk: <b>'+dayNames[peak.dow]+', '+String(peak.hour).padStart(2,'0')+':00</b> — rata-rata '+peak.v+' flight pada slot ini di rentang terpilih.';
+}
+
+function renderRoutes(cur) {
+  destroy('routes');
+  var pal = palette();
+  var byRoute = {};
+  cur.forEach(function(f){
+    var r = byRoute[f.route] || (byRoute[f.route]={route:f.route,city:f.city,cls:f.cls,flights:0,pax:0,ontime:0});
+    r.flights++; r.pax+=f.pax; if (f.category===0) r.ontime++;
+  });
+  var rows = Object.values(byRoute).map(function(r){ r.otp = r.flights? 100*r.ontime/r.flights : 0; return r; });
+  rows.sort(function(a,b){ return b[state.routesSortKey===undefined?'flights':state.routesSortKey] - a[state.routesSortKey===undefined?'flights':state.routesSortKey]; });
+  var top = rows.slice().sort(function(a,b){return b.flights-a.flights;}).slice(0,8);
+
+  var ctx = document.getElementById('chartRoutes').getContext('2d');
+  CH.routes = new Chart(ctx, { type:'bar', data:{ labels: top.map(function(r){return r.route;}), datasets:[{ data: top.map(function(r){return r.flights;}), backgroundColor: top.map(function(r){return r.cls==='INT'?pal.cat[6]:pal.teal;}), borderRadius:4, maxBarThickness:22 }] },
+    options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{ x:{ beginAtZero:true, ticks:{color:pal.text3,font:{size:9}}, grid:{color:baseGridColor(pal)} }, y:{ ticks:{color:pal.text,font:{size:10,weight:'600'}}, grid:{display:false} } } } });
+
+  var tb = document.querySelector('#tblRoutes tbody'); tb.innerHTML='';
+  var sorted = rows.slice().sort(function(a,b){
+    var k=state.routesSortKey, dir=state.routesSortDir==='asc'?1:-1;
+    return (a[k]>b[k]?1:a[k]<b[k]?-1:0)*dir;
+  });
+  var maxFlights = Math.max.apply(null, rows.map(function(r){return r.flights;}))||1;
+  sorted.forEach(function(r){
+    var tr = document.createElement('tr');
+    tr.style.cursor = 'pointer';
+    tr.title = 'Klik untuk filter rute '+r.route;
+    if (state.routes.length===1 && state.routes[0]===r.route) tr.style.background = 'var(--bg3)';
+    tr.innerHTML = '<td><b>'+r.route+'</b> <span style="color:var(--text3)">'+r.city+'</span></td>'+
+      '<td class="num"><div class="bar-cell"><span class="mono">'+r.flights+'</span><div class="bar-track"><div class="bar-fill" style="width:'+(100*r.flights/maxFlights)+'%;background:'+(r.cls==='INT'?pal.cat[6]:'var(--teal)')+'"></div></div></div></td>'+
+      '<td class="num mono">'+r.pax.toLocaleString('id-ID')+'</td>'+
+      '<td class="num mono">'+r.otp.toFixed(0)+'%</td>'+
+      '<td><span class="pill '+(r.cls==='INT'?'int':'dom')+'">'+r.cls+'</span></td>';
+    tr.addEventListener('click', function(){ toggleRouteFocus(r.route); });
+    tb.appendChild(tr);
+  });
+}
+
+function renderAirlines(cur) {
+  destroy('airlines');
+  var pal = palette();
+  var byAir = {};
+  cur.forEach(function(f){
+    var a = byAir[f.airline] || (byAir[f.airline]={airline:f.airline,name:f.airlineName,flights:0,pax:0,ontime:0});
+    a.flights++; a.pax+=f.pax; if (f.category===0) a.ontime++;
+  });
+  var rows = Object.values(byAir).map(function(a){ a.otp = a.flights?100*a.ontime/a.flights:0; return a; });
+  var top = rows.slice().sort(function(a,b){return b.flights-a.flights;});
+
+  var ctx = document.getElementById('chartAirlines').getContext('2d');
+  CH.airlines = new Chart(ctx, { type:'doughnut', data:{ labels: top.map(function(a){return a.airline;}), datasets:[{ data: top.map(function(a){return a.flights;}), backgroundColor: pal.cat, borderColor: currentTheme()==='light'?'#fff':'#0d1e35', borderWidth:2 }] },
+    options: { responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{ legend:{ position:'right', labels:{ color:pal.text3, boxWidth:10, font:{size:10} } } } } });
+
+  var leader = top[0];
+  document.getElementById('airlineInsight2').textContent = leader ? leader.airline+' memimpin ('+(100*leader.flights/sum(top,function(a){return a.flights;})).toFixed(0)+'%)' : '';
+
+  var tb = document.querySelector('#tblAirlines tbody'); tb.innerHTML='';
+  var sorted = rows.slice().sort(function(a,b){
+    var k=state.airlinesSortKey, dir=state.airlinesSortDir==='asc'?1:-1;
+    return (a[k]>b[k]?1:a[k]<b[k]?-1:0)*dir;
+  });
+  sorted.forEach(function(a){
+    var tr = document.createElement('tr');
+    tr.style.cursor = 'pointer';
+    tr.title = 'Klik untuk filter maskapai '+a.airline;
+    if (state.airlines.length===1 && state.airlines[0]===a.airline) tr.style.background = 'var(--bg3)';
+    tr.innerHTML = '<td><b>'+a.airline+'</b> <span style="color:var(--text3)">'+a.name+'</span></td>'+
+      '<td class="num mono">'+a.flights.toLocaleString('id-ID')+'</td>'+
+      '<td class="num mono">'+a.pax.toLocaleString('id-ID')+'</td>'+
+      '<td class="num mono">'+a.otp.toFixed(0)+'%</td>';
+    tr.addEventListener('click', function(){ toggleAirlineFocus(a.airline); });
+    tb.appendChild(tr);
+  });
+}
+
+function renderGateBelt(cur, type, canvasId) {
+  destroy(canvasId);
+  var pal = palette();
+  var flights = cur.filter(function(f){return f.type===type;});
+  var by = {};
+  flights.forEach(function(f){ by[f.gb]=(by[f.gb]||0)+1; });
+  var rows = Object.keys(by).map(function(k){return {k:k,v:by[k]};}).sort(function(a,b){return b.v-a.v;}).slice(0,8);
+  var max = Math.max.apply(null, rows.map(function(r){return r.v;}))||1;
+  var ctx = document.getElementById(canvasId).getContext('2d');
+  CH[canvasId] = new Chart(ctx, { type:'bar', data:{ labels: rows.map(function(r){return r.k;}), datasets:[{ data: rows.map(function(r){return Math.round(100*r.v/max);}), backgroundColor: pal.teal, borderRadius:4, maxBarThickness:16 }] },
+    options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:function(ctx2){ return rows[ctx2.dataIndex].v+' flight'; } } } },
+      scales:{ x:{ max:100, ticks:{ color:pal.text3, font:{size:9}, callback:function(v){return v+'%';} }, grid:{color:baseGridColor(pal)} }, y:{ ticks:{color:pal.text,font:{size:10,weight:'600'}}, grid:{display:false} } } } });
+}
+
+function renderCategory(cur) {
+  destroy('category');
+  var pal = palette();
+  var labels = ['Tepat Waktu','Kat.1 (30-60m)','Kat.2 (61-120m)','Kat.3 (121-180m)','Kat.4 (181-240m)','Kat.5 (>240m)','Batal'];
+  var colors = [pal.green, pal.amber, pal.amber, pal.amber, pal.red, pal.red, pal.red];
+  var counts = new Array(7).fill(0);
+  cur.forEach(function(f){ counts[f.category]++; });
+  var ctx = document.getElementById('chartCategory').getContext('2d');
+  CH.category = new Chart(ctx, { type:'bar', data:{ labels: labels, datasets:[{ data: counts, backgroundColor: colors, borderRadius:4, maxBarThickness:26 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{ x:{ ticks:{ color:pal.text3, font:{size:8}, maxRotation:30, minRotation:30 }, grid:{display:false} }, y:{ beginAtZero:true, ticks:{color:pal.text3,font:{size:9}}, grid:{color:baseGridColor(pal)} } } } });
+}
+
+function isoWeekKey(dateStr) {
+  var dt = new Date(dateStr+'T00:00:00');
+  var onejan = new Date(dt.getFullYear(),0,1);
+  var wk = Math.ceil((((dt-onejan)/86400000)+onejan.getDay()+1)/7);
+  return dt.getFullYear()+'-W'+String(wk).padStart(2,'0');
+}
+
+function renderOtpTrend(cur) {
+  destroy('otpTrend');
+  var pal = palette();
+  var buckets = {};
+  cur.forEach(function(f){
+    var k = isoWeekKey(f.date);
+    var b = buckets[k] || (buckets[k]={ontime:0,delay:0,cancel:0});
+    if (f.category===0) b.ontime++; else if (f.category===6) b.cancel++; else b.delay++;
+  });
+  var weeks = Object.keys(buckets).sort();
+  var ctx = document.getElementById('chartOtpTrend').getContext('2d');
+  CH.otpTrend = new Chart(ctx, { type:'bar', data:{ labels: weeks, datasets:[
+    { label:'Tepat waktu', data: weeks.map(function(w){return buckets[w].ontime;}), backgroundColor: pal.green, stack:'s' },
+    { label:'Delay', data: weeks.map(function(w){return buckets[w].delay;}), backgroundColor: pal.amber, stack:'s' },
+    { label:'Batal', data: weeks.map(function(w){return buckets[w].cancel;}), backgroundColor: pal.red, stack:'s' }
+  ]}, options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:pal.text3, boxWidth:10, font:{size:10} } } },
+    scales:{ x:{ stacked:true, ticks:{color:pal.text3,font:{size:9},maxTicksLimit:12}, grid:{display:false} }, y:{ stacked:true, ticks:{color:pal.text3,font:{size:9}}, grid:{color:baseGridColor(pal)} } } } });
+}
+
+function renderDomInt(cur) {
+  destroy('domInt');
+  var pal = palette();
+  var buckets = {};
+  cur.forEach(function(f){
+    var k = f.date.slice(0,7);
+    var b = buckets[k] || (buckets[k]={dom:0,int:0});
+    if (f.cls==='INT') b.int++; else b.dom++;
+  });
+  var months = Object.keys(buckets).sort();
+  var ctx = document.getElementById('chartDomInt').getContext('2d');
+  CH.domInt = new Chart(ctx, { type:'bar', data:{ labels: months, datasets:[
+    { label:'Domestik', data: months.map(function(m){return buckets[m].dom;}), backgroundColor: pal.teal, stack:'s', borderRadius:3 },
+    { label:'Internasional', data: months.map(function(m){return buckets[m].int;}), backgroundColor: pal.cat[6], stack:'s', borderRadius:3 }
+  ]}, options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:pal.text3, boxWidth:10, font:{size:10} } } },
+    scales:{ x:{ stacked:true, ticks:{color:pal.text3,font:{size:9}}, grid:{display:false} }, y:{ stacked:true, ticks:{color:pal.text3,font:{size:9}}, grid:{color:baseGridColor(pal)} } } } });
+}
+
+function renderArrDep(cur) {
+  destroy('arrDep');
+  var pal = palette();
+  var arrByHour = new Array(24).fill(0), depByHour = new Array(24).fill(0);
+  var dayCount = {}; cur.forEach(function(f){dayCount[f.date]=1;});
+  var nDays = Math.max(1, Object.keys(dayCount).length);
+  cur.forEach(function(f){ if (f.type==='ARR') arrByHour[f.hour]++; else depByHour[f.hour]++; });
+  var ctx = document.getElementById('chartArrDep').getContext('2d');
+  CH.arrDep = new Chart(ctx, { type:'line', data:{ labels: Array.from({length:24},function(_,h){return String(h).padStart(2,'0');}), datasets:[
+    { label:'Kedatangan', data: arrByHour.map(function(v){return +(v/nDays).toFixed(1);}), borderColor: pal.teal, backgroundColor:'transparent', tension:.35, pointRadius:0, borderWidth:2 },
+    { label:'Keberangkatan', data: depByHour.map(function(v){return +(v/nDays).toFixed(1);}), borderColor: pal.cat[1], backgroundColor:'transparent', tension:.35, pointRadius:0, borderWidth:2 }
+  ]}, options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:pal.text3, boxWidth:10, font:{size:10} } } },
+    scales:{ x:{ ticks:{color:pal.text3,font:{size:8}}, grid:{display:false} }, y:{ beginAtZero:true, ticks:{color:pal.text3,font:{size:9}}, grid:{color:baseGridColor(pal)} } } } });
+}
+
+/* ============================================================
+   LOG TABLE (search, sort, paginate)
+============================================================ */
+function statusLabel(f) {
+  if (f.category===6) return {cls:'cancel', text:'Batal'};
+  if (f.category===0) return {cls:'ontime', text:'On Time'};
+  return {cls:'delay', text:'Delay K'+f.category};
+}
+function renderLogTable() {
+  var cur = filtered();
+  if (state.search) {
+    var q = state.search;
+    cur = cur.filter(function(f){
+      return f.flightNo.toLowerCase().indexOf(q)>=0 || f.route.toLowerCase().indexOf(q)>=0 || f.city.toLowerCase().indexOf(q)>=0 ||
+             f.airline.toLowerCase().indexOf(q)>=0 || f.airlineName.toLowerCase().indexOf(q)>=0 || f.gb.toLowerCase().indexOf(q)>=0 ||
+             f.bay.toLowerCase().indexOf(q)>=0;
+    });
+  }
+  var k = state.sortKey, dir = state.sortDir==='asc'?1:-1;
+  cur = cur.slice().sort(function(a,b){
+    var av=a[k], bv=b[k];
+    if (k==='date') { av=a.date+' '+a.time; bv=b.date+' '+b.time; }
+    if (k==='status') { av=a.category; bv=b.category; }
+    return (av>bv?1:av<bv?-1:0)*dir;
+  });
+  document.getElementById('logCount').textContent = cur.length.toLocaleString('id-ID')+' baris';
+  var totalPages = Math.max(1, Math.ceil(cur.length/state.pageSize));
+  if (state.page>totalPages) state.page = totalPages;
+  var startIdx = (state.page-1)*state.pageSize;
+  var pageRows = cur.slice(startIdx, startIdx+state.pageSize);
+
+  var tb = document.querySelector('#tblLog tbody'); tb.innerHTML='';
+  pageRows.forEach(function(f){
+    var st = statusLabel(f);
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td class="mono">'+f.date+'</td><td class="mono">'+f.time+'</td><td><b>'+f.flightNo+'</b></td>'+
+      '<td>'+f.type+'</td><td>'+f.route+' <span style="color:var(--text3)">('+f.city+')</span></td>'+
+      '<td><span class="pill '+(f.cls==='INT'?'int':'dom')+'">'+f.cls+'</span></td>'+
+      '<td class="mono">'+f.gb+'</td><td class="mono">'+f.bay+'</td><td class="num mono">'+(f.category===6?'–':f.delayMin+'m')+'</td>'+
+      '<td><span class="pill '+st.cls+'">'+st.text+'</span></td><td class="num mono">'+(f.pax||'–')+'</td>';
+    tb.appendChild(tr);
+  });
+  document.getElementById('pagerInfo').textContent = 'Hal. '+state.page+' / '+totalPages;
+  document.getElementById('pagerPrev').disabled = state.page<=1;
+  document.getElementById('pagerNext').disabled = state.page>=totalPages;
+
+  document.querySelectorAll('#tblLog th').forEach(function(th){
+    th.classList.toggle('sorted', th.dataset.key===state.sortKey);
+    var arrow = th.querySelector('.arrow');
+    if (arrow) arrow.textContent = th.dataset.key===state.sortKey ? (state.sortDir==='asc'?'↑':'↓') : '↕';
+  });
+}
+document.getElementById('pagerPrev').addEventListener('click', function(){ if(state.page>1){state.page--; renderLogTable();} });
+document.getElementById('pagerNext').addEventListener('click', function(){ state.page++; renderLogTable(); });
+document.querySelectorAll('#tblLog th').forEach(function(th){
+  th.addEventListener('click', function(){
+    if (state.sortKey===th.dataset.key) state.sortDir = state.sortDir==='asc'?'desc':'asc';
+    else { state.sortKey=th.dataset.key; state.sortDir='asc'; }
+    renderLogTable();
+  });
+});
+document.querySelectorAll('#tblRoutes th').forEach(function(th){
+  th.addEventListener('click', function(){
+    if (state.routesSortKey===th.dataset.key) state.routesSortDir = state.routesSortDir==='asc'?'desc':'asc';
+    else { state.routesSortKey=th.dataset.key; state.routesSortDir='desc'; }
+    renderRoutes(filtered());
+  });
+});
+document.querySelectorAll('#tblAirlines th').forEach(function(th){
+  th.addEventListener('click', function(){
+    if (state.airlinesSortKey===th.dataset.key) state.airlinesSortDir = state.airlinesSortDir==='asc'?'desc':'asc';
+    else { state.airlinesSortKey=th.dataset.key; state.airlinesSortDir='desc'; }
+    renderAirlines(filtered());
+  });
+});
+
+/* ============================================================
+   MASTER RENDER
+============================================================ */
+function renderAll() {
+  var cur = filtered();
+  var prev = previousPeriod();
+  renderActiveFilterSummary();
+  renderKpi(cur, prev);
+  renderTrend(cur);
+  renderHeatmap(cur);
+  renderRoutes(cur);
+  renderAirlines(cur);
+  renderGateBelt(cur,'DEP','chartGates');
+  renderGateBelt(cur,'ARR','chartBelts');
+  renderCategory(cur);
+  renderOtpTrend(cur);
+  renderDomInt(cur);
+  renderArrDep(cur);
+  renderLogTable();
+}
+
+if (window.Chart) { renderAll(); } else {
+  window.addEventListener('load', renderAll);
+}
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(regs){ regs.forEach(function(r){ r.unregister(); }); });
+}
+</script>
+
+<!-- Firebase Auth Guard -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="js/app-config.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/auth-guard.js"></script>
+</body>
+</html>
