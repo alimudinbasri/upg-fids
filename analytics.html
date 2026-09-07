@@ -284,12 +284,12 @@
     </button>
     <div class="dr-panel" id="drPanel">
       <div class="dr-presets" id="drPresets">
-        <button type="button" class="dr-preset-item" data-preset="1">Hari ini</button>
-        <button type="button" class="dr-preset-item" data-preset="7">7 hari terakhir</button>
-        <button type="button" class="dr-preset-item" data-preset="30">30 hari terakhir</button>
-        <button type="button" class="dr-preset-item" data-preset="90">90 hari terakhir</button>
-        <button type="button" class="dr-preset-item" data-preset="month">Bulan ini</button>
-        <button type="button" class="dr-preset-item" data-preset="all">Semua data</button>
+        <button type="button" class="dr-preset-item" data-preset="1">Today</button>
+        <button type="button" class="dr-preset-item" data-preset="7">Last 7 days</button>
+        <button type="button" class="dr-preset-item" data-preset="30">Last 30 days</button>
+        <button type="button" class="dr-preset-item" data-preset="90">Last 90 days</button>
+        <button type="button" class="dr-preset-item" data-preset="month">This month</button>
+        <button type="button" class="dr-preset-item" data-preset="all">All data</button>
       </div>
       <div class="dr-cal">
         <div class="dr-cal-head">
@@ -299,10 +299,10 @@
         </div>
         <div class="dr-cal-grid" id="drCalGrid"></div>
         <div class="dr-cal-foot">
-          <span id="drSelectionText">Pilih tanggal mulai</span>
+          <span id="drSelectionText">Select start date</span>
           <div class="dr-cal-actions">
-            <button type="button" class="dr-btn-cancel" id="drCancel">Batal</button>
-            <button type="button" class="dr-btn-apply" id="drApply">Terapkan</button>
+            <button type="button" class="dr-btn-cancel" id="drCancel">Cancel</button>
+            <button type="button" class="dr-btn-apply" id="drApply">Apply</button>
           </div>
         </div>
       </div>
@@ -325,23 +325,23 @@
     <div id="advFilterBody" style="display:none;">
     <div class="adv-filter-grid">
       <div class="af-group">
-        <label>Tipe</label>
+        <label>Type</label>
         <div class="toggle-group" id="tgType">
-          <button type="button" class="toggle-btn active" data-value="">Semua</button>
+          <button type="button" class="toggle-btn active" data-value="">All</button>
           <button type="button" class="toggle-btn" data-value="ARR">Arrival</button>
           <button type="button" class="toggle-btn" data-value="DEP">Departure</button>
         </div>
       </div>
       <div class="af-group">
-        <label>Kelas</label>
+        <label>Class</label>
         <div class="toggle-group" id="tgCls">
-          <button type="button" class="toggle-btn active" data-value="">Semua</button>
-          <button type="button" class="toggle-btn" data-value="DOM">Domestik</button>
-          <button type="button" class="toggle-btn" data-value="INT">Internasional</button>
+          <button type="button" class="toggle-btn active" data-value="">All</button>
+          <button type="button" class="toggle-btn" data-value="DOM">Domestic</button>
+          <button type="button" class="toggle-btn" data-value="INT">International</button>
         </div>
       </div>
       <div class="af-group">
-        <label>Jam (dari – sampai)</label>
+        <label>Hour (from – to)</label>
         <div style="display:flex;align-items:center;gap:6px;">
           <select id="fHourFrom" class="date-input"></select>
           <span style="color:var(--text3)">–</span>
@@ -349,27 +349,27 @@
         </div>
       </div>
       <div class="af-group">
-        <label>Nomor Penerbangan</label>
-        <input type="text" id="fFlightNo" class="search-input" placeholder="mis. JT-812">
+        <label>Flight Number</label>
+        <input type="text" id="fFlightNo" class="search-input" placeholder="e.g. JT-812">
       </div>
       <div class="af-group">
-        <label>Maskapai <small>(bisa multi)</small></label>
+        <label>Airline <small>(multi-select)</small></label>
         <select id="fAirline" class="date-input" multiple size="4"></select>
       </div>
       <div class="af-group">
-        <label>Rute <small>(bisa multi)</small></label>
+        <label>Route <small>(multi-select)</small></label>
         <select id="fRoute" class="date-input" multiple size="4"></select>
       </div>
       <div class="af-group">
-        <label>Gate <small>(bisa multi)</small></label>
+        <label>Gate <small>(multi-select)</small></label>
         <select id="fGate" class="date-input" multiple size="4"></select>
       </div>
       <div class="af-group">
-        <label>Belt <small>(bisa multi)</small></label>
+        <label>Belt <small>(multi-select)</small></label>
         <select id="fBelt" class="date-input" multiple size="4"></select>
       </div>
       <div class="af-group">
-        <label>Parkir Pesawat <small>(bisa multi)</small></label>
+        <label>Parking Stand <small>(multi-select)</small></label>
         <select id="fBay" class="date-input" multiple size="4"></select>
       </div>
     </div>
@@ -378,103 +378,103 @@
   </div>
 
   <div class="kpi-grid">
-    <div class="kpi-tile"><div class="kpi-label">Total Penerbangan</div><div class="kpi-value mono" id="kpiFlights">–</div><div class="kpi-delta mono" id="kpiFlightsDelta"></div></div>
-    <div class="kpi-tile"><div class="kpi-label">Total Penumpang</div><div class="kpi-value mono" id="kpiPax">–</div><div class="kpi-delta mono" id="kpiPaxDelta"></div></div>
+    <div class="kpi-tile"><div class="kpi-label">Total Flights</div><div class="kpi-value mono" id="kpiFlights">–</div><div class="kpi-delta mono" id="kpiFlightsDelta"></div></div>
+    <div class="kpi-tile"><div class="kpi-label">Total Passengers</div><div class="kpi-value mono" id="kpiPax">–</div><div class="kpi-delta mono" id="kpiPaxDelta"></div></div>
     <div class="kpi-tile"><div class="kpi-label">On-Time Performance</div><div class="kpi-value mono" id="kpiOtp">–</div><div class="kpi-delta mono" id="kpiOtpDelta"></div></div>
-    <div class="kpi-tile"><div class="kpi-label">Rata-rata Delay</div><div class="kpi-value mono" id="kpiDelay">–</div><div class="kpi-delta mono" id="kpiDelayDelta"></div></div>
+    <div class="kpi-tile"><div class="kpi-label">Average Delay</div><div class="kpi-value mono" id="kpiDelay">–</div><div class="kpi-delta mono" id="kpiDelayDelta"></div></div>
   </div>
 
-  <h3 class="sec-heading">Tren &amp; Pola Waktu</h3>
+  <h3 class="sec-heading">Trend &amp; Time Pattern</h3>
   <div class="grid2">
     <div class="panel">
-      <div class="panel-head"><span class="panel-title">Tren Volume Penerbangan</span><span class="panel-sub" id="trendSub">per hari</span></div>
+      <div class="panel-head"><span class="panel-title">Flight Volume Trend</span><span class="panel-sub" id="trendSub">per day</span></div>
       <div class="panel-body chart-box"><canvas id="chartTrend"></canvas></div>
       <div class="insight" id="busiestDayInsight">–</div>
     </div>
     <div class="panel">
-      <div class="panel-head"><span class="panel-title">Peta Panas Jam Sibuk</span><span class="panel-sub">jam × hari dalam seminggu</span></div>
+      <div class="panel-head"><span class="panel-title">Busy Hours Heatmap</span><span class="panel-sub">hour × day of week</span></div>
       <div class="panel-body" id="heatmapWrap"></div>
-      <div class="hm-scale"><span>Renggang</span><i style="background:var(--heat-100)"></i><i style="background:var(--heat-300)"></i><i style="background:var(--heat-500)"></i><i style="background:var(--heat-700)"></i><span>Padat</span></div>
+      <div class="hm-scale"><span>Quiet</span><i style="background:var(--heat-100)"></i><i style="background:var(--heat-300)"></i><i style="background:var(--heat-500)"></i><i style="background:var(--heat-700)"></i><span>Busy</span></div>
       <div class="insight" id="peakInsight">–</div>
       <div class="insight" id="busiestSlotInsight">–</div>
     </div>
   </div>
 
-  <h3 class="sec-heading">Rute &amp; Maskapai</h3>
+  <h3 class="sec-heading">Routes &amp; Airlines</h3>
   <div class="grid2">
     <div class="panel">
-      <div class="panel-head"><span class="panel-title">Rute Tersibuk</span><span class="panel-sub">klik baris untuk fokus</span></div>
+      <div class="panel-head"><span class="panel-title">Busiest Routes</span><span class="panel-sub">click a row to focus</span></div>
       <div class="panel-body chart-box tall"><canvas id="chartRoutes"></canvas></div>
       <div class="table-wrap-scroll">
         <table class="data-tbl" id="tblRoutes">
-          <thead><tr><th data-key="route">Rute</th><th data-key="flights" class="num">Flight</th><th data-key="pax" class="num">Pax</th><th data-key="otp" class="num">OTP</th><th data-key="cls">Kelas</th></tr></thead>
+          <thead><tr><th data-key="route">Route</th><th data-key="flights" class="num">Flight</th><th data-key="pax" class="num">Pax</th><th data-key="otp" class="num">OTP</th><th data-key="cls">Class</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
     </div>
     <div class="panel">
-      <div class="panel-head"><span class="panel-title">Pangsa Maskapai</span><span class="panel-sub" id="airlineInsight2"></span></div>
+      <div class="panel-head"><span class="panel-title">Airline Share</span><span class="panel-sub" id="airlineInsight2"></span></div>
       <div class="panel-body chart-box tall"><canvas id="chartAirlines"></canvas></div>
       <div class="table-wrap-scroll">
         <table class="data-tbl" id="tblAirlines">
-          <thead><tr><th data-key="airline">Maskapai</th><th data-key="flights" class="num">Flight</th><th data-key="pax" class="num">Pax</th><th data-key="otp" class="num">OTP</th></tr></thead>
+          <thead><tr><th data-key="airline">Airline</th><th data-key="flights" class="num">Flight</th><th data-key="pax" class="num">Pax</th><th data-key="otp" class="num">OTP</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <h3 class="sec-heading">Operasional &amp; OTP</h3>
+  <h3 class="sec-heading">Operations &amp; OTP</h3>
   <div class="grid3">
     <div class="panel">
-      <div class="panel-head"><span class="panel-title">Utilisasi Gate</span><span class="panel-sub">DEP</span></div>
+      <div class="panel-head"><span class="panel-title">Gate Utilization</span><span class="panel-sub">DEP</span></div>
       <div class="panel-body chart-box"><canvas id="chartGates"></canvas></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><span class="panel-title">Utilisasi Belt</span><span class="panel-sub">ARR</span></div>
+      <div class="panel-head"><span class="panel-title">Belt Utilization</span><span class="panel-sub">ARR</span></div>
       <div class="panel-body chart-box"><canvas id="chartBelts"></canvas></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><span class="panel-title">Komposisi Kategori Delay</span><span class="panel-sub">PM 89/2015</span></div>
+      <div class="panel-head"><span class="panel-title">Delay Category Breakdown</span><span class="panel-sub">PM 89/2015</span></div>
       <div class="panel-body chart-box"><canvas id="chartCategory"></canvas></div>
     </div>
   </div>
   <div class="grid2" style="margin-top:14px;">
     <div class="panel span2">
-      <div class="panel-head"><span class="panel-title">Tren OTP Mingguan</span><span class="panel-sub">tepat waktu vs delay vs batal</span></div>
+      <div class="panel-head"><span class="panel-title">Weekly OTP Trend</span><span class="panel-sub">on time vs delay vs cancelled</span></div>
       <div class="panel-body chart-box"><canvas id="chartOtpTrend"></canvas></div>
     </div>
   </div>
 
-  <h3 class="sec-heading">Segmentasi</h3>
+  <h3 class="sec-heading">Segmentation</h3>
   <div class="grid2">
     <div class="panel">
-      <div class="panel-head"><span class="panel-title">Domestik vs Internasional</span><span class="panel-sub">per bulan</span></div>
+      <div class="panel-head"><span class="panel-title">Domestic vs International</span><span class="panel-sub">per month</span></div>
       <div class="panel-body chart-box"><canvas id="chartDomInt"></canvas></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><span class="panel-title">ARR vs DEP per Jam</span><span class="panel-sub">rata-rata harian pada rentang terpilih</span></div>
+      <div class="panel-head"><span class="panel-title">ARR vs DEP by Hour</span><span class="panel-sub">daily average over the selected range</span></div>
       <div class="panel-body chart-box"><canvas id="chartArrDep"></canvas></div>
     </div>
   </div>
 
-  <h3 class="sec-heading">Log Penerbangan</h3>
+  <h3 class="sec-heading">Flight Log</h3>
   <div class="panel">
     <div class="table-toolbar">
-      <input type="text" id="logSearch" class="search-input" placeholder="Cari flight, rute, maskapai, gate/belt…">
+      <input type="text" id="logSearch" class="search-input" placeholder="Search flight, route, airline, gate/belt…">
       <span class="panel-sub mono" id="logCount"></span>
     </div>
     <div class="table-wrap-scroll">
       <table class="data-tbl" id="tblLog">
         <thead><tr>
-          <th data-key="date">Tanggal<span class="arrow">↕</span></th>
-          <th data-key="time">Jam<span class="arrow">↕</span></th>
+          <th data-key="date">Date<span class="arrow">↕</span></th>
+          <th data-key="time">Time<span class="arrow">↕</span></th>
           <th data-key="flightNo">Flight<span class="arrow">↕</span></th>
-          <th data-key="type">Tipe<span class="arrow">↕</span></th>
-          <th data-key="route">Rute<span class="arrow">↕</span></th>
-          <th data-key="cls">Kelas<span class="arrow">↕</span></th>
+          <th data-key="type">Type<span class="arrow">↕</span></th>
+          <th data-key="route">Route<span class="arrow">↕</span></th>
+          <th data-key="cls">Class<span class="arrow">↕</span></th>
           <th data-key="gb">Gate/Belt<span class="arrow">↕</span></th>
-          <th data-key="bay">Parkir<span class="arrow">↕</span></th>
+          <th data-key="bay">Parking<span class="arrow">↕</span></th>
           <th data-key="delayMin" class="num">Delay<span class="arrow">↕</span></th>
           <th data-key="status">Status<span class="arrow">↕</span></th>
           <th data-key="pax" class="num">Pax<span class="arrow">↕</span></th>
@@ -483,13 +483,13 @@
       </table>
     </div>
     <div class="pager">
-      <button id="pagerPrev">‹ Sebelumnya</button>
+      <button id="pagerPrev">‹ Previous</button>
       <span id="pagerInfo">–</span>
-      <button id="pagerNext">Berikutnya ›</button>
+      <button id="pagerNext">Next ›</button>
     </div>
   </div>
 
-  <div class="foot-note">Seluruh angka pada halaman ini adalah <b>data simulasi</b> (dibuat deterministik di browser), belum tersambung ke <span class="mono">flights_cache</span> — halaman ini adalah pratinjau fungsional untuk memvalidasi rancangan dashboard sebelum data historis asli tersedia.</div>
+  <div class="foot-note">All figures on this page are <b>simulated data</b> (generated deterministically in the browser), not yet connected to <span class="mono">flights_cache</span> — this page is a functional preview to validate the dashboard design before real historical data is available.</div>
 </div>
 
 <script>
@@ -667,8 +667,8 @@ function palette() {
 function tickClock() {
   var now = new Date();
   document.getElementById('clock').textContent = String(now.getHours()).padStart(2,'0')+'.'+String(now.getMinutes()).padStart(2,'0')+'.'+String(now.getSeconds()).padStart(2,'0');
-  var days=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-  var months=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  var days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
   document.getElementById('clockDate').textContent = days[now.getDay()]+', '+now.getDate()+' '+months[now.getMonth()]+' '+now.getFullYear();
 }
 tickClock(); setInterval(tickClock,1000);
@@ -768,28 +768,28 @@ function toggleAirlineFocus(airline) {
 
 function renderActiveFilterSummary() {
   var parts = [];
-  if (state.type) parts.push('Tipe: '+state.type);
-  if (state.cls) parts.push('Kelas: '+state.cls);
-  if (state.hourFrom!==0 || state.hourTo!==23) parts.push('Jam: '+String(state.hourFrom).padStart(2,'0')+':00–'+String(state.hourTo).padStart(2,'0')+':00');
-  if (state.flightNo) parts.push('No. Penerbangan: "'+state.flightNo+'"');
-  if (state.airlines.length) parts.push('Maskapai: '+state.airlines.join(', '));
-  if (state.routes.length) parts.push('Rute: '+state.routes.join(', '));
+  if (state.type) parts.push('Type: '+state.type);
+  if (state.cls) parts.push('Class: '+state.cls);
+  if (state.hourFrom!==0 || state.hourTo!==23) parts.push('Hour: '+String(state.hourFrom).padStart(2,'0')+':00–'+String(state.hourTo).padStart(2,'0')+':00');
+  if (state.flightNo) parts.push('Flight No.: "'+state.flightNo+'"');
+  if (state.airlines.length) parts.push('Airline: '+state.airlines.join(', '));
+  if (state.routes.length) parts.push('Route: '+state.routes.join(', '));
   if (state.gates.length) parts.push('Gate: '+state.gates.join(', '));
   if (state.belts.length) parts.push('Belt: '+state.belts.join(', '));
-  if (state.bays.length) parts.push('Parkir: '+state.bays.join(', '));
-  document.getElementById('activeFilterSummary').textContent = parts.length ? ('Filter aktif — '+parts.join(' · ')) : 'Tidak ada filter tambahan aktif.';
-  document.getElementById('advToggleSub').textContent = parts.length ? ('('+parts.length+' filter aktif)') : '';
+  if (state.bays.length) parts.push('Parking: '+state.bays.join(', '));
+  document.getElementById('activeFilterSummary').textContent = parts.length ? ('Active filters — '+parts.join(' · ')) : 'No additional filters active.';
+  document.getElementById('advToggleSub').textContent = parts.length ? ('('+parts.length+' active)') : '';
 }
 
-var MONTH_NAMES_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-var DOW_SHORT_ID = ['Sen','Sel','Rab','Kam','Jum','Sab','Min'];
+var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+var DOW_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
 function fmtDateShort(iso) {
   var d = new Date(iso+'T00:00:00');
-  return d.getDate()+' '+MONTH_NAMES_ID[d.getMonth()].slice(0,3)+' '+d.getFullYear();
+  return d.getDate()+' '+MONTH_NAMES[d.getMonth()].slice(0,3)+' '+d.getFullYear();
 }
 function updateDrTriggerLabel() {
-  document.getElementById('drTriggerLabel').textContent = state.from && state.to ? (fmtDateShort(state.from)+' – '+fmtDateShort(state.to)) : 'Pilih rentang tanggal';
+  document.getElementById('drTriggerLabel').textContent = state.from && state.to ? (fmtDateShort(state.from)+' – '+fmtDateShort(state.to)) : 'Select date range';
 }
 
 function setPreset(days) {
@@ -823,7 +823,7 @@ drPanel.addEventListener('click', function(e){ e.stopPropagation(); });
 
 function renderCalendar() {
   var y = dr.viewMonth.getFullYear(), m = dr.viewMonth.getMonth();
-  document.getElementById('drMonthLabel').textContent = MONTH_NAMES_ID[m]+' '+y;
+  document.getElementById('drMonthLabel').textContent = MONTH_NAMES[m]+' '+y;
   var minMonth = new Date(datasetStart.getFullYear(), datasetStart.getMonth(), 1);
   var maxMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   document.getElementById('drPrevMonth').disabled = dr.viewMonth <= minMonth;
@@ -834,7 +834,7 @@ function renderCalendar() {
   var daysInPrevMonth = new Date(y,m,0).getDate();
 
   var grid = document.getElementById('drCalGrid');
-  var html = DOW_SHORT_ID.map(function(d){return '<div class="dr-cal-dow">'+d+'</div>';}).join('');
+  var html = DOW_SHORT.map(function(d){return '<div class="dr-cal-dow">'+d+'</div>';}).join('');
 
   var cells = [];
   for (var i=0;i<firstDow;i++) cells.push({day: daysInPrevMonth-firstDow+1+i, other:true, dateObj: new Date(y, m-1, daysInPrevMonth-firstDow+1+i)});
@@ -862,8 +862,8 @@ function renderCalendar() {
 
   var selTextEl = document.getElementById('drSelectionText');
   if (!dr.pickingSecond && dr.selStart && dr.selEnd) selTextEl.textContent = fmtDateShort(dr.selStart)+' → '+fmtDateShort(dr.selEnd);
-  else if (dr.pickingSecond) selTextEl.textContent = 'Pilih tanggal akhir';
-  else selTextEl.textContent = 'Pilih tanggal mulai';
+  else if (dr.pickingSecond) selTextEl.textContent = 'Select end date';
+  else selTextEl.textContent = 'Select start date';
 }
 function pickDate(iso) {
   if (!dr.pickingSecond) { dr.selStart = iso; dr.selEnd = null; dr.pickingSecond = true; }
@@ -937,7 +937,7 @@ function deltaHtml(el, cur, prev, unit, higherIsBetter) {
   var good = higherIsBetter ? diff>=0 : diff<=0;
   el.className = 'kpi-delta mono ' + (Math.abs(pct)<0.5 ? 'flat' : (good?'up':'down'));
   var arrow = diff>0?'▲':(diff<0?'▼':'—');
-  el.textContent = arrow+' '+Math.abs(pct).toFixed(1)+'% vs periode sebelumnya';
+  el.textContent = arrow+' '+Math.abs(pct).toFixed(1)+'% vs previous period';
 }
 
 /* ============================================================
@@ -951,12 +951,12 @@ function renderKpi(cur, prev) {
   document.getElementById('kpiFlights').textContent = flights.toLocaleString('id-ID');
   document.getElementById('kpiPax').textContent = pax.toLocaleString('id-ID');
   document.getElementById('kpiOtp').textContent = otp.toFixed(1)+'%';
-  document.getElementById('kpiDelay').textContent = dly.toFixed(0)+' mnt';
+  document.getElementById('kpiDelay').textContent = dly.toFixed(0)+' min';
   deltaHtml(document.getElementById('kpiFlightsDelta'), flights, pflights, '', true);
   deltaHtml(document.getElementById('kpiPaxDelta'), pax, ppax, '', true);
   deltaHtml(document.getElementById('kpiOtpDelta'), otp, potp, '%', true);
-  deltaHtml(document.getElementById('kpiDelayDelta'), dly, pdly, 'mnt', false);
-  document.getElementById('rangeLabel').textContent = state.from+' → '+state.to+' ('+cur.length+' flight)';
+  deltaHtml(document.getElementById('kpiDelayDelta'), dly, pdly, 'min', false);
+  document.getElementById('rangeLabel').textContent = state.from+' → '+state.to+' ('+cur.length+' flight'+(cur.length===1?'':'s')+')';
 }
 
 /* ============================================================
@@ -984,10 +984,10 @@ function renderTrend(cur) {
       buckets[key]=(buckets[key]||0)+byDate[d];
     });
     labels = Object.keys(buckets).sort(); values = labels.map(function(k){return buckets[k];});
-    document.getElementById('trendSub').textContent = 'per minggu';
+    document.getElementById('trendSub').textContent = 'per week';
   } else {
     labels = days; values = days.map(function(d){return byDate[d];});
-    document.getElementById('trendSub').textContent = 'per hari';
+    document.getElementById('trendSub').textContent = 'per day';
   }
   var peakIdx = values.length ? values.indexOf(Math.max.apply(null, values)) : -1;
   var lastIdx = values.length-1;
@@ -997,15 +997,15 @@ function renderTrend(cur) {
   var bdEl = document.getElementById('busiestDayInsight');
   if (busiestDate) {
     var bdt = new Date(busiestDate+'T00:00:00');
-    var dayNamesFull = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-    bdEl.innerHTML = '◆ Hari terpadat pada periode ini: <b>'+dayNamesFull[bdt.getDay()]+', '+bdt.getDate()+' '+MONTH_NAMES_ID[bdt.getMonth()]+' '+bdt.getFullYear()+'</b> — '+busiestDateCount+' flight.';
+    var dayNamesFull = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    bdEl.innerHTML = '◆ Busiest day in this period: <b>'+dayNamesFull[bdt.getDay()]+', '+bdt.getDate()+' '+MONTH_NAMES[bdt.getMonth()]+' '+bdt.getFullYear()+'</b> — '+busiestDateCount+' flights.';
   } else { bdEl.textContent = '–'; }
   var ctx = document.getElementById('chartTrend').getContext('2d');
   CH.trend = new Chart(ctx, { type:'line', data:{ labels: labels, datasets:[{ data: values, borderColor: pal.teal, backgroundColor: pal.teal+'22', fill:true, tension:.3, pointRadius:0, borderWidth:2 }] },
     options: { responsive:true, maintainAspectRatio:false, layout:{ padding:{ top:18 } }, plugins:{ legend:{display:false}, datalabels:{
         display: function(ctx2){ return ctx2.dataIndex===peakIdx || ctx2.dataIndex===lastIdx; },
         color: pal.text, font:{ size:9, weight:'700' }, anchor:'end', align:'top', offset:2,
-        formatter: function(v, ctx2){ return (ctx2.dataIndex===peakIdx?'Puncak ':'')+v; }
+        formatter: function(v, ctx2){ return (ctx2.dataIndex===peakIdx?'Peak ':'')+v; }
       } }, scales:{
       x:{ ticks:{ color:pal.text3, maxTicksLimit:8, font:{size:9} }, grid:{ display:false } },
       y:{ beginAtZero:true, ticks:{ color:pal.text3, font:{size:9} }, grid:{ color:baseGridColor(pal) } } } } });
@@ -1021,7 +1021,7 @@ function renderHeatmap(cur) {
     slotCounts[sk] = (slotCounts[sk]||0)+1;
   });
   var max = Math.max.apply(null, grid.map(function(r){return Math.max.apply(null,r);})) || 1;
-  var dayNames = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+  var dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   var order = [1,2,3,4,5,6,0];
   var wrap = document.getElementById('heatmapWrap');
   var out = '<div class="heatmap">';
@@ -1043,7 +1043,7 @@ function renderHeatmap(cur) {
   // insight — aggregate weekday x hour pattern (accumulated across every matching date in range)
   var peak = {dow:0,hour:0,v:-1};
   for (var d=0;d<7;d++) for (var h3=0;h3<24;h3++) if (grid[d][h3]>peak.v) peak={dow:d,hour:h3,v:grid[d][h3]};
-  document.getElementById('peakInsight').innerHTML = '◆ Pola paling padat: <b>'+dayNames[peak.dow]+', pukul '+String(peak.hour).padStart(2,'0')+':00</b> — akumulasi '+peak.v+' flight pada slot ini di sepanjang periode terpilih.';
+  document.getElementById('peakInsight').innerHTML = '◆ Busiest pattern: <b>'+dayNames[peak.dow]+', '+String(peak.hour).padStart(2,'0')+':00</b> — '+peak.v+' accumulated flights in this slot across the selected period.';
 
   // insight — the single busiest exact date+hour slot (a real data point, not a weekday average)
   var bestSlot = null, bestSlotCount = -1;
@@ -1052,8 +1052,8 @@ function renderHeatmap(cur) {
   if (bestSlot) {
     var parts = bestSlot.split('|');
     var sdt = new Date(parts[0]+'T00:00:00');
-    var dayNamesFull = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-    slotEl.innerHTML = '◆ Jam tersibuk secara spesifik: <b>'+dayNamesFull[sdt.getDay()]+', '+sdt.getDate()+' '+MONTH_NAMES_ID[sdt.getMonth()]+' '+sdt.getFullYear()+' pukul '+String(parts[1]).padStart(2,'0')+':00</b> — '+bestSlotCount+' flight pada jam itu saja.';
+    var dayNamesFull = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    slotEl.innerHTML = '◆ Busiest specific hour: <b>'+dayNamesFull[sdt.getDay()]+', '+sdt.getDate()+' '+MONTH_NAMES[sdt.getMonth()]+' '+sdt.getFullYear()+' at '+String(parts[1]).padStart(2,'0')+':00</b> — '+bestSlotCount+' flights in that hour alone.';
   } else { slotEl.textContent = '–'; }
 }
 
@@ -1087,7 +1087,7 @@ function renderRoutes(cur) {
   sorted.forEach(function(r){
     var tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
-    tr.title = 'Klik untuk filter rute '+r.route;
+    tr.title = 'Click to filter route '+r.route;
     if (state.routes.length===1 && state.routes[0]===r.route) tr.style.background = 'var(--bg3)';
     tr.innerHTML = '<td><b>'+r.route+'</b> <span style="color:var(--text3)">'+r.city+'</span></td>'+
       '<td class="num"><div class="bar-cell"><span class="mono">'+r.flights+'</span><div class="bar-track"><div class="bar-fill" style="width:'+(100*r.flights/maxFlights)+'%;background:'+(r.cls==='INT'?pal.cat[6]:'var(--teal)')+'"></div></div></div></td>'+
@@ -1119,7 +1119,7 @@ function renderAirlines(cur) {
       } } } });
 
   var leader = top[0];
-  document.getElementById('airlineInsight2').textContent = leader ? leader.airline+' memimpin ('+(100*leader.flights/sum(top,function(a){return a.flights;})).toFixed(0)+'%)' : '';
+  document.getElementById('airlineInsight2').textContent = leader ? leader.airline+' leads ('+(100*leader.flights/sum(top,function(a){return a.flights;})).toFixed(0)+'%)' : '';
 
   var tb = document.querySelector('#tblAirlines tbody'); tb.innerHTML='';
   var sorted = rows.slice().sort(function(a,b){
@@ -1129,7 +1129,7 @@ function renderAirlines(cur) {
   sorted.forEach(function(a){
     var tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
-    tr.title = 'Klik untuk filter maskapai '+a.airline;
+    tr.title = 'Click to filter airline '+a.airline;
     if (state.airlines.length===1 && state.airlines[0]===a.airline) tr.style.background = 'var(--bg3)';
     tr.innerHTML = '<td><b>'+a.airline+'</b> <span style="color:var(--text3)">'+a.name+'</span></td>'+
       '<td class="num mono">'+a.flights.toLocaleString('id-ID')+'</td>'+
@@ -1160,7 +1160,7 @@ function renderGateBelt(cur, type, canvasId) {
 function renderCategory(cur) {
   destroy('category');
   var pal = palette();
-  var labels = ['Tepat Waktu','Kat.1 (30-60m)','Kat.2 (61-120m)','Kat.3 (121-180m)','Kat.4 (181-240m)','Kat.5 (>240m)','Batal'];
+  var labels = ['On Time','Cat.1 (30-60m)','Cat.2 (61-120m)','Cat.3 (121-180m)','Cat.4 (181-240m)','Cat.5 (>240m)','Cancelled'];
   var colors = [pal.green, pal.amber, pal.amber, pal.amber, pal.red, pal.red, pal.red];
   var counts = new Array(7).fill(0);
   cur.forEach(function(f){ counts[f.category]++; });
@@ -1193,9 +1193,9 @@ function renderOtpTrend(cur) {
   var weeks = Object.keys(buckets).sort();
   var ctx = document.getElementById('chartOtpTrend').getContext('2d');
   CH.otpTrend = new Chart(ctx, { type:'bar', data:{ labels: weeks, datasets:[
-    { label:'Tepat waktu', data: weeks.map(function(w){return buckets[w].ontime;}), backgroundColor: pal.green, stack:'s' },
+    { label:'On time', data: weeks.map(function(w){return buckets[w].ontime;}), backgroundColor: pal.green, stack:'s' },
     { label:'Delay', data: weeks.map(function(w){return buckets[w].delay;}), backgroundColor: pal.amber, stack:'s' },
-    { label:'Batal', data: weeks.map(function(w){return buckets[w].cancel;}), backgroundColor: pal.red, stack:'s' }
+    { label:'Cancelled', data: weeks.map(function(w){return buckets[w].cancel;}), backgroundColor: pal.red, stack:'s' }
   ]}, options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:pal.text3, boxWidth:10, font:{size:10} } }, datalabels:{
       display: function(ctx2){ var v=ctx2.dataset.data[ctx2.dataIndex]; var totalBar=ctx2.chart.data.datasets.reduce(function(s,ds){return s+ds.data[ctx2.dataIndex];},0); return v>0 && (v/totalBar)>0.08; },
       color: function(ctx2){ return ctx2.datasetIndex===1 ? '#3a2a00' : '#fff'; }, font:{ size:9, weight:'700' },
@@ -1216,8 +1216,8 @@ function renderDomInt(cur) {
   var months = Object.keys(buckets).sort();
   var ctx = document.getElementById('chartDomInt').getContext('2d');
   CH.domInt = new Chart(ctx, { type:'bar', data:{ labels: months, datasets:[
-    { label:'Domestik', data: months.map(function(m){return buckets[m].dom;}), backgroundColor: pal.teal, stack:'s', borderRadius:3 },
-    { label:'Internasional', data: months.map(function(m){return buckets[m].int;}), backgroundColor: pal.cat[6], stack:'s', borderRadius:3 }
+    { label:'Domestic', data: months.map(function(m){return buckets[m].dom;}), backgroundColor: pal.teal, stack:'s', borderRadius:3 },
+    { label:'International', data: months.map(function(m){return buckets[m].int;}), backgroundColor: pal.cat[6], stack:'s', borderRadius:3 }
   ]}, options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:pal.text3, boxWidth:10, font:{size:10} } }, datalabels:{
       display: function(ctx2){ var v=ctx2.dataset.data[ctx2.dataIndex]; var totalBar=ctx2.chart.data.datasets.reduce(function(s,ds){return s+ds.data[ctx2.dataIndex];},0); return v>0 && (v/totalBar)>0.05; },
       color:'#fff', font:{ size:9, weight:'700' },
@@ -1239,8 +1239,8 @@ function renderArrDep(cur) {
   var depPeak = depAvg.indexOf(Math.max.apply(null, depAvg));
   var ctx = document.getElementById('chartArrDep').getContext('2d');
   CH.arrDep = new Chart(ctx, { type:'line', data:{ labels: Array.from({length:24},function(_,h){return String(h).padStart(2,'0');}), datasets:[
-    { label:'Kedatangan', data: arrAvg, borderColor: pal.teal, backgroundColor:'transparent', tension:.35, pointRadius:0, borderWidth:2 },
-    { label:'Keberangkatan', data: depAvg, borderColor: pal.cat[1], backgroundColor:'transparent', tension:.35, pointRadius:0, borderWidth:2 }
+    { label:'Arrivals', data: arrAvg, borderColor: pal.teal, backgroundColor:'transparent', tension:.35, pointRadius:0, borderWidth:2 },
+    { label:'Departures', data: depAvg, borderColor: pal.cat[1], backgroundColor:'transparent', tension:.35, pointRadius:0, borderWidth:2 }
   ]}, options: { responsive:true, maintainAspectRatio:false, layout:{ padding:{ top:18 } }, plugins:{ legend:{ position:'bottom', labels:{ color:pal.text3, boxWidth:10, font:{size:10} } }, datalabels:{
       display: function(ctx2){ return (ctx2.datasetIndex===0 && ctx2.dataIndex===arrPeak) || (ctx2.datasetIndex===1 && ctx2.dataIndex===depPeak); },
       color: function(ctx2){ return ctx2.datasetIndex===0 ? pal.teal : pal.cat[1]; }, font:{ size:9, weight:'700' }, anchor:'end', align:'top', offset:4
@@ -1252,9 +1252,9 @@ function renderArrDep(cur) {
    LOG TABLE (search, sort, paginate)
 ============================================================ */
 function statusLabel(f) {
-  if (f.category===6) return {cls:'cancel', text:'Batal'};
+  if (f.category===6) return {cls:'cancel', text:'Cancelled'};
   if (f.category===0) return {cls:'ontime', text:'On Time'};
-  return {cls:'delay', text:'Delay K'+f.category};
+  return {cls:'delay', text:'Delay Cat.'+f.category};
 }
 function renderLogTable() {
   var cur = filtered();
@@ -1273,7 +1273,7 @@ function renderLogTable() {
     if (k==='status') { av=a.category; bv=b.category; }
     return (av>bv?1:av<bv?-1:0)*dir;
   });
-  document.getElementById('logCount').textContent = cur.length.toLocaleString('id-ID')+' baris';
+  document.getElementById('logCount').textContent = cur.length.toLocaleString('id-ID')+' rows';
   var totalPages = Math.max(1, Math.ceil(cur.length/state.pageSize));
   if (state.page>totalPages) state.page = totalPages;
   var startIdx = (state.page-1)*state.pageSize;
@@ -1290,7 +1290,7 @@ function renderLogTable() {
       '<td><span class="pill '+st.cls+'">'+st.text+'</span></td><td class="num mono">'+(f.pax||'–')+'</td>';
     tb.appendChild(tr);
   });
-  document.getElementById('pagerInfo').textContent = 'Hal. '+state.page+' / '+totalPages;
+  document.getElementById('pagerInfo').textContent = 'Page '+state.page+' / '+totalPages;
   document.getElementById('pagerPrev').disabled = state.page<=1;
   document.getElementById('pagerNext').disabled = state.page>=totalPages;
 
