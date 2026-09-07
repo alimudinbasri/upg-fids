@@ -105,15 +105,17 @@
     .preset-btn.active { background: var(--teal); color: #001318; border-color: var(--teal); }
     .filter-spacer { flex: 1; min-width: 8px; }
     .dr-picker { order: 1; }
-    .theme-toggle-btn { order: 2; margin-left: auto; background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-sm); padding: 6px 10px; cursor: pointer; font-size: 15px; line-height: 1; flex-shrink: 0; }
-    .range-label { order: 3; flex: 1 1 100%; font-size: 11px; color: var(--text3); }
+    .theme-toggle-btn { order: 3; margin-left: auto; background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-sm); padding: 6px 10px; cursor: pointer; font-size: 15px; line-height: 1; flex-shrink: 0; }
+    .range-label { order: 4; flex: 1 1 100%; font-size: 11px; color: var(--text3); font-weight: 700; text-align: center; }
 
     /* ── ADVANCED FILTER PANEL ── */
-    .af-toggle-btn { display: flex; align-items: center; gap: 8px; background: none; border: none; cursor: pointer; padding: 2px 4px; font-family: inherit; color: var(--text); text-align: left; }
+    .af-toggle-btn { order: 2; display: flex; align-items: center; gap: 8px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; padding: 7px 12px; font-family: inherit; font-size: 12px; font-weight: 600; color: var(--text); text-align: left; }
+    .af-toggle-btn:hover { border-color: var(--teal); }
     .af-toggle-btn #advToggleCaret { color: var(--teal); font-size: 11px; transition: transform .15s; display: inline-block; flex-shrink: 0; }
     .af-toggle-btn .panel-title { color: var(--text); }
     .af-toggle-btn:hover .panel-title { color: var(--teal); }
     .panel-head { flex-wrap: wrap; row-gap: 8px; }
+    .panel-head #btnResetFilters { margin-left: auto; }
     .adv-filter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap: 14px; }
     .af-group { display: flex; flex-direction: column; gap: 6px; }
     .af-group label { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text3); }
@@ -305,8 +307,11 @@
       </div>
     </div>
   </div>
-  <span class="range-label" id="rangeLabel">–</span>
+  <button type="button" class="af-toggle-btn" id="btnToggleAdvFilters">
+    <span id="advToggleCaret">▸</span> <span class="panel-title">Filter Lanjutan</span> <span class="panel-sub" id="advToggleSub"></span>
+  </button>
   <button type="button" class="theme-toggle-btn" id="themeToggle" title="Toggle Dark/Light">🌙</button>
+  <span class="range-label" id="rangeLabel">–</span>
 </div>
 </div>
 
@@ -314,10 +319,7 @@
 
   <div class="panel" id="advFilterPanel" style="margin-bottom:16px;">
     <div class="panel-head">
-      <button type="button" class="af-toggle-btn" id="btnToggleAdvFilters">
-        <span id="advToggleCaret">▸</span> <span class="panel-title">Filter Lanjutan</span> <span class="panel-sub" id="advToggleSub"></span>
-      </button>
-      <button type="button" class="preset-btn" id="btnResetFilters">↺ Reset Semua Filter</button>
+      <button type="button" class="preset-btn" id="btnResetFilters">↺ Reset</button>
     </div>
     <div id="advFilterBody" style="display:none;">
     <div class="adv-filter-grid">
