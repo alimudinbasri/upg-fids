@@ -487,139 +487,191 @@
     </div>
   </div>
 
-  <div class="foot-note">All figures on this page are <b>simulated data</b> (generated deterministically in the browser), not yet connected to <span class="mono">flights_cache</span> — this page is a functional preview to validate the dashboard design before real historical data is available.</div>
+  <div class="foot-note">Flight data is fetched live from the AIS system via Google Apps Script for every day in the selected range. Already-loaded days are cached in this browser for faster reloads — a longer date range may take longer to load the first time.</div>
 </div>
 
+<script src="js/app-config.js"></script>
 <script>
 /* ============================================================
-   DETERMINISTIC DATA SIMULATION
-   Seeded PRNG so reloading the page doesn't reshuffle the numbers.
+   LIVE FLIGHT DATA (Google Apps Script / AIS)
+   Same JSONP endpoint and field-normalization approach as
+   otp.html / real_gate.html / real_belt.html: fetched per day and
+   cached (memory + localStorage), since GAS responses are slow.
 ============================================================ */
-function mulberry32(seed) {
-  return function() {
-    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
-    var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
-}
-var rng = mulberry32(20260906);
-function rand() { return rng(); }
-function randInt(a,b) { return Math.floor(rand()*(b-a+1))+a; }
-function weightedPick(items) {
-  var total = items.reduce(function(s,it){return s+it.w;},0);
-  var r = rand()*total;
-  for (var i=0;i<items.length;i++) { r -= items[i].w; if (r<=0) return items[i]; }
-  return items[items.length-1];
-}
-
-var AIRLINES = [
-  {code:'JT', name:'Lion Air',        w:26},
-  {code:'GA', name:'Garuda Indonesia',w:17},
-  {code:'QG', name:'Citilink',        w:15},
-  {code:'ID', name:'Batik Air',       w:14},
-  {code:'IU', name:'Super Air Jet',   w:11},
-  {code:'IW', name:'Wings Air',       w:8},
-  {code:'SJ', name:'Sriwijaya Air',   w:5},
-  {code:'IN', name:'NAM Air',         w:4}
-];
-var ROUTES = [
-  {code:'CGK', city:'Jakarta',    cls:'DOM', w:22, paxMin:130, paxMax:189},
-  {code:'DPS', city:'Denpasar',   cls:'DOM', w:15, paxMin:120, paxMax:180},
-  {code:'BPN', city:'Balikpapan', cls:'DOM', w:12, paxMin:110, paxMax:170},
-  {code:'MDC', city:'Manado',     cls:'DOM', w:10, paxMin:100, paxMax:160},
-  {code:'KDI', city:'Kendari',    cls:'DOM', w:9,  paxMin:60,  paxMax:120},
-  {code:'AMQ', city:'Ambon',      cls:'DOM', w:7,  paxMin:80,  paxMax:150},
-  {code:'TIM', city:'Timika',     cls:'DOM', w:6,  paxMin:60,  paxMax:110},
-  {code:'BIK', city:'Biak',       cls:'DOM', w:5,  paxMin:60,  paxMax:110},
-  {code:'LUW', city:'Luwuk',      cls:'DOM', w:4,  paxMin:40,  paxMax:72},
-  {code:'SOQ', city:'Sorong',     cls:'DOM', w:4,  paxMin:60,  paxMax:110},
-  {code:'PLM', city:'Palembang',  cls:'DOM', w:3,  paxMin:100, paxMax:160},
-  {code:'JED', city:'Jeddah',     cls:'INT', w:1.4,paxMin:280, paxMax:380},
-  {code:'KUL', city:'Kuala Lumpur',cls:'INT',w:1.6,paxMin:140, paxMax:189}
-];
-var GATES = ['1','2','3','4','5','6','6A','7','8','9','9A','10','11','11A','11B','12'];
-var BELTS = ['1','2','3','4','5','6','7','8','9','10'];
-
-var DATASET_DAYS = 180;
-var today = new Date(); today.setHours(0,0,0,0);
-var datasetStart = new Date(today); datasetStart.setDate(datasetStart.getDate() - (DATASET_DAYS-1));
+var GAS_URL = APP_CONFIG.gasUrl;
 
 function fmtDate(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-function fmtHM(mins) { mins=((mins%1440)+1440)%1440; return String(Math.floor(mins/60)).padStart(2,'0')+':'+String(mins%60).padStart(2,'0'); }
+function fmt(v, def) { def = def===undefined?'':def; var s = String(v===null||v===undefined?'':v).trim(); return s===''||s==='-' ? def : s; }
+function cleanText(v) { return String(v||'').trim(); }
+function first(obj, keys, def) {
+  def = def===undefined?'':def;
+  for (var i=0;i<keys.length;i++) { var k=keys[i]; if (obj[k]!==undefined && obj[k]!==null && String(obj[k]).trim()!=='') return obj[k]; }
+  return def;
+}
+function fmtTime(v) {
+  if (!v) return '';
+  var s = String(v).trim();
+  var dtm = s.match(/\d{4}-\d{2}-\d{2}[T\s](\d{1,2}):(\d{2})/);
+  if (dtm) return dtm[1].padStart(2,'0')+':'+dtm[2];
+  var tm = s.match(/^(\d{1,2})[:.](\d{2})/);
+  return tm ? tm[1].padStart(2,'0')+':'+tm[2] : '';
+}
+function toMin(t) {
+  if (!t) return null;
+  var p = String(t).split(':');
+  var h = parseInt(p[0]||0,10), m = parseInt(p[1]||0,10);
+  if (isNaN(h)||isNaN(m)) return null;
+  return h*60+m;
+}
+function isCancelled(remark) { return /cancel|batal/i.test(String(remark||'')); }
+function calcDelayMin(schedule, actual) {
+  if (!actual || !schedule) return null;
+  var d = toMin(actual)-toMin(schedule);
+  return isNaN(d) ? null : d;
+}
+function getCategory(schedule, actual, remark) {
+  if (isCancelled(remark)) return 6;
+  var d = calcDelayMin(schedule, actual);
+  if (d===null || d<30) return 0;
+  if (d<=60) return 1;
+  if (d<=120) return 2;
+  if (d<=180) return 3;
+  if (d<=240) return 4;
+  return 5;
+}
 
-// Hour-of-day traffic weight profile (index = hour 0-23), airport-realistic double peak
-var HOUR_WEIGHTS = [1,1,1,1,2,6,10,9,6,4,4,5,6,6,5,5,6,8,10,9,7,4,2,1];
+// Domestic/international classification — mirrors real_gate.html / real_belt.html:
+// prefer an explicit field on the raw AIS row if present, otherwise fall back to
+// the gate/belt's configured scope in js/app-config.js.
+function getGateScope(gate) {
+  var status = String((APP_CONFIG.gateMeta[gate]||{}).status||'').toUpperCase();
+  if (gate==='NO GATE') return 'ANY';
+  if (status.indexOf('INT')>=0) return 'INT';
+  if (status.indexOf('DOM')>=0) return 'DOM';
+  return 'ANY';
+}
+function getBeltScope(belt) {
+  var status = String((APP_CONFIG.beltMeta[belt]||{}).status||'').toUpperCase();
+  if (belt==='NO BELT') return 'ANY';
+  if (status.indexOf('INT')>=0) return 'INT';
+  if (status.indexOf('DOM')>=0) return 'DOM';
+  return 'ANY';
+}
+function detectFlightClass(row, gateOrBelt, scopeFn) {
+  var source = [row.flight_category,row.flight_type,row.category,row.dom_int,row.service_type,row.scope,row.domestic_international].map(cleanText).filter(Boolean)[0] || '';
+  if (/INT|INTERNATIONAL/i.test(source)) return 'INT';
+  if (/DOM|DOMESTIC/i.test(source)) return 'DOM';
+  return scopeFn(gateOrBelt)==='INT' ? 'INT' : 'DOM';
+}
 
-var FLIGHTS = (function generate() {
-  var out = [];
-  for (var d=0; d<DATASET_DAYS; d++) {
-    var day = new Date(datasetStart); day.setDate(day.getDate()+d);
-    var dow = day.getDay(); // 0 Sun .. 6 Sat
-    var dateStr = fmtDate(day);
-    var progress = d/(DATASET_DAYS-1); // 0..1 mild growth trend
-    var weekendBoost = (dow===5||dow===6||dow===0) ? 1.12 : 1.0;
-    var base = 78 * (0.92 + 0.16*progress) * weekendBoost; // per ARR/DEP direction
-    // occasional surge day (public-holiday-like) roughly monthly
-    var surge = (d % 27 === 5) ? 1.35 : 1.0;
-    var totalToday = Math.round(base*2*surge);
+function parseFlightNo(raw) {
+  var clean = String(raw||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  var code = clean.slice(0,2);
+  var num = clean.slice(2);
+  return { code: code, display: num ? (code+'-'+num) : code };
+}
 
-    // bad-weather / ATC delay day roughly every ~19 days
-    var badDay = (d % 19 === 9);
+function jsonp(action, date) {
+  return new Promise(function(resolve, reject) {
+    var cb = '__an_cb_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+    var sc = document.createElement('script');
+    var tid = setTimeout(function(){ delete window[cb]; sc.remove(); reject(new Error('Timeout: '+action+' '+date)); }, 20000);
+    window[cb] = function(data){ clearTimeout(tid); delete window[cb]; sc.remove(); resolve(data); };
+    sc.onerror = function(){ clearTimeout(tid); delete window[cb]; sc.remove(); reject(new Error('Script error: '+action+' '+date)); };
+    sc.src = GAS_URL+'?action='+action+'&date='+encodeURIComponent(date)+'&callback='+cb;
+    document.head.appendChild(sc);
+  });
+}
+function extractRows(data) {
+  if (Array.isArray(data)) return data;
+  if (data && data.data && Array.isArray(data.data)) return data.data;
+  if (data && typeof data==='object') { var keys=['rows','flights','result','records']; for (var i=0;i<keys.length;i++) if (Array.isArray(data[keys[i]])) return data[keys[i]]; }
+  return [];
+}
 
-    for (var i=0;i<totalToday;i++) {
-      var type = i%2===0 ? 'ARR' : 'DEP';
-      var hour = weightedPick(HOUR_WEIGHTS.map(function(w,h){return {h:h,w:w};})).h;
-      var minute = randInt(0,59);
-      var schedMin = hour*60+minute;
-      var route = weightedPick(ROUTES);
-      var airline = weightedPick(AIRLINES);
-      var flightNo = airline.code+'-'+String(randInt(100,999));
-      var pax = randInt(route.paxMin, route.paxMax);
+function buildFlight(row, type, dateStr) {
+  var flightRaw = first(row, ['nopen','flight','Flight','no_flight','callsign']);
+  var parsed = parseFlightNo(flightRaw);
+  var schedule = fmtTime(first(row, type==='ARR' ? ['time','jam','schedule','STA','sta','sch','Sch'] : ['time','jam','schedule','STD','std','sch','Sch']));
+  var actual   = fmtTime(first(row, type==='ARR' ? ['actual','ATA','ata','Act','act','atd','ATD'] : ['actual','ATD','atd','Act','act','ata','ATA']));
+  var city     = fmt(first(row, type==='ARR' ? ['city','City','kota','origin_city','origin_name'] : ['city','City','kota','destination_city','dest_name']));
+  var iata     = fmt(first(row, type==='ARR' ? ['iata_code','origin','Origin','route','source_iata'] : ['iata_code','destination','Destination','dest','route']));
+  var remark   = fmt(first(row,['remark','Remark','status','Status']), 'Scheduled');
+  var gate     = type==='DEP' ? fmt(first(row,['gate','Gate','gate_id'])) : '';
+  var belt     = type==='ARR' ? fmt(first(row,['belt','Belt','carousel'])) : '';
+  var pax      = Number(first(row,['pax','Pax','total_pax','penumpang'],0))||0;
+  var bay      = fmt(first(row,['bay_id','bay','Bay','ps','PS','stand','parking']), '');
 
-      // delay model
-      var delayRoll = rand();
-      var delayMin = 0, category = 0;
-      var cancelChance = badDay ? 0.03 : 0.006;
-      if (rand() < cancelChance) {
-        category = 6; delayMin = 0;
-      } else {
-        var thresh = badDay ? 0.55 : 0.82; // chance on-time
-        if (delayRoll < thresh) { delayMin = randInt(-5,14); category = 0; }
-        else {
-          var over = delayRoll - thresh;
-          var span = 1-thresh;
-          var severity = over/span; // 0..1
-          if (severity < 0.45) { delayMin = randInt(30,60); category = 1; }
-          else if (severity < 0.70) { delayMin = randInt(61,120); category = 2; }
-          else if (severity < 0.86) { delayMin = randInt(121,180); category = 3; }
-          else if (severity < 0.96) { delayMin = randInt(181,240); category = 4; }
-          else { delayMin = randInt(241,320); category = 5; }
-        }
-      }
+  var category = getCategory(schedule, actual, remark);
+  var delayMin = category===6 ? 0 : Math.max(0, calcDelayMin(schedule, actual)||0);
+  var cls = type==='DEP' ? detectFlightClass(row, gate, getGateScope) : detectFlightClass(row, belt, getBeltScope);
+  var schedMin = toMin(schedule);
+  var hour = schedMin===null ? 0 : Math.floor(schedMin/60);
+  var dow = new Date(dateStr+'T00:00:00').getDay();
 
-      var gate = type==='DEP' ? GATES[randInt(0,GATES.length-1)] : null;
-      var belt = type==='ARR' ? BELTS[randInt(0,BELTS.length-1)] : null;
-      var gb = type==='DEP' ? 'G'+gate : 'B'+belt;
-      var bay = (rand()<0.72 ? 'C' : 'R') + randInt(1, 42); // Contact / Remote parking stand
+  return {
+    date: dateStr, dow: dow, time: schedule||'--:--', hour: hour, type: type,
+    flightNo: parsed.display, airline: parsed.code, airlineName: (APP_CONFIG.airlineMap[parsed.code]||parsed.code),
+    route: iata||'-', city: city||iata||'-', cls: cls,
+    gate: gate||null, belt: belt||null, gb: type==='DEP' ? ('G'+(gate||'-')) : ('B'+(belt||'-')), bay: bay||'-',
+    pax: category===6 ? 0 : pax, delayMin: delayMin, category: category
+  };
+}
 
-      out.push({
-        date: dateStr, dow: dow,
-        time: fmtHM(schedMin),
-        hour: hour,
-        type: type,
-        flightNo: flightNo,
-        airline: airline.code, airlineName: airline.name,
-        route: route.code, city: route.city, cls: route.cls,
-        gate: gate, belt: belt, gb: gb, bay: bay,
-        pax: category===6 ? 0 : pax,
-        delayMin: category===6 ? 0 : Math.max(0,delayMin),
-        category: category
-      });
-    }
+// Earliest date the AIS/Firestore history is expected to cover — adjust once a
+// real backfill boundary is confirmed with the ops team.
+var today = new Date(); today.setHours(0,0,0,0);
+var datasetStart = new Date(2026,0,1);
+
+var dayCache = {};       // date -> flights[] fetched this page load
+var ALL_ROUTES_SEEN = {}, ALL_BAYS_SEEN = {};
+var LS_PREFIX = 'analyticsDay_';
+
+function loadDayFromLS(dateStr) {
+  try { var raw = localStorage.getItem(LS_PREFIX+dateStr); if (!raw) return null; return JSON.parse(raw).flights; } catch(e) { return null; }
+}
+function saveDayToLS(dateStr, flights) {
+  try { localStorage.setItem(LS_PREFIX+dateStr, JSON.stringify({flights:flights, ts:Date.now()})); } catch(e) {}
+}
+
+function fetchDay(dateStr) {
+  if (dayCache[dateStr]) return Promise.resolve(dayCache[dateStr]);
+  return Promise.all([jsonp('arrival', dateStr), jsonp('departure', dateStr)]).then(function(results){
+    var arrRows = extractRows(results[0]).map(function(r){ return buildFlight(r,'ARR',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
+    var depRows = extractRows(results[1]).map(function(r){ return buildFlight(r,'DEP',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
+    var dayFlights = arrRows.concat(depRows);
+    dayFlights.forEach(function(f){ ALL_ROUTES_SEEN[f.route]=f.city; ALL_BAYS_SEEN[f.bay]=1; });
+    dayCache[dateStr] = dayFlights;
+    saveDayToLS(dateStr, dayFlights);
+    return dayFlights;
+  }).catch(function(err){
+    console.warn('Failed to fetch flights for', dateStr, err);
+    var cached = loadDayFromLS(dateStr);
+    if (cached) { dayCache[dateStr] = cached; cached.forEach(function(f){ ALL_ROUTES_SEEN[f.route]=f.city; ALL_BAYS_SEEN[f.bay]=1; }); return cached; }
+    return [];
+  });
+}
+
+function dateRangeList(fromStr, toStr) {
+  var list = [], d = new Date(fromStr+'T00:00:00'), end = new Date(toStr+'T00:00:00');
+  while (d<=end) { list.push(fmtDate(d)); d.setDate(d.getDate()+1); }
+  return list;
+}
+
+function fetchDays(dateList) {
+  var CONCURRENCY = 6, out = [], i = 0;
+  function next() {
+    if (i>=dateList.length) return Promise.resolve(out);
+    var batch = dateList.slice(i, i+CONCURRENCY); i += CONCURRENCY;
+    return Promise.all(batch.map(fetchDay)).then(function(results){
+      results.forEach(function(r){ out = out.concat(r); });
+      return next();
+    });
   }
-  return out;
-})();
+  return next();
+}
+
+var FLIGHTS = [];
 
 /* ============================================================
    THEME
@@ -679,8 +731,10 @@ var state = { from: null, to: null, search: '', sortKey:'date', sortDir:'desc', 
               type:'', cls:'', hourFrom:0, hourTo:23, flightNo:'',
               airlines:[], routes:[], gates:[], belts:[], bays:[] };
 
-/* ── Populate advanced-filter option lists from the dataset ── */
-(function populateAdvFilters(){
+/* ── Populate advanced-filter option lists ── */
+function fillSelect(sel, values) { sel.innerHTML=''; values.forEach(function(v){ sel.appendChild(new Option(v.label, v.value)); }); }
+
+(function populateStaticFilters(){
   var hf = document.getElementById('fHourFrom'), ht = document.getElementById('fHourTo');
   for (var h=0; h<24; h++) {
     hf.appendChild(new Option(String(h).padStart(2,'0')+':00', h));
@@ -688,14 +742,22 @@ var state = { from: null, to: null, search: '', sortKey:'date', sortDir:'desc', 
   }
   ht.value = 23;
 
-  function fillSelect(sel, values) { values.forEach(function(v){ sel.appendChild(new Option(v.label, v.value)); }); }
-  fillSelect(document.getElementById('fAirline'), AIRLINES.map(function(a){return {label:a.code+' — '+a.name, value:a.code};}));
-  fillSelect(document.getElementById('fRoute'), ROUTES.map(function(r){return {label:r.code+' — '+r.city, value:r.code};}));
-  fillSelect(document.getElementById('fGate'), GATES.map(function(g){return {label:'Gate '+g, value:g};}));
-  fillSelect(document.getElementById('fBelt'), BELTS.map(function(b){return {label:'Belt '+b, value:b};}));
-  var bays = Array.from(new Set(FLIGHTS.map(function(f){return f.bay;}))).sort();
-  fillSelect(document.getElementById('fBay'), bays.map(function(b){return {label:b, value:b};}));
+  var airlineList = Object.keys(APP_CONFIG.airlineMap).sort().map(function(code){ return {label: code+' — '+APP_CONFIG.airlineMap[code], value: code}; });
+  fillSelect(document.getElementById('fAirline'), airlineList);
+  fillSelect(document.getElementById('fGate'), APP_CONFIG.defaultGates.map(function(g){ return {label:'Gate '+g, value:g}; }));
+  fillSelect(document.getElementById('fBelt'), APP_CONFIG.defaultBelts.map(function(b){ return {label:'Belt '+b, value:b}; }));
 })();
+
+// Route/parking-bay option lists depend on real data, so they're (re)built after
+// every fetch instead of upfront — they only grow as more days get loaded.
+function refreshDynamicFilters() {
+  var routeList = Object.keys(ALL_ROUTES_SEEN).sort().map(function(code){ return {label: code+' — '+ALL_ROUTES_SEEN[code], value: code}; });
+  fillSelect(document.getElementById('fRoute'), routeList);
+  syncMultiSelect('fRoute', state.routes);
+  var bayList = Object.keys(ALL_BAYS_SEEN).sort().map(function(b){ return {label:b, value:b}; });
+  fillSelect(document.getElementById('fBay'), bayList);
+  syncMultiSelect('fBay', state.bays);
+}
 
 function multiValues(sel) { return Array.from(sel.selectedOptions).map(function(o){return o.value;}); }
 
@@ -880,7 +942,7 @@ document.getElementById('drApply').addEventListener('click', function(){
     state.from = dr.selStart; state.to = dr.selEnd;
     updateDrTriggerLabel();
     document.querySelectorAll('#drPresets .dr-preset-item').forEach(function(x){x.classList.remove('active');});
-    state.page = 1; closeDrPanel(); renderAll();
+    state.page = 1; closeDrPanel(); loadAndRenderAll();
   }
 });
 document.getElementById('drCancel').addEventListener('click', closeDrPanel);
@@ -889,7 +951,7 @@ document.querySelectorAll('#drPresets .dr-preset-item').forEach(function(b){
     document.querySelectorAll('#drPresets .dr-preset-item').forEach(function(x){x.classList.remove('active');});
     b.classList.add('active');
     setPreset(b.dataset.preset === 'all' || b.dataset.preset==='month' ? b.dataset.preset : parseInt(b.dataset.preset,10));
-    state.page = 1; closeDrPanel(); renderAll();
+    state.page = 1; closeDrPanel(); loadAndRenderAll();
   });
 });
 updateDrTriggerLabel();
@@ -924,6 +986,37 @@ function previousPeriod() {
   var prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate()-(spanDays-1));
   var pf = fmtDate(prevFrom), pt = fmtDate(prevTo);
   return FLIGHTS.filter(function(f){ return f.date>=pf && f.date<=pt && matchesAdvanced(f); });
+}
+
+/* ============================================================
+   LOAD (fetch current + previous-period range, then render)
+============================================================ */
+var isLoadingData = false;
+function loadAndRenderAll() {
+  if (isLoadingData) return;
+  isLoadingData = true;
+  document.getElementById('rangeLabel').textContent = 'Loading flight data…';
+
+  var curDates = dateRangeList(state.from, state.to);
+  var fromD = new Date(state.from+'T00:00:00'), toD = new Date(state.to+'T00:00:00');
+  var spanDays = Math.round((toD-fromD)/86400000)+1;
+  var prevToD = new Date(fromD); prevToD.setDate(prevToD.getDate()-1);
+  var prevFromD = new Date(prevToD); prevFromD.setDate(prevFromD.getDate()-(spanDays-1));
+  var prevDates = dateRangeList(fmtDate(prevFromD), fmtDate(prevToD));
+  var allDates = curDates.slice();
+  prevDates.forEach(function(d){ if (allDates.indexOf(d)===-1) allDates.push(d); });
+  allDates = allDates.filter(function(d){ return new Date(d+'T00:00:00') >= datasetStart; });
+
+  return fetchDays(allDates).then(function(flights){
+    FLIGHTS = flights;
+    refreshDynamicFilters();
+    renderAll();
+  }).catch(function(err){
+    console.error('loadAndRenderAll failed', err);
+    document.getElementById('rangeLabel').textContent = 'Failed to load flight data — check your connection and try again.';
+  }).then(function(){
+    isLoadingData = false;
+  });
 }
 
 function sum(arr,fn){ return arr.reduce(function(s,x){return s+fn(x);},0); }
@@ -1351,7 +1444,7 @@ function ensureChartPluginRegistered() {
     window.__chartDataLabelsRegistered = true;
   }
 }
-function startRender() { ensureChartPluginRegistered(); renderAll(); }
+function startRender() { ensureChartPluginRegistered(); loadAndRenderAll(); }
 if (window.Chart && window.ChartDataLabels) { startRender(); } else {
   window.addEventListener('load', startRender);
 }
@@ -1361,11 +1454,10 @@ if ("serviceWorker" in navigator) {
 }
 </script>
 
-<!-- Firebase Auth Guard -->
+<!-- Firebase Auth Guard (js/app-config.js is loaded earlier, before the main script) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="js/app-config.js"></script>
 <script src="js/firebase-config.js"></script>
 <script src="js/auth-guard.js"></script>
 </body>
