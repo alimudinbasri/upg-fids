@@ -105,9 +105,8 @@
     .preset-btn.active { background: var(--teal); color: #001318; border-color: var(--teal); }
     .filter-spacer { flex: 1; min-width: 8px; }
     .dr-picker { order: 1; }
-    #btnResetFilters { order: 3; }
-    .theme-toggle-btn { order: 4; margin-left: auto; background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-sm); padding: 6px 10px; cursor: pointer; font-size: 15px; line-height: 1; flex-shrink: 0; }
-    .range-label { order: 5; flex: 1 1 100%; font-size: 11px; color: var(--text3); font-weight: 700; text-align: center; }
+    .theme-toggle-btn { order: 3; margin-left: auto; background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-sm); padding: 6px 10px; cursor: pointer; font-size: 15px; line-height: 1; flex-shrink: 0; }
+    .range-label { order: 4; flex: 1 1 100%; font-size: 11px; color: var(--text3); font-weight: 700; text-align: center; }
 
     /* ── ADVANCED FILTER PANEL ── */
     .af-toggle-btn { order: 2; display: flex; align-items: center; gap: 8px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; padding: 7px 12px; font-family: inherit; font-size: 12px; font-weight: 600; color: var(--text); text-align: left; }
@@ -311,7 +310,6 @@
   <button type="button" class="af-toggle-btn" id="btnToggleAdvFilters">
     <span id="advToggleCaret">▸</span> <span class="panel-title">Filter</span> <span class="panel-sub" id="advToggleSub"></span>
   </button>
-  <button type="button" class="preset-btn" id="btnResetFilters">↺ Reset</button>
   <button type="button" class="theme-toggle-btn" id="themeToggle" title="Toggle Dark/Light">🌙</button>
   <span class="range-label" id="rangeLabel">–</span>
 </div>
@@ -372,6 +370,9 @@
       </div>
     </div>
     <div class="panel-sub" id="activeFilterSummary" style="margin-top:10px;"></div>
+    <div style="margin-top:12px; display:flex; justify-content:flex-end;">
+      <button type="button" class="preset-btn" id="btnResetFilters">↺ Reset</button>
+    </div>
     </div>
   </div>
 
@@ -849,21 +850,22 @@ document.getElementById('fFlightNo').addEventListener('input', function(e){ stat
     setOpen(body.style.display === 'none');
   });
   setOpen(localStorage.getItem('analyticsAdvFiltersOpen') === '1');
-})();
 
-document.getElementById('btnResetFilters').addEventListener('click', function(){
-  state.type=''; state.cls=''; state.hourFrom=0; state.hourTo=23; state.flightNo='';
-  state.airlines=[]; state.routes=[]; state.gates=[]; state.belts=[]; state.bays=[];
-  document.querySelectorAll('#tgType .toggle-btn, #tgCls .toggle-btn').forEach(function(x){x.classList.remove('active');});
-  document.querySelector('#tgType .toggle-btn[data-value=""]').classList.add('active');
-  document.querySelector('#tgCls .toggle-btn[data-value=""]').classList.add('active');
-  document.getElementById('fHourFrom').value = 0;
-  document.getElementById('fHourTo').value = 23;
-  document.getElementById('fFlightNo').value = '';
-  ['fAirline','fRoute','fGate','fBelt','fBay'].forEach(function(id){ Array.from(document.getElementById(id).options).forEach(function(o){o.selected=false;}); });
-  state.page = 1;
-  renderAll();
-});
+  document.getElementById('btnResetFilters').addEventListener('click', function(){
+    state.type=''; state.cls=''; state.hourFrom=0; state.hourTo=23; state.flightNo='';
+    state.airlines=[]; state.routes=[]; state.gates=[]; state.belts=[]; state.bays=[];
+    document.querySelectorAll('#tgType .toggle-btn, #tgCls .toggle-btn').forEach(function(x){x.classList.remove('active');});
+    document.querySelector('#tgType .toggle-btn[data-value=""]').classList.add('active');
+    document.querySelector('#tgCls .toggle-btn[data-value=""]').classList.add('active');
+    document.getElementById('fHourFrom').value = 0;
+    document.getElementById('fHourTo').value = 23;
+    document.getElementById('fFlightNo').value = '';
+    ['fAirline','fRoute','fGate','fBelt','fBay'].forEach(function(id){ Array.from(document.getElementById(id).options).forEach(function(o){o.selected=false;}); });
+    state.page = 1;
+    renderAll();
+    setOpen(false);
+  });
+})();
 
 function syncMultiSelect(id, values) {
   var sel = document.getElementById(id);
