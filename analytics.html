@@ -648,21 +648,34 @@ function waitForDb() {
   });
 }
 
-// Best-effort parse of a flights_cache/{date} document. The exact shape hasn't
-// been confirmed yet, so this tries the shapes that would naturally come out
-// of the same GAS endpoint used for the live fallback (an {arrival,departure}
-// or {ARR,DEP} pair of raw rows, or a single pre-tagged {flights:[...]} array).
-// Anything unrecognized (or an empty result) is treated as a cache miss.
+// Parse a flights_cache/{date} document. Confirmed real shape (via Firebase
+// Console, 2026-09): { arrivals: "<JSON string of row objects>", departures:
+// "<JSON string of row objects>", updatedAt: "<ISO string>" } — the arrays are
+// stored as serialized JSON strings, not native Firestore arrays. Each row
+// object uses the same field names as the live GAS endpoint (nopen, icao_code,
+// iata_code, city, ...), which buildFlight() already knows how to read.
+// A couple of older shape guesses are kept as fallbacks in case the writer
+// changes format later; anything unrecognized is treated as a cache miss.
+function toRowArray(v) {
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string' && v.trim()) {
+    try { var parsed = JSON.parse(v); return Array.isArray(parsed) ? parsed : []; } catch(e) { return []; }
+  }
+  return [];
+}
 function parseFlightsCacheDoc(data, dateStr) {
   if (!data) return null;
   var arrRaw, depRaw;
-  if (Array.isArray(data.arrival) || Array.isArray(data.departure)) {
-    arrRaw = data.arrival||[]; depRaw = data.departure||[];
-  } else if (Array.isArray(data.ARR) || Array.isArray(data.DEP)) {
-    arrRaw = data.ARR||[]; depRaw = data.DEP||[];
-  } else if (Array.isArray(data.flights)) {
-    depRaw = data.flights.filter(function(r){ return /DEP|departure/i.test(r.type||''); });
-    arrRaw = data.flights.filter(function(r){ return /ARR|arrival/i.test(r.type||''); });
+  if (data.arrivals!==undefined || data.departures!==undefined) {
+    arrRaw = toRowArray(data.arrivals); depRaw = toRowArray(data.departures);
+  } else if (data.arrival!==undefined || data.departure!==undefined) {
+    arrRaw = toRowArray(data.arrival); depRaw = toRowArray(data.departure);
+  } else if (data.ARR!==undefined || data.DEP!==undefined) {
+    arrRaw = toRowArray(data.ARR); depRaw = toRowArray(data.DEP);
+  } else if (data.flights!==undefined) {
+    var combined = toRowArray(data.flights);
+    depRaw = combined.filter(function(r){ return /DEP|departure/i.test(r.type||''); });
+    arrRaw = combined.filter(function(r){ return /ARR|arrival/i.test(r.type||''); });
   } else {
     return null;
   }
@@ -728,7 +741,7 @@ function fetchDays(dateList, onProgress) {
     return Promise.all(batch.map(fetchDay)).then(function(results){
       results.forEach(function(r){ out = out.concat(r); });
       done += batch.length;
-      if (onProgress) onProgress(done, dateList.length);
+      if (onProgress) onProgress(done, dateList.length, out);
       return next();
     });
   }
@@ -1061,6 +1074,18 @@ function setLoadProgress(pct, visible) {
   document.getElementById('loadProgressBar').style.width = pct+'%';
   document.getElementById('loadProgress').classList.toggle('show', visible);
 }
+// Live "counting up" preview of the KPI tiles while data streams in — only
+// the totals (not the vs-previous-period deltas, which need the previous
+// range to also be fully loaded to mean anything) so the numbers visibly
+// climb toward the final figures instead of sitting blank until everything
+// is done.
+function renderKpiPreview(partialFlights) {
+  var cur = partialFlights.filter(function(f){ return f.date>=state.from && f.date<=state.to; });
+  document.getElementById('kpiFlights').textContent = cur.length.toLocaleString('id-ID');
+  document.getElementById('kpiPax').textContent = sum(cur,function(f){return f.pax;}).toLocaleString('id-ID');
+  document.getElementById('kpiOtp').textContent = otpPct(cur).toFixed(1)+'%';
+  document.getElementById('kpiDelay').textContent = avgDelay(cur).toFixed(0)+' min';
+}
 function loadAndRenderAll() {
   if (isLoadingData) return;
   isLoadingData = true;
@@ -1068,6 +1093,10 @@ function loadAndRenderAll() {
   var rangeEl = document.getElementById('rangeLabel');
   rangeEl.textContent = 'Loading flight data…';
   setLoadProgress(2, true);
+  ['kpiFlights','kpiPax'].forEach(function(id){ document.getElementById(id).textContent = '0'; });
+  document.getElementById('kpiOtp').textContent = '0.0%';
+  document.getElementById('kpiDelay').textContent = '0 min';
+  ['kpiFlightsDelta','kpiPaxDelta','kpiOtpDelta','kpiDelayDelta'].forEach(function(id){ document.getElementById(id).textContent=''; });
 
   var curDates = dateRangeList(state.from, state.to);
   var fromD = new Date(state.from+'T00:00:00'), toD = new Date(state.to+'T00:00:00');
@@ -1079,9 +1108,10 @@ function loadAndRenderAll() {
   prevDates.forEach(function(d){ if (allDates.indexOf(d)===-1) allDates.push(d); });
   allDates = allDates.filter(function(d){ return new Date(d+'T00:00:00') >= datasetStart; });
 
-  return fetchDays(allDates, function(done, total){
+  return fetchDays(allDates, function(done, total, partial){
     setLoadProgress(Math.max(2, Math.round(100*done/total)), true);
     rangeEl.textContent = 'Loading flight data… ('+done+'/'+total+' days — '+loadStats.cache+' cached, '+loadStats.live+' fetched live)';
+    renderKpiPreview(partial);
   }).then(function(flights){
     FLIGHTS = flights;
     refreshDynamicFilters();
