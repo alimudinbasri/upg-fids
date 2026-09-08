@@ -62,9 +62,6 @@
 
     /* ── STICKY HEADER GROUP ── */
     .sticky-top { position: sticky; top: 0; z-index: 100; }
-    .load-progress { position: absolute; top: 0; left: 0; right: 0; height: 3px; z-index: 101; pointer-events: none; }
-    .load-progress-bar { height: 100%; width: 0%; background: var(--teal); box-shadow: 0 0 6px var(--teal); opacity: 0; transition: width .25s ease, opacity .25s ease; }
-    .load-progress-bar.show { opacity: 1; }
 
     /* ── HEADER ── */
     .fids-header { background: linear-gradient(135deg,#0d2137 0%,#0a2845 60%,#082040 100%); border-bottom: 2px solid var(--teal-dim); padding: 14px 16px 12px; display: flex; align-items: center; gap: 12px; }
@@ -109,7 +106,10 @@
     .filter-spacer { flex: 1; min-width: 8px; }
     .dr-picker { order: 1; }
     .theme-toggle-btn { order: 3; margin-left: auto; background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-sm); padding: 6px 10px; cursor: pointer; font-size: 15px; line-height: 1; flex-shrink: 0; }
-    .range-label { order: 4; flex: 1 1 100%; font-size: 11px; color: var(--text3); font-weight: 700; text-align: center; }
+    .load-progress { order: 4; flex: 1 1 100%; height: 0; margin-top: 0; background: var(--bg3); border-radius: 2px; overflow: hidden; transition: height .2s ease, margin-top .2s ease; }
+    .load-progress.show { height: 3px; margin-top: 6px; }
+    .load-progress-bar { height: 100%; width: 0%; background: var(--teal); transition: width .25s ease; }
+    .range-label { order: 5; flex: 1 1 100%; font-size: 11px; color: var(--text3); font-weight: 700; text-align: center; }
 
     /* ── ADVANCED FILTER PANEL ── */
     .af-toggle-btn { order: 2; display: flex; align-items: center; gap: 8px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; padding: 7px 12px; font-family: inherit; font-size: 12px; font-weight: 600; color: var(--text); text-align: left; }
@@ -265,7 +265,6 @@
 </div>
 
 <div class="sticky-top">
-<div class="load-progress" id="loadProgress"><div class="load-progress-bar" id="loadProgressBar"></div></div>
 <header class="fids-header">
   <button class="ham-btn" id="hamBtn" title="Menu">☰</button>
   <div class="brand">
@@ -315,6 +314,7 @@
     <span id="advToggleCaret">▸</span> <span class="panel-title">Filter</span> <span class="panel-sub" id="advToggleSub"></span>
   </button>
   <button type="button" class="theme-toggle-btn" id="themeToggle" title="Toggle Dark/Light">🌙</button>
+  <div class="load-progress" id="loadProgress"><div class="load-progress-bar" id="loadProgressBar"></div></div>
   <span class="range-label" id="rangeLabel">–</span>
 </div>
 </div>
@@ -1058,9 +1058,8 @@ function previousPeriod() {
 ============================================================ */
 var isLoadingData = false;
 function setLoadProgress(pct, visible) {
-  var bar = document.getElementById('loadProgressBar');
-  bar.style.width = pct+'%';
-  bar.classList.toggle('show', visible);
+  document.getElementById('loadProgressBar').style.width = pct+'%';
+  document.getElementById('loadProgress').classList.toggle('show', visible);
 }
 function loadAndRenderAll() {
   if (isLoadingData) return;
