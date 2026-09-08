@@ -62,6 +62,9 @@
 
     /* ── STICKY HEADER GROUP ── */
     .sticky-top { position: sticky; top: 0; z-index: 100; }
+    .load-progress { position: absolute; top: 0; left: 0; right: 0; height: 3px; z-index: 101; pointer-events: none; }
+    .load-progress-bar { height: 100%; width: 0%; background: var(--teal); box-shadow: 0 0 6px var(--teal); opacity: 0; transition: width .25s ease, opacity .25s ease; }
+    .load-progress-bar.show { opacity: 1; }
 
     /* ── HEADER ── */
     .fids-header { background: linear-gradient(135deg,#0d2137 0%,#0a2845 60%,#082040 100%); border-bottom: 2px solid var(--teal-dim); padding: 14px 16px 12px; display: flex; align-items: center; gap: 12px; }
@@ -262,6 +265,7 @@
 </div>
 
 <div class="sticky-top">
+<div class="load-progress" id="loadProgress"><div class="load-progress-bar" id="loadProgressBar"></div></div>
 <header class="fids-header">
   <button class="ham-btn" id="hamBtn" title="Menu">☰</button>
   <div class="brand">
@@ -1053,12 +1057,18 @@ function previousPeriod() {
    LOAD (fetch current + previous-period range, then render)
 ============================================================ */
 var isLoadingData = false;
+function setLoadProgress(pct, visible) {
+  var bar = document.getElementById('loadProgressBar');
+  bar.style.width = pct+'%';
+  bar.classList.toggle('show', visible);
+}
 function loadAndRenderAll() {
   if (isLoadingData) return;
   isLoadingData = true;
   loadStats = { cache: 0, live: 0 };
   var rangeEl = document.getElementById('rangeLabel');
   rangeEl.textContent = 'Loading flight data…';
+  setLoadProgress(2, true);
 
   var curDates = dateRangeList(state.from, state.to);
   var fromD = new Date(state.from+'T00:00:00'), toD = new Date(state.to+'T00:00:00');
@@ -1071,6 +1081,7 @@ function loadAndRenderAll() {
   allDates = allDates.filter(function(d){ return new Date(d+'T00:00:00') >= datasetStart; });
 
   return fetchDays(allDates, function(done, total){
+    setLoadProgress(Math.max(2, Math.round(100*done/total)), true);
     rangeEl.textContent = 'Loading flight data… ('+done+'/'+total+' days — '+loadStats.cache+' cached, '+loadStats.live+' fetched live)';
   }).then(function(flights){
     FLIGHTS = flights;
@@ -1086,6 +1097,8 @@ function loadAndRenderAll() {
     rangeEl.textContent = 'Failed to load flight data — check your connection and try again.';
   }).then(function(){
     isLoadingData = false;
+    setLoadProgress(100, false);
+    setTimeout(function(){ setLoadProgress(0, false); }, 300);
   });
 }
 
