@@ -928,6 +928,10 @@ function fmtDateShort(iso) {
   var d = new Date(iso+'T00:00:00');
   return d.getDate()+' '+MONTH_NAMES[d.getMonth()].slice(0,3)+' '+d.getFullYear();
 }
+function fmtDateDMY(iso) {
+  var d = new Date(iso+'T00:00:00');
+  return String(d.getDate()).padStart(2,'0')+'-'+MONTH_NAMES[d.getMonth()].slice(0,3)+'-'+d.getFullYear();
+}
 function updateDrTriggerLabel() {
   document.getElementById('drTriggerLabel').textContent = state.from && state.to ? (fmtDateShort(state.from)+' – '+fmtDateShort(state.to)) : 'Select date range';
 }
@@ -1161,7 +1165,7 @@ function renderKpi(cur, prev) {
   deltaHtml(document.getElementById('kpiPaxDelta'), pax, ppax, '', true);
   deltaHtml(document.getElementById('kpiOtpDelta'), otp, potp, '%', true);
   deltaHtml(document.getElementById('kpiDelayDelta'), dly, pdly, 'min', false);
-  document.getElementById('rangeLabel').textContent = state.from+' → '+state.to+' ('+cur.length+' flight'+(cur.length===1?'':'s')+')';
+  document.getElementById('rangeLabel').textContent = fmtDateDMY(state.from)+' → '+fmtDateDMY(state.to)+' ('+cur.length+' flight'+(cur.length===1?'':'s')+')';
 }
 
 /* ============================================================
