@@ -703,18 +703,18 @@ function fetchDayLive(dateStr) {
   });
 }
 
-// Tracks how each day was actually served, so slow loads can be diagnosed
-// without devtools access — surfaced in the UI by loadAndRenderAll().
-var loadStats = { cache: 0, live: 0 };
-
-function fetchDay(dateStr) {
+// stats is a per-call {cache,live} counter object (see loadAndRenderAll) —
+// kept local to each load rather than a shared global, so an old, superseded
+// load (e.g. "All data" abandoned in favor of "Today") can't corrupt the
+// counters of whichever load is actually still being shown to the user.
+function fetchDay(dateStr, stats) {
   if (dayCache[dateStr]) return Promise.resolve(dayCache[dateStr]);
   // Try the Firestore cache first (fast, no GAS round-trip). Fall back to a
   // live AIS fetch when the day isn't cached yet (e.g. today, before the
   // daily sync has run) or the cached document came back empty/unparseable.
   return fetchDayFromCache(dateStr).then(function(cached){
-    if (cached && cached.length) { loadStats.cache++; return cached; }
-    loadStats.live++;
+    if (cached && cached.length) { stats.cache++; return cached; }
+    stats.live++;
     return fetchDayLive(dateStr);
   }).catch(function(err){
     console.warn('Failed to fetch flights for', dateStr, err);
@@ -733,12 +733,12 @@ function dateRangeList(fromStr, toStr) {
   return list;
 }
 
-function fetchDays(dateList, onProgress) {
+function fetchDays(dateList, stats, onProgress) {
   var CONCURRENCY = 6, out = [], i = 0, done = 0;
   function next() {
     if (i>=dateList.length) return Promise.resolve(out);
     var batch = dateList.slice(i, i+CONCURRENCY); i += CONCURRENCY;
-    return Promise.all(batch.map(fetchDay)).then(function(results){
+    return Promise.all(batch.map(function(d){ return fetchDay(d, stats); })).then(function(results){
       results.forEach(function(r){ out = out.concat(r); });
       done += batch.length;
       if (onProgress) onProgress(done, dateList.length, out);
@@ -1073,7 +1073,6 @@ function previousPeriod() {
 /* ============================================================
    LOAD (fetch current + previous-period range, then render)
 ============================================================ */
-var isLoadingData = false;
 function setLoadProgress(pct, visible) {
   document.getElementById('loadProgressBar').style.width = pct+'%';
   document.getElementById('loadProgress').classList.toggle('show', visible);
@@ -1090,10 +1089,14 @@ function renderKpiPreview(partialFlights) {
   document.getElementById('kpiOtp').textContent = otpPct(cur).toFixed(1)+'%';
   document.getElementById('kpiDelay').textContent = avgDelay(cur).toFixed(0)+' min';
 }
+// Incremented on every call so a newer load (e.g. the user switching to
+// "Today" while "All data" is still fetching) can tell a still-running older
+// load's callbacks "you're stale, don't touch the UI" instead of the old
+// behavior of just refusing to start a new load until the old one finished.
+var loadGeneration = 0;
 function loadAndRenderAll() {
-  if (isLoadingData) return;
-  isLoadingData = true;
-  loadStats = { cache: 0, live: 0 };
+  var myGen = ++loadGeneration;
+  var stats = { cache: 0, live: 0 };
   var rangeEl = document.getElementById('rangeLabel');
   rangeEl.textContent = 'Loading flight data…';
   setLoadProgress(2, true);
@@ -1112,24 +1115,27 @@ function loadAndRenderAll() {
   prevDates.forEach(function(d){ if (allDates.indexOf(d)===-1) allDates.push(d); });
   allDates = allDates.filter(function(d){ return new Date(d+'T00:00:00') >= datasetStart; });
 
-  return fetchDays(allDates, function(done, total, partial){
+  return fetchDays(allDates, stats, function(done, total, partial){
+    if (myGen !== loadGeneration) return; // superseded — a newer load is now in charge of the UI
     setLoadProgress(Math.max(2, Math.round(100*done/total)), true);
-    rangeEl.textContent = 'Loading flight data… ('+done+'/'+total+' days — '+loadStats.cache+' cached, '+loadStats.live+' fetched live)';
+    rangeEl.textContent = 'Loading flight data… ('+done+'/'+total+' days — '+stats.cache+' cached, '+stats.live+' fetched live)';
     renderKpiPreview(partial);
   }).then(function(flights){
+    if (myGen !== loadGeneration) return;
     FLIGHTS = flights;
     refreshDynamicFilters();
     renderAll();
     var noteEl = document.getElementById('rangeLabel');
-    if (loadStats.live > 0) {
-      noteEl.textContent += ' · '+loadStats.cache+' day(s) from cache, '+loadStats.live+' fetched live';
-      console.info('[analytics] flights_cache hits:', loadStats.cache, '/ live fallback:', loadStats.live, '— if most days are "live" for dates that should already be synced, the flights_cache document shape assumed by parseFlightsCacheDoc() is probably wrong.');
+    if (stats.live > 0) {
+      noteEl.textContent += ' · '+stats.cache+' day(s) from cache, '+stats.live+' fetched live';
+      console.info('[analytics] flights_cache hits:', stats.cache, '/ live fallback:', stats.live, '— if most days are "live" for dates that should already be synced, the flights_cache document shape assumed by parseFlightsCacheDoc() is probably wrong.');
     }
   }).catch(function(err){
+    if (myGen !== loadGeneration) return;
     console.error('loadAndRenderAll failed', err);
     rangeEl.textContent = 'Failed to load flight data — check your connection and try again.';
   }).then(function(){
-    isLoadingData = false;
+    if (myGen !== loadGeneration) return;
     setLoadProgress(100, false);
     setTimeout(function(){ setLoadProgress(0, false); }, 300);
   });
