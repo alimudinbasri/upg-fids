@@ -278,6 +278,8 @@
     if (isAdmin) {
       const adminLink = document.getElementById("nav-admin-link");
       if (adminLink) adminLink.style.display = "flex";
+      const aboutLink = document.getElementById("nav-about-link");
+      if (aboutLink) aboutLink.style.display = "flex";
 
       // The WA report template (tags reference, template editor, reset/update
       // buttons) is shared/global config — only admins may edit it. Everyone

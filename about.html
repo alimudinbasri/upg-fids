@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <title>About – M-FIDS</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a1628;
+      --bg2:       #0d1e35;
+      --bg3:       #122444;
+      --border:    #254a72;
+      --teal:      #00bcd4;
+      --teal2:     #00e5ff;
+      --teal-dim:  #008fa3;
+      --red:       #ff5252;
+      --green:     #00e676;
+      --amber:     #ffc107;
+      --text:      #eaf6ff;
+      --text2:     #90d4e8;
+      --text3:     #6aafc8;
+      --radius-sm: 8px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100dvh;
+    }
+
+    /* ── HEADER ── */
+    .fids-header {
+      background: linear-gradient(135deg, #0d2137 0%, #0a2845 60%, #082040 100%);
+      border-bottom: 2px solid var(--teal-dim);
+      padding: 14px 16px 12px;
+      display: flex; align-items: center;
+      gap: 12px; position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 20px rgba(0,0,0,.5);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .brand-logo {
+      background: var(--teal); color: #000; font-weight: 900;
+      font-size: 20px; letter-spacing: -.5px; padding: 6px 12px;
+      border-radius: var(--radius-sm); flex-shrink: 0; line-height: 1;
+    }
+    .brand-name { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; }
+    .brand-sub  { font-size: 11px; color: var(--text3); margin-top: 1px; }
+
+    /* ── HAMBURGER ── */
+    .ham-btn { background: none; border: 1.5px solid rgba(0,188,212,.3); border-radius: 8px; color: #00e5ff; font-size: 20px; cursor: pointer; padding: 4px 8px; flex-shrink: 0; line-height: 1; transition: background .15s; }
+    .ham-btn:hover { background: rgba(0,188,212,.12); }
+
+    /* ── NAV PANEL ── */
+    .nav-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 4998; display: none; }
+    .nav-overlay.show { display: block; }
+    .nav-panel { position: fixed; top: 0; left: 0; width: 220px; height: 100%; background: #0a1e38; border-right: 1.5px solid var(--border); z-index: 4999; transform: translateX(-100%); transition: transform .22s ease; display: flex; flex-direction: column; }
+    .nav-panel.show { transform: translateX(0); }
+    .nav-panel-head { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .nav-panel-logo { background: var(--teal); color: #000; font-weight: 900; font-size: 13px; padding: 5px 9px; border-radius: 6px; letter-spacing: -.3px; }
+    .nav-panel-title { font-size: 12px; font-weight: 700; color: #97ceff; }
+    .nav-links { padding: 10px 8px; display: flex; flex-direction: column; gap: 3px; }
+    .nav-link { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; text-decoration: none; color: #9cc4f5; font-size: 13px; font-weight: 700; transition: background .15s; white-space: nowrap; border-left: 3px solid transparent; }
+    .nav-link:hover { background: rgba(0,188,212,.1); }
+    .nav-link.active { background: rgba(0,188,212,.18); color: #aae8ef; border-left-color: var(--teal); }
+    .nav-link-icon { font-size: 17px; width: 26px; text-align: center; flex-shrink: 0; }
+    .nav-footer { margin-top: auto; padding: 12px 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+    .nav-user-name { font-size: 11px; color: #6aafc8; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .btn-logout { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; background: rgba(255,82,82,.1); border: 1px solid rgba(255,82,82,.3); color: #ff7070; font-size: 13px; font-weight: 700; cursor: pointer; width: 100%; transition: background .15s; }
+    .btn-logout:hover { background: rgba(255,82,82,.2); }
+
+    /* ── MOBILE BOTTOM TAB BAR ── */
+    .mobile-tabbar { display: none; }
+    @media (max-width: 720px) {
+      .mobile-tabbar {
+        display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 300;
+        background: var(--bg2); border-top: 1px solid var(--border);
+        padding: 6px 2px calc(6px + env(safe-area-inset-bottom));
+      }
+      .mtab-item {
+        flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+        text-decoration: none; color: var(--text3); padding: 4px 2px; border-radius: 8px; min-width: 0;
+      }
+      .mtab-icon { font-size: 19px; line-height: 1; }
+      .mtab-label { font-size: 9.5px; font-weight: 700; white-space: nowrap; }
+      .mtab-item.active { color: var(--teal); }
+      body { padding-bottom: 58px; }
+    }
+
+    /* ── DOC LAYOUT ── */
+    .doc-wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px 60px; }
+    .doc-intro { font-size: 12.5px; color: var(--text3); line-height: 1.7; margin-bottom: 20px; }
+    .doc-intro b { color: var(--text2); }
+    .doc-toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin-bottom: 28px; }
+    .doc-toc-title { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--text3); margin-bottom: 10px; }
+    .doc-toc ol { list-style: none; counter-reset: toc; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 18px; }
+    .doc-toc li { counter-increment: toc; font-size: 12.5px; }
+    .doc-toc li::before { content: counter(toc) ". "; color: var(--text3); }
+    .doc-toc a { color: var(--teal2); text-decoration: none; }
+    .doc-toc a:hover { text-decoration: underline; }
+
+    .doc-section { margin-bottom: 34px; scroll-margin-top: 78px; }
+    .doc-section h2 { font-size: 17px; color: var(--teal2); border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 14px; }
+    .doc-section h3 { font-size: 13.5px; color: var(--text); margin: 18px 0 8px; }
+    .doc-section p { font-size: 13px; line-height: 1.75; color: var(--text2); margin-bottom: 10px; }
+    .doc-section ul, .doc-section ol.plain { margin: 8px 0 12px 20px; }
+    .doc-section li { font-size: 13px; line-height: 1.7; color: var(--text2); margin-bottom: 5px; }
+    .doc-section li b, .doc-section p b { color: var(--text); }
+
+    code.inline { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family: 'Consolas','Courier New',monospace; font-size: 12px; color: var(--teal2); white-space: nowrap; }
+    .code-block { background: #05101f; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-family: 'Consolas','Courier New',monospace; font-size: 11.5px; line-height: 1.6; color: #9fe6c8; overflow-x: auto; white-space: pre; margin: 10px 0; }
+    .code-block .cm { color: #6aafc8; }
+
+    .doc-table-wrap { overflow-x: auto; margin: 10px 0; }
+    .doc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .doc-table th { text-align: left; padding: 6px 10px; background: var(--bg3); color: var(--text3); font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .doc-table td { padding: 7px 10px; border-bottom: 1px solid rgba(37,74,114,.3); color: var(--text2); vertical-align: top; }
+    .doc-table tr:last-child td { border-bottom: none; }
+
+    .callout { border-left: 3px solid var(--teal); background: rgba(0,188,212,.08); padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 12.5px; line-height: 1.6; color: var(--text2); margin: 12px 0; }
+    .callout.warn { border-color: var(--amber); background: rgba(255,193,7,.08); }
+    .callout.danger { border-color: var(--red); background: rgba(255,82,82,.08); }
+    .callout strong { color: var(--text); }
+
+    .badge { display: inline-block; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 20px; }
+    .badge.ok { background: rgba(0,230,118,.12); color: var(--green); border: 1px solid rgba(0,230,118,.35); }
+    .badge.pending { background: rgba(255,193,7,.12); color: var(--amber); border: 1px solid rgba(255,193,7,.35); }
+    .badge.bug { background: rgba(255,82,82,.12); color: var(--red); border: 1px solid rgba(255,82,82,.35); }
+
+    .state-msg { text-align: center; padding: 60px 20px; color: var(--text3); font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header class="fids-header">
+  <button class="ham-btn" id="hamBtn" title="Menu">☰</button>
+  <div class="brand">
+    <div class="brand-logo">ℹ️</div>
+    <div>
+      <div class="brand-name">About M-FIDS</div>
+      <div class="brand-sub">Dokumentasi teknis · Admin only</div>
+    </div>
+  </div>
+</header>
+
+<!-- ── NAV PANEL ── -->
+<div class="nav-overlay" id="navOverlay"></div>
+<div class="nav-panel" id="navPanel">
+  <div class="nav-panel-head">
+    <span class="nav-panel-logo">UPG</span>
+    <span class="nav-panel-title">Sultan Hasanuddin</span>
+  </div>
+  <nav class="nav-links">
+    <a href="index.html"     class="nav-link"><span class="nav-link-icon">📺</span>FIDS</a>
+    <a href="real_gate.html" class="nav-link"><span class="nav-link-icon">🚪</span>Real Gate</a>
+    <a href="real_belt.html" class="nav-link"><span class="nav-link-icon">🛄</span>Real Belt</a>
+    <a href="otp.html"       class="nav-link"><span class="nav-link-icon">📊</span>OTP Report</a>
+    <a href="analytics.html" class="nav-link"><span class="nav-link-icon">📈</span>Analytics</a>
+    <a href="admin.html"     class="nav-link"><span class="nav-link-icon">🛡</span>Admin</a>
+    <a href="about.html"     class="nav-link active"><span class="nav-link-icon">ℹ️</span>About</a>
+  </nav>
+  <div class="nav-footer">
+    <div class="nav-user-name" id="nav-user-name">–</div>
+    <button class="btn-logout" id="btn-logout">
+      <span style="font-size:16px;">⏻</span> Logout
+    </button>
+  </div>
+</div>
+
+<nav class="mobile-tabbar">
+  <a href="index.html" class="mtab-item"><span class="mtab-icon">📺</span><span class="mtab-label">FIDS</span></a>
+  <a href="real_gate.html" class="mtab-item"><span class="mtab-icon">🚪</span><span class="mtab-label">Gate</span></a>
+  <a href="real_belt.html" class="mtab-item"><span class="mtab-icon">🛄</span><span class="mtab-label">Belt</span></a>
+  <a href="otp.html" class="mtab-item"><span class="mtab-icon">📊</span><span class="mtab-label">OTP</span></a>
+  <a href="analytics.html" class="mtab-item"><span class="mtab-icon">📈</span><span class="mtab-label">Analytics</span></a>
+</nav>
+
+<div id="gate" class="state-msg">Memeriksa akses admin…</div>
+
+<div class="doc-wrap" id="docContent" style="display:none;">
+
+  <p class="doc-intro">
+    Halaman ini adalah <b>dokumentasi teknis lengkap</b> aplikasi M-FIDS (Mobile Flight Information Display System)
+    untuk Bandara Sultan Hasanuddin (Makassar/UPG). Ditulis supaya bisa langsung dipahami oleh developer baru
+    <b>atau AI lain</b> yang belum pernah menyentuh proyek ini — kalau Anda meneruskan halaman ini ke AI/asisten lain,
+    mereka seharusnya bisa langsung paham struktur, alur data, dan titik-titik yang masih perlu perhatian tanpa
+    perlu menjelajah seluruh kode dari nol. Hanya bisa diakses oleh Admin.
+  </p>
+
+  <div class="doc-toc">
+    <div class="doc-toc-title">Daftar Isi</div>
+    <ol>
+      <li><a href="#ringkasan">Ringkasan Aplikasi</a></li>
+      <li><a href="#arsitektur">Tech Stack &amp; Arsitektur</a></li>
+      <li><a href="#halaman">Daftar Halaman</a></li>
+      <li><a href="#modul">File &amp; Modul Bersama</a></li>
+      <li><a href="#data-live">Sumber Data Real-time (AIS/GAS)</a></li>
+      <li><a href="#flights-cache">Cache Historis (flights_cache)</a></li>
+      <li><a href="#firebase">Proyek Firebase &amp; Koleksi Firestore</a></li>
+      <li><a href="#rules">Aturan Keamanan (Firestore Rules)</a></li>
+      <li><a href="#auth">Model Otentikasi &amp; Admin</a></li>
+      <li><a href="#gas">Otomatisasi Backend (Apps Script)</a></li>
+      <li><a href="#deploy">Git &amp; Deployment</a></li>
+      <li><a href="#desain">Desain &amp; Konvensi UI</a></li>
+      <li><a href="#todo">Masalah Diketahui &amp; TODO</a></li>
+      <li><a href="#riwayat">Catatan Riwayat</a></li>
+    </ol>
+  </div>
+
+  <section class="doc-section" id="ringkasan">
+    <h2>1. Ringkasan Aplikasi</h2>
+    <p>
+      <b>M-FIDS</b> adalah sistem informasi penerbangan mobile untuk Bandara Sultan Hasanuddin International Airport
+      (Makassar, kode IATA <code class="inline">UPG</code>). Aplikasi ini dipakai oleh staf operasional bandara
+      (sehari-hari, bukan demo/prototipe) untuk memantau jadwal kedatangan/keberangkatan real-time, mengatur
+      penempatan gate &amp; belt, melihat laporan on-time performance (OTP), dan menganalisis data historis
+      penerbangan.
+    </p>
+    <ul>
+      <li><b>Live production URL:</b> <code class="inline">https://upg-fids.web.app</code></li>
+      <li><b>Firebase project ID:</b> <code class="inline">upg-fids</code></li>
+      <li><b>Repo GitHub:</b> <code class="inline">github.com/alimudinbasri/upg-aolt</code>, branch <code class="inline">main</code></li>
+      <li><b>Working directory server:</b> <code class="inline">C:\xampp\htdocs\fids</code> (Windows Server VM)</li>
+    </ul>
+  </section>
+
+  <section class="doc-section" id="arsitektur">
+    <h2>2. Tech Stack &amp; Arsitektur</h2>
+    <p>Ini adalah <b>static site multi-halaman berbasis vanilla JavaScript</b> — bukan React/Vue/Angular, tidak ada
+      build step (webpack/vite), tidak ada bundler, tidak ada npm package untuk runtime app. Setiap halaman
+      <code class="inline">.html</code> adalah file mandiri lengkap dengan <code class="inline">&lt;style&gt;</code>
+      dan <code class="inline">&lt;script&gt;</code> inline miliknya sendiri.</p>
+    <p><b>Penting untuk dipahami:</b> tidak ada sistem template/include bersama. Boilerplate seperti header,
+      hamburger nav, jam digital, dan tab bar mobile <b>diduplikasi manual di setiap file HTML</b>. Kalau mengubah
+      salah satunya (misalnya menambah link navigasi), perubahan itu harus diterapkan berulang ke semua halaman
+      yang relevan — ini pola yang disengaja mengingat ukuran proyek, bukan kelalaian.</p>
+    <h3>Komponen utama</h3>
+    <ul>
+      <li><b>Frontend:</b> HTML + CSS + vanilla JS (ES5-ish, pakai <code class="inline">var</code>/<code class="inline">function</code> lebih banyak daripada <code class="inline">let</code>/arrow function, demi kompatibilitas luas)</li>
+      <li><b>Hosting:</b> Firebase Hosting</li>
+      <li><b>Auth:</b> Firebase Authentication (Google Sign-In)</li>
+      <li><b>Database:</b> Cloud Firestore (native mode)</li>
+      <li><b>Sumber data penerbangan:</b> Google Apps Script (GAS) web app eksternal, membaca dari sistem AIS bandara</li>
+      <li><b>Charting:</b> Chart.js + chartjs-plugin-datalabels (dipakai di <code class="inline">analytics.html</code>), dimuat dari CDN (jsdelivr), tanpa versi di-pin secara eksplisit</li>
+      <li><b>PDF export:</b> jsPDF + jspdf-autotable (dipakai di <code class="inline">index.html</code>)</li>
+    </ul>
+  </section>
+
+  <section class="doc-section" id="halaman">
+    <h2>3. Daftar Halaman</h2>
+    <div class="doc-table-wrap">
+      <table class="doc-table">
+        <thead><tr><th>File</th><th>Fungsi</th><th>Akses</th></tr></thead>
+        <tbody>
+          <tr><td><code class="inline">index.html</code></td><td>Papan FIDS utama — daftar semua kedatangan/keberangkatan hari berjalan, real-time dari GAS, filter ARR/DEP/search, export PDF</td><td>User login</td></tr>
+          <tr><td><code class="inline">real_gate.html</code></td><td>Realisasi penempatan gate — drag &amp; drop flight ke gate, deteksi kategori DOM/INT dari status gate</td><td>User login</td></tr>
+          <tr><td><code class="inline">real_belt.html</code></td><td>Realisasi penempatan belt (bagasi) — sama seperti Real Gate tapi untuk belt kedatangan</td><td>User login</td></tr>
+          <tr><td><code class="inline">otp.html</code></td><td>Laporan On-Time Performance per tanggal — kategori delay PM 89/2015, breakdown ARR/DEP</td><td>User login</td></tr>
+          <tr><td><code class="inline">analytics.html</code></td><td>Dashboard analitik historis — tren, heatmap jam sibuk, rute/maskapai tersibuk, filter lanjutan, tabel log penerbangan. Baca dari <code class="inline">flights_cache</code> (Firestore) dengan fallback live-fetch ke GAS</td><td>User login</td></tr>
+          <tr><td><code class="inline">admin.html</code></td><td>Panel admin — activity log pengunjung, kelola daftar admin, blokir user, mode maintenance, hapus log lama</td><td><b>Admin only</b></td></tr>
+          <tr><td><code class="inline">about.html</code></td><td>Halaman ini — dokumentasi teknis aplikasi</td><td><b>Admin only</b></td></tr>
+          <tr><td><code class="inline">login.html</code></td><td>Halaman login (Google Sign-In)</td><td>Publik</td></tr>
+          <tr><td><code class="inline">maintenance.html</code></td><td>Halaman statis "Under Maintenance", tampil saat <code class="inline">site_config/maintenance.enabled = true</code></td><td>Publik</td></tr>
+          <tr><td><code class="inline">blocked.html</code></td><td>Halaman untuk user yang diblokir admin</td><td>Publik (redirect target)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="doc-section" id="modul">
+    <h2>4. File &amp; Modul Bersama</h2>
+    <p>Walau tidak ada sistem include, ada beberapa file JS yang di-<code class="inline">&lt;script src&gt;</code>-kan
+      berulang di banyak halaman (harus dimuat sebelum inline script masing-masing halaman):</p>
+    <h3><code class="inline">js/app-config.js</code></h3>
+    <p>Sumber tunggal untuk konstanta bersama: <code class="inline">gasUrl</code> (endpoint GAS), <code class="inline">adminEmails</code>
+      (daftar admin hardcoded, harus tetap sinkron manual dengan <code class="inline">isHardcodedAdmin()</code> di
+      <code class="inline">firestore.rules</code>), <code class="inline">defaultGates</code>/<code class="inline">gateMeta</code>
+      (16 gate + status DOM/INT/seat/kapasitas), <code class="inline">defaultBelts</code>/<code class="inline">beltMeta</code>
+      (10 belt), <code class="inline">airlineMap</code> (kode → nama maskapai), <code class="inline">prefixColorFixed</code>/<code class="inline">prefixColorPalette</code> (warna per maskapai).</p>
+    <h3><code class="inline">js/firebase-config.js</code></h3>
+    <p>Konfigurasi project Firebase (<code class="inline">apiKey</code>, <code class="inline">projectId: "upg-fids"</code>, dst) — dipakai oleh <code class="inline">firebase.initializeApp()</code>.</p>
+    <h3><code class="inline">js/auth-guard.js</code></h3>
+    <p>Auth gate <b>bersama</b> dipakai oleh index/real_gate/real_belt/otp/analytics (bukan admin.html — lihat §9).
+      Tugasnya: cek maintenance mode (baca publik), redirect ke login jika belum auth, cek status blokir, catat
+      <code class="inline">activity_logs</code> + <code class="inline">presence</code> + <code class="inline">user_logs</code>,
+      expose <code class="inline">window.CURRENT_USER</code>/<code class="inline">window.IS_ADMIN</code>/<code class="inline">window._db</code>
+      ke halaman pemanggil, dan reveal elemen nav <code class="inline">#nav-admin-link</code>/<code class="inline">#nav-about-link</code>
+      kalau user adalah admin.</p>
+    <h3>File konfigurasi lain</h3>
+    <ul>
+      <li><code class="inline">firestore.rules</code> — aturan keamanan Firestore (detail di §8)</li>
+      <li><code class="inline">firebase.json</code> — konfigurasi Hosting, termasuk header cache (<code class="inline">source: "**"</code> agar root path ikut ter-cover, bukan cuma <code class="inline">*.@(js|css|html)</code> — ini pernah jadi penyebab bug halaman blank karena browser cache respons rusak)</li>
+      <li><code class="inline">manifest.json</code> — PWA manifest (dipakai <code class="inline">index.html</code>)</li>
+    </ul>
+  </section>
+
+  <section class="doc-section" id="data-live">
+    <h2>5. Sumber Data Real-time (AIS / Google Apps Script)</h2>
+    <p>Data penerbangan (bukan histori) berasal dari sebuah <b>Google Apps Script web app</b> di luar repo ini,
+      yang membaca sistem AIS bandara. Nama proyek Apps Script: <b>"FIDS - AirportsOne"</b> (lihat §10).</p>
+    <div class="code-block">GET <span class="cm">{gasUrl}</span>?action=arrival&amp;date=YYYY-MM-DD
+GET <span class="cm">{gasUrl}</span>?action=departure&amp;date=YYYY-MM-DD
+
+<span class="cm">// respons (JSON):</span>
+{ "ok": true, "action": "arrival", "date": "2026-09-11", "data": [ {...row}, ... ] }</div>
+    <p>Field penting per baris (nama field asli dari AIS, dipakai apa adanya oleh frontend):
+      <code class="inline">nopen</code> (nomor flight, mis. "JT-798"), <code class="inline">icao_code</code>,
+      <code class="inline">iata_code</code> (kode kota tujuan/asal), <code class="inline">city</code>,
+      <code class="inline">time</code>/<code class="inline">schedule</code>, <code class="inline">estimate</code>,
+      <code class="inline">actual</code>, <code class="inline">remark</code> (status teks, mis. "Landed"/"Departed"/"Delay operational"),
+      <code class="inline">gate</code> (untuk departure), <code class="inline">belt</code> (untuk arrival),
+      <code class="inline">bay_id</code> (parkir pesawat), <code class="inline">pax</code>, <code class="inline">reg</code> (registrasi pesawat), <code class="inline">type</code> (tipe pesawat).</p>
+    <div class="callout danger">
+      <strong>⚠ Bug diketahui, belum diperbaiki:</strong> endpoint GAS ini <b>hang/error kalau parameter
+      <code class="inline">callback=...</code> disertakan</b> (dites langsung: permintaan tanpa <code class="inline">callback</code>
+      selesai &lt;1 detik dengan JSON valid dan header <code class="inline">Access-Control-Allow-Origin: *</code>;
+      dengan <code class="inline">callback</code>, permintaan timeout total). Empat halaman
+      (<code class="inline">otp.html</code>, <code class="inline">real_gate.html</code>, <code class="inline">real_belt.html</code>,
+      <code class="inline">analytics.html</code>) memakai pola JSONP (<code class="inline">&lt;script&gt;</code> tag + parameter
+      <code class="inline">callback</code>) untuk fetch live — ini kemungkinan penyebab utama laporan "lambat" yang berulang
+      dari admin. <b>Belum dikonfirmasi apakah bug ini juga terjadi di domain production</b> (baru diuji dari environment
+      dev lokal); perbaikan yang disarankan: ganti mekanisme fetch dari JSONP menjadi <code class="inline">fetch()</code> biasa
+      tanpa parameter <code class="inline">callback</code>, karena CORS sudah permisif (<code class="inline">Access-Control-Allow-Origin: *</code>).</p>
+    </div>
+  </section>
+
+  <section class="doc-section" id="flights-cache">
+    <h2>6. Cache Historis (Firestore <code class="inline">flights_cache</code>)</h2>
+    <p><code class="inline">analytics.html</code> butuh data berhari-hari sekaligus, dan memanggil GAS secara live
+      untuk itu terlalu lambat. Solusinya: koleksi Firestore <code class="inline">flights_cache/{date}</code>
+      (satu dokumen per tanggal <code class="inline">YYYY-MM-DD</code>) diisi oleh proses Apps Script terjadwal (§10).</p>
+    <h3>Skema dokumen (dikonfirmasi via Firebase Console, September 2026)</h3>
+    <div class="code-block">flights_cache/2026-09-11 {
+  arrivals:   <span class="cm">// STRING berisi JSON array, BUKAN array Firestore asli!</span>
+    "[{\"nopen\":\"ID-6136\",\"icao_code\":\"WARR\",\"iata_code\":\"SUB\",...}, ...]",
+  departures: "[{...}, ...]",   <span class="cm">// sama, string JSON</span>
+  updatedAt:  "2026-09-11T15:59:21.212Z"
+}</div>
+    <div class="callout warn">
+      <strong>Hati-hati:</strong> nilai <code class="inline">arrivals</code>/<code class="inline">departures</code> adalah
+      <b>string hasil <code class="inline">JSON.stringify()</code></b>, harus di-<code class="inline">JSON.parse()</code> dulu
+      sebelum dipakai — bukan array Firestore native. Ini sempat jadi bug ("0 cached, semua live") karena parser awal
+      hanya mengecek <code class="inline">Array.isArray()</code>.</div>
+    <p>Fungsi <code class="inline">parseFlightsCacheDoc()</code> di <code class="inline">analytics.html</code> menangani
+      shape ini (field <code class="inline">arrivals</code>/<code class="inline">departures</code>, plural), dengan
+      beberapa fallback tebakan lama (<code class="inline">arrival</code>/<code class="inline">ARR</code>/<code class="inline">flights</code>)
+      yang sekarang praktis tidak terpakai lagi (bisa dibersihkan kalau mau simplifikasi). Kalau hari tertentu belum
+      ada di cache (atau gagal parse), otomatis <b>fallback ke live fetch</b> ke GAS.</p>
+    <h3>Status backfill</h3>
+    <p>Batas tanggal paling awal yang bisa dipilih di analytics.html (<code class="inline">datasetStart</code>)
+      di-hardcode ke <b>2026-01-01</b>, mengasumsikan backfill sudah/akan mencakup rentang itu. Backfill dijalankan
+      via <code class="inline">flights_cache_backfill.gs</code> (§10) — cek status terakhir di admin/Apps Script
+      langsung, dokumen ini tidak melacak progres backfill secara live.</p>
+  </section>
+
+  <section class="doc-section" id="firebase">
+    <h2>7. Proyek Firebase &amp; Koleksi Firestore</h2>
+    <div class="doc-table-wrap">
+      <table class="doc-table">
+        <thead><tr><th>Koleksi</th><th>Isi</th><th>Ditulis oleh</th></tr></thead>
+        <tbody>
+          <tr><td><code class="inline">flights_cache/{date}</code></td><td>Cache harian arrival/departure (§6)</td><td>Apps Script (akun <code class="inline">gas-sync@upg-fids.internal</code>)</td></tr>
+          <tr><td><code class="inline">admins/{emailKey}</code></td><td>Daftar admin dinamis (selain 3 admin hardcoded)</td><td>Admin utama (hardcoded), via admin.html</td></tr>
+          <tr><td><code class="inline">admin_uids/{uid}</code></td><td>Cache bookkeeping uid↔admin, <b>bukan</b> sumber kebenaran isAdmin()</td><td>admin.html saat login</td></tr>
+          <tr><td><code class="inline">blocked_users/{emailKey}</code></td><td>Daftar user yang diblokir</td><td>Admin</td></tr>
+          <tr><td><code class="inline">activity_logs/{id}</code></td><td>Log kunjungan setiap halaman (uid, email, page, timestamp, device, dst)</td><td>Semua user login (self-attributed)</td></tr>
+          <tr><td><code class="inline">user_logs/{emailKey}</code></td><td>Satu record per email — data login terakhir</td><td>User yang bersangkutan</td></tr>
+          <tr><td><code class="inline">presence/{uid}</code></td><td>Status online (heartbeat 60 detik) untuk hitung "online count"</td><td>User yang bersangkutan</td></tr>
+          <tr><td><code class="inline">wa_settings/{pageId}</code></td><td>Template teks laporan WhatsApp per halaman</td><td>Admin</td></tr>
+          <tr><td><code class="inline">site_config/maintenance</code></td><td>Toggle mode maintenance global + pesan custom</td><td>Admin</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="doc-section" id="rules">
+    <h2>8. Aturan Keamanan (Firestore Rules)</h2>
+    <p>Ringkasan <code class="inline">firestore.rules</code> (per koleksi, lihat file aslinya untuk detail lengkap):</p>
+    <ul>
+      <li><code class="inline">isHardcodedAdmin()</code> — true kalau email login ada di 3 alamat admin tetap (harus sinkron manual dengan <code class="inline">APP_CONFIG.adminEmails</code>)</li>
+      <li><code class="inline">isAdmin()</code> — hardcoded admin ATAU punya dokumen di <code class="inline">/admins</code> (sumber kebenaran; <b>bukan</b> <code class="inline">/admin_uids</code>, karena itu bisa ditulis sendiri oleh user manapun dan tidak boleh dipakai untuk cek admin — celah eskalasi privilege yang sudah diantisipasi)</li>
+      <li><code class="inline">activity_logs</code> — siapapun boleh create (harus self-attributed uid/email), hanya admin boleh baca semua/hapus</li>
+      <li><code class="inline">presence</code> — user hanya boleh tulis/hapus data dirinya sendiri, admin boleh hapus siapapun</li>
+      <li><code class="inline">blocked_users</code> — user login boleh cek statusnya sendiri, hanya admin boleh list semua/tulis</li>
+      <li><code class="inline">admins</code> — semua user login boleh baca, hanya hardcoded admin boleh tulis</li>
+      <li><code class="inline">wa_settings</code> — semua user login boleh baca, hanya admin boleh tulis</li>
+      <li><code class="inline">flights_cache</code> — semua user login boleh baca, <b>hanya</b> akun <code class="inline">gas-sync@upg-fids.internal</code> boleh tulis</li>
+      <li><code class="inline">site_config</code> — baca publik (perlu dicek sebelum user login, untuk redirect maintenance), tulis hanya admin</li>
+    </ul>
+  </section>
+
+  <section class="doc-section" id="auth">
+    <h2>9. Model Otentikasi &amp; Admin</h2>
+    <p>Login pakai <b>Firebase Auth dengan Google Sign-In</b> (tidak ada email/password untuk user biasa). Ada dua
+      jenis admin:</p>
+    <ul>
+      <li><b>Admin hardcoded (utama)</b> — 3 alamat email tetap di <code class="inline">APP_CONFIG.adminEmails</code>
+        (dan cermin di <code class="inline">firestore.rules</code>). Hanya mereka yang boleh menambah/menghapus admin dinamis.</li>
+      <li><b>Admin dinamis</b> — email dengan dokumen di koleksi <code class="inline">admins</code>, ditambahkan admin utama lewat admin.html.</li>
+    </ul>
+    <p><b>Catatan arsitektur penting:</b> <code class="inline">admin.html</code> (dan <code class="inline">about.html</code>
+      ini) <b>tidak memakai</b> <code class="inline">js/auth-guard.js</code> yang dipakai halaman lain — keduanya
+      punya auth-gate inline sendiri yang eksplisit memblokir non-admin (redirect ke
+      <code class="inline">login.html?error=unauthorized</code>), bukan sekadar menyembunyikan link nav seperti pola
+      di halaman lain. Kalau membuat halaman admin-only baru, tiru pola ini (lihat kode <code class="inline">about.html</code>),
+      jangan pakai <code class="inline">js/auth-guard.js</code> yang hanya mengizinkan-tapi-menyembunyikan.</p>
+    <p>Ada satu akun Firebase Auth khusus non-manusia: <code class="inline">gas-sync@upg-fids.internal</code>
+      (email+password, kredensial tersimpan di Script Properties Apps Script) — satu-satunya identitas yang diizinkan
+      menulis ke <code class="inline">flights_cache</code>.</p>
+  </section>
+
+  <section class="doc-section" id="gas">
+    <h2>10. Otomatisasi Backend (Google Apps Script)</h2>
+    <p>Proyek Apps Script bernama <b>"FIDS - AirportsOne"</b> di script.google.com — <b>di luar repo Git ini</b>,
+      dikelola terpisah lewat editor Apps Script. Berisi:</p>
+    <h3><code class="inline">Code.gs</code></h3>
+    <p>Script utama, meng-handle <code class="inline">doGet()</code> yang melayani <code class="inline">?action=arrival|departure&amp;date=</code>
+      (lihat §5) — sumber data mentah dari sistem AIS bandara.</p>
+    <h3><code class="inline">gas_sync_snippet.gs</code> — <span class="badge ok">aktif</span></h3>
+    <p>Fungsi <code class="inline">syncFlightsToFirestore()</code>, dijalankan trigger waktu <b>setiap 2 menit</b>.
+      Alurnya: fetch arrival+departure hari ini dari <code class="inline">Code.gs</code> sendiri → sign-in sebagai
+      <code class="inline">gas-sync@upg-fids.internal</code> lewat Firebase Auth REST API
+      (<code class="inline">identitytoolkit.googleapis.com/v1/accounts:signInWithPassword</code>) → tulis ke
+      Firestore lewat REST API (<code class="inline">firestore.googleapis.com/v1/.../flights_cache/{date}</code>,
+      method PATCH) pakai token hasil sign-in. Kredensial di Script Properties: <code class="inline">SYNC_EMAIL</code>,
+      <code class="inline">SYNC_PASSWORD</code>.</p>
+    <h3><code class="inline">flights_cache_backfill.gs</code> — <span class="badge pending">backfill berjalan</span></h3>
+    <p>Ditambahkan untuk mengisi histori sebelum sync 2-menit itu mulai berjalan. Dua fungsi:</p>
+    <ul>
+      <li><code class="inline">backfillFlightsCache()</code> — one-time, resumable (progres tersimpan di Script Property
+        <code class="inline">BACKFILL_CURSOR</code>), mengisi dari <b>2026-01-01</b> sampai kemarin, maks ~40 hari atau
+        5 menit per eksekusi (menghindari limit eksekusi Apps Script), <b>menghapus trigger dirinya sendiri</b> saat
+        selesai (log "Backfill complete.")</li>
+      <li><code class="inline">dailyResyncFlightsCache()</code> — dijalankan trigger harian, menulis ulang <b>5 hari
+        terakhir</b> setiap kali jalan, untuk menangkap koreksi data AIS yang datang belakangan (jam aktual direvisi,
+        pax difinalkan, dst.) — desain ini menangani kasus "data historis bisa berubah" tanpa perlu backfill ulang
+        seluruh histori.</li>
+    </ul>
+    <p>Kedua fungsi baru ini menggunakan mekanisme sign-in &amp; format tulis <b>persis sama</b> dengan
+      <code class="inline">gas_sync_snippet.gs</code> (disalin dari kode yang sudah terbukti jalan), lewat fungsi
+      bersama <code class="inline">syncOneDate_()</code>.</p>
+  </section>
+
+  <section class="doc-section" id="deploy">
+    <h2>11. Git &amp; Deployment</h2>
+    <div class="code-block"><span class="cm"># commit (pesan lewat file, hindari masalah quoting di PowerShell)</span>
+git add &lt;file&gt;
+git commit -F &lt;path-ke-file-pesan-commit&gt;
+git push origin main
+
+<span class="cm"># deploy ke Firebase Hosting</span>
+firebase deploy --only hosting --project upg-fids</div>
+    <p>Environment kerja: Windows Server 2019 VM, PowerShell 5.1 (<code class="inline">$env:Path</code> harus
+      di-extend ulang setiap panggilan shell baru untuk <code class="inline">git</code>/<code class="inline">node</code>/<code class="inline">firebase</code>).
+      Praktik yang dianut: commit &amp; push setelah tiap perubahan kecil dan diskrit (bukan menumpuk banyak
+      perubahan sebelum commit) — lihat §14 soal alasannya.</p>
+  </section>
+
+  <section class="doc-section" id="desain">
+    <h2>12. Desain &amp; Konvensi UI</h2>
+    <ul>
+      <li><b>Tema warna:</b> dark-first, <code class="inline">:root</code> = dark, <code class="inline">:root[data-theme="light"]</code> = override terang. Toggle tersimpan di <code class="inline">localStorage</code> per halaman.</li>
+      <li><b>Palet:</b> teal (<code class="inline">#00bcd4</code>) sebagai warna aksen utama, navy gelap (<code class="inline">#0a1628</code>/<code class="inline">#0d1e35</code>) sebagai latar.</li>
+      <li><b>Header + hamburger nav:</b> pola identik di semua halaman (lihat §2) — drawer nav kiri, overlay gelap, tombol logout di bawah.</li>
+      <li><b>Tab bar mobile bawah:</b> muncul di lebar layar ≤720px, berisi FIDS/Gate/Belt/OTP/Analytics (Admin &amp; About sengaja tidak dimasukkan, cukup lewat drawer nav).</li>
+      <li><b>Chart.js pada analytics.html:</b> instance chart disimpan supaya bisa di-redraw ulang saat ganti tema (canvas tidak auto-update warna saat CSS variable berubah — ini sempat jadi bug di real_gate/real_belt sebelum dihindari di analytics.html sejak awal).</li>
+      <li><b>Bahasa UI:</b> analytics.html sudah full <b>Bahasa Inggris</b> (atas permintaan eksplisit); halaman lain (index/real_gate/real_belt/otp/admin) masih <b>Bahasa Indonesia</b>.</li>
+    </ul>
+  </section>
+
+  <section class="doc-section" id="todo">
+    <h2>13. Masalah Diketahui &amp; TODO</h2>
+    <ul>
+      <li><span class="badge bug">Bug</span> Endpoint GAS hang/error saat parameter <code class="inline">callback</code> (JSONP) disertakan — lihat §5. Perlu dikonfirmasi di production lalu (kemungkinan) migrasi ke <code class="inline">fetch()</code> biasa di 4 halaman yang masih pakai JSONP.</li>
+      <li><span class="badge pending">Berjalan</span> Backfill <code class="inline">flights_cache</code> dari 1 Jan 2026 — cek progres langsung di Apps Script Execution Log.</li>
+      <li><span class="badge pending">Ditunda</span> Data transit/connecting flight ("joining") di analytics.html — <b>belum diimplementasi</b>, menunggu konfirmasi tim ops/AIS bagaimana penerbangan transit direpresentasikan di data sumber (field eksplisit vs deteksi manual by flight number+tanggal).</li>
+      <li><span class="badge pending">Cleanup</span> <code class="inline">parseFlightsCacheDoc()</code> di analytics.html masih menyimpan 3 fallback shape lama yang kini tidak relevan (schema asli sudah dikonfirmasi) — aman disederhanakan.</li>
+    </ul>
+  </section>
+
+  <section class="doc-section" id="riwayat">
+    <h2>14. Catatan Riwayat</h2>
+    <p><b>Insiden reversion Git/file (dugaan snapshot VM):</b> pernah terjadi HEAD branch <code class="inline">main</code>
+      mundur beberapa commit tanpa entri reflog, dan beberapa file working-tree kembali ke versi lama — berulang,
+      bahkan untuk file yang baru saja diedit di sesi yang sama. Dugaan kuat: restore snapshot VMware pada mesin
+      Windows Server ini. <b>Mitigasi yang dianut sejak saat itu:</b> commit &amp; push setelah setiap perubahan
+      kecil dan diskrit, bukan menumpuk banyak perubahan sebelum commit — supaya kalau insiden serupa terulang,
+      kerugiannya minimal.</p>
+    <p><b>Bug halaman blank:</b> <code class="inline">index.html</code> pernah kehilangan tag
+      <code class="inline">&lt;script src="js/app-config.js"&gt;</code> (korban insiden di atas), menyebabkan
+      <code class="inline">ReferenceError</code> di auth-guard.js dan halaman tetap <code class="inline">visibility:hidden</code>
+      selamanya. Diperparah oleh <code class="inline">firebase.json</code> yang hanya meng-cache
+      <code class="inline">*.@(js|css|html)</code>, bukan root path — browser sempat cache respons rusak sampai
+      1 jam. Sudah diperbaiki di kedua sisi.</p>
+  </section>
+
+  <p style="font-size:11px;color:var(--text3);text-align:center;margin-top:40px;padding-top:16px;border-top:1px solid var(--border);">
+    Dokumen ini ditulis manual berdasarkan investigasi kode &amp; diskusi pengembangan — perbarui bagian yang relevan
+    setiap kali ada perubahan arsitektur signifikan, supaya tetap akurat untuk pembaca berikutnya (manusia atau AI).
+  </p>
+
+</div>
+
+<!-- ── Firebase SDK ── -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="js/app-config.js"></script>
+<script src="js/firebase-config.js"></script>
+<script>
+  const HARDCODED_ADMINS = APP_CONFIG.adminEmails;
+  const BASE = location.pathname.replace(/\/[^/]*$/, '/');
+
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const auth = firebase.auth();
+  const db   = firebase.firestore();
+
+  function emailToKey(email) {
+    return email.trim().toLowerCase().replace(/\./g, '_').replace(/@/g, '__');
+  }
+
+  // ── AUTH GUARD (admin only) — same pattern as admin.html, deliberately
+  // not js/auth-guard.js, which only hides nav links rather than blocking
+  // direct URL access for non-admins. ──
+  auth.onAuthStateChanged(function(user) {
+    if (!user) { location.replace(BASE + "login.html"); return; }
+
+    function proceedAsAdmin() {
+      document.getElementById("gate").style.display = "none";
+      document.getElementById("docContent").style.display = "block";
+      const nameEl = document.getElementById("nav-user-name");
+      if (nameEl) nameEl.textContent = user.displayName || user.email;
+
+      db.collection("activity_logs").add({
+        uid:       user.uid,
+        email:     user.email,
+        name:      user.displayName || user.email,
+        page:      "about.html",
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        userAgent: navigator.userAgent,
+        timezone:  Intl.DateTimeFormat().resolvedOptions().timeZone || "",
+        referrer:  document.referrer || "direct",
+        platform:  navigator.platform || ""
+      }).catch(function(){});
+    }
+
+    if (HARDCODED_ADMINS.includes(user.email)) { proceedAsAdmin(); return; }
+    db.collection("admins").doc(emailToKey(user.email)).get()
+      .then(function(doc) {
+        if (doc.exists) { proceedAsAdmin(); }
+        else { location.replace(BASE + "login.html?error=unauthorized"); }
+      })
+      .catch(function() { location.replace(BASE + "login.html?error=unauthorized"); });
+  });
+
+  // ── HAMBURGER NAV ──
+  (function(){
+    const btn     = document.getElementById('hamBtn');
+    const overlay = document.getElementById('navOverlay');
+    const panel   = document.getElementById('navPanel');
+    function openNav()  { panel.classList.add('show');    overlay.classList.add('show'); }
+    function closeNav() { panel.classList.remove('show'); overlay.classList.remove('show'); }
+    if (btn)     btn.addEventListener('click', openNav);
+    if (overlay) overlay.addEventListener('click', closeNav);
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeNav(); });
+  })();
+
+  // ── LOGOUT ──
+  document.getElementById("btn-logout").addEventListener("click", function() {
+    auth.signOut().then(function() { location.replace(BASE + "login.html"); });
+  });
+</script>
+</body>
+</html>
