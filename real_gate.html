@@ -833,26 +833,25 @@ function loadData() {
     showStatus('Memperbarui data…');
   }
 
-  const cbName = '_gasGantt_' + Date.now();
-  const timeout = setTimeout(function() {
-    delete window[cbName];
+  // Plain fetch, not JSONP: the GAS endpoint hangs/errors when a `callback`
+  // param is present (confirmed against the live endpoint), but responds in
+  // well under a second to a bare request and sends
+  // Access-Control-Allow-Origin: *, so a normal cross-origin fetch works fine.
+  var timedOut = false;
+  var timeout = setTimeout(function() {
+    timedOut = true;
     onLoadError(new Error('Request timeout. Cek koneksi internet.'));
   }, 20000);
-
-  window[cbName] = function(res) {
-    clearTimeout(timeout);
-    delete window[cbName];
-    onLoadSuccess(res, tanggal);
-  };
-
-  const script = document.createElement('script');
-  script.onerror = function() {
-    clearTimeout(timeout);
-    delete window[cbName];
-    onLoadError(new Error('Failed to reach GAS server.'));
-  };
-  script.src = GAS_URL + '?action=departure&date=' + encodeURIComponent(tanggal) + '&callback=' + cbName;
-  document.head.appendChild(script);
+  fetch(GAS_URL + '?action=departure&date=' + encodeURIComponent(tanggal), { cache: 'no-store' })
+    .then(function(res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+    .then(function(data) {
+      clearTimeout(timeout);
+      if (!timedOut) onLoadSuccess(data, tanggal);
+    })
+    .catch(function(err) {
+      clearTimeout(timeout);
+      if (!timedOut) onLoadError(new Error('Failed to reach GAS server: ' + err.message));
+    });
 }
 
 function onLoadSuccess(res, tanggal) {

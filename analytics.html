@@ -603,15 +603,18 @@ function parseFlightNo(raw) {
   return { code: code, display: num ? (code+'-'+num) : code };
 }
 
+// Kept the name `jsonp` to avoid touching call sites, but this is a plain
+// fetch now, not JSONP: the GAS endpoint hangs/errors when a `callback` param
+// is present (confirmed against the live endpoint), but responds in well
+// under a second to a bare request and sends Access-Control-Allow-Origin: *,
+// so a normal cross-origin fetch works fine.
 function jsonp(action, date) {
   return new Promise(function(resolve, reject) {
-    var cb = '__an_cb_'+Date.now()+'_'+Math.random().toString(36).slice(2);
-    var sc = document.createElement('script');
-    var tid = setTimeout(function(){ delete window[cb]; sc.remove(); reject(new Error('Timeout: '+action+' '+date)); }, 20000);
-    window[cb] = function(data){ clearTimeout(tid); delete window[cb]; sc.remove(); resolve(data); };
-    sc.onerror = function(){ clearTimeout(tid); delete window[cb]; sc.remove(); reject(new Error('Script error: '+action+' '+date)); };
-    sc.src = GAS_URL+'?action='+action+'&date='+encodeURIComponent(date)+'&callback='+cb;
-    document.head.appendChild(sc);
+    var tid = setTimeout(function(){ reject(new Error('Timeout: '+action+' '+date)); }, 20000);
+    fetch(GAS_URL+'?action='+action+'&date='+encodeURIComponent(date), { cache: 'no-store' })
+      .then(function(res){ if (!res.ok) throw new Error('HTTP '+res.status); return res.json(); })
+      .then(function(data){ clearTimeout(tid); resolve(data); })
+      .catch(function(err){ clearTimeout(tid); reject(new Error('Fetch error: '+action+' '+date+' - '+err.message)); });
   });
 }
 function extractRows(data) {

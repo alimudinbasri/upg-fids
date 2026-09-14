@@ -695,24 +695,18 @@ const hasOpData = f => !!(f.estimate||f.actual||f.pax||f.remark&&f.remark!=='Sch
 /* ============================================================
    JSONP
 ============================================================ */
+// Kept the name `jsonp` to avoid touching call sites, but this is a plain
+// fetch now, not JSONP: the GAS endpoint hangs/errors when a `callback` param
+// is present (confirmed against the live endpoint), but responds in well
+// under a second to a bare request and sends Access-Control-Allow-Origin: *,
+// so a normal cross-origin fetch works fine.
 function jsonp(action, date) {
   return new Promise(function(resolve, reject) {
-    const cb = '__otp_cb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-    const sc = document.createElement('script');
-    const tid = setTimeout(function() {
-      delete window[cb]; sc.remove();
-      reject(new Error('Timeout: ' + action));
-    }, 20000);
-    window[cb] = function(data) {
-      clearTimeout(tid); delete window[cb]; sc.remove();
-      resolve(data);
-    };
-    sc.onerror = function() {
-      clearTimeout(tid); delete window[cb]; sc.remove();
-      reject(new Error('Script error: ' + action));
-    };
-    sc.src = GAS_URL + '?action=' + action + '&date=' + encodeURIComponent(date) + '&callback=' + cb;
-    document.head.appendChild(sc);
+    const tid = setTimeout(function() { reject(new Error('Timeout: ' + action)); }, 20000);
+    fetch(GAS_URL + '?action=' + action + '&date=' + encodeURIComponent(date), { cache: 'no-store' })
+      .then(function(res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+      .then(function(data) { clearTimeout(tid); resolve(data); })
+      .catch(function(err) { clearTimeout(tid); reject(new Error('Fetch error: ' + action + ' - ' + err.message)); });
   });
 }
 
