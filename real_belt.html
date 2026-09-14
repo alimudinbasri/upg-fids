@@ -1121,12 +1121,25 @@ function migrateLegacyWaTemplate(opening, closing) {
   return [(opening||'').trim(), '', body, '', (closing||'').trim()].join('\n');
 }
 
+// Classifies a flight for the DOM/INT report totals using its *current* belt
+// assignment first (the same source of truth as the per-belt breakdown below),
+// falling back to the stored flight_category only when the belt itself carries
+// no fixed scope (e.g. NO BELT). This guarantees the aggregate always agrees
+// with the per-belt counts, even if flight_category was set at load time from
+// a belt the flight has since been moved off of (drag-and-drop, or a raw AIS
+// belt value that changed on refresh).
+function classifyFlightForReport(flight) {
+  const beltScope = getBeltScope(flight.belt);
+  if (beltScope === 'INT' || beltScope === 'DOM') return beltScope;
+  return normalizeScope(flight.flight_category);
+}
+
 function buildWaTagData() {
   const flights = state.flights.filter(hasFilledBelt);
   const beltStats = buildWaBeltStats(flights);
   const total = summarizeFlights(flights);
-  const domestic = summarizeFlights(flights.filter(function(f){return normalizeScope(f.flight_category)==='DOM';}));
-  const international = summarizeFlights(flights.filter(function(f){return normalizeScope(f.flight_category)==='INT';}));
+  const domestic = summarizeFlights(flights.filter(function(f){return classifyFlightForReport(f)==='DOM';}));
+  const international = summarizeFlights(flights.filter(function(f){return classifyFlightForReport(f)==='INT';}));
   const tanggal = document.getElementById('tanggal').value || getTodayDateString();
   const dp = getWaLongDateParts(tanggal);
 
