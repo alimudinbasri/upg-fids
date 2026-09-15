@@ -694,21 +694,11 @@ function toRowArray(v) {
   return [];
 }
 function parseFlightsCacheDoc(data, dateStr) {
+  // Schema Firestore yang dikonfirmasi: { arrivals: "<JSON-string>", departures: "<JSON-string>", updatedAt: "ISO" }
   if (!data) return null;
-  var arrRaw, depRaw;
-  if (data.arrivals!==undefined || data.departures!==undefined) {
-    arrRaw = toRowArray(data.arrivals); depRaw = toRowArray(data.departures);
-  } else if (data.arrival!==undefined || data.departure!==undefined) {
-    arrRaw = toRowArray(data.arrival); depRaw = toRowArray(data.departure);
-  } else if (data.ARR!==undefined || data.DEP!==undefined) {
-    arrRaw = toRowArray(data.ARR); depRaw = toRowArray(data.DEP);
-  } else if (data.flights!==undefined) {
-    var combined = toRowArray(data.flights);
-    depRaw = combined.filter(function(r){ return /DEP|departure/i.test(r.type||''); });
-    arrRaw = combined.filter(function(r){ return /ARR|arrival/i.test(r.type||''); });
-  } else {
-    return null;
-  }
+  var arrRaw = toRowArray(data.arrivals);
+  var depRaw = toRowArray(data.departures);
+  if (!arrRaw.length && !depRaw.length) return null;
   var arrRows = arrRaw.map(function(r){ return buildFlight(r,'ARR',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
   var depRows = depRaw.map(function(r){ return buildFlight(r,'DEP',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
   return arrRows.concat(depRows);

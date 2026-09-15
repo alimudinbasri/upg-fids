@@ -480,7 +480,7 @@ firebase deploy --only hosting --project upg-fids</div>
       <li><span class="badge ok">Fixed</span> Endpoint GAS hang/error saat parameter <code class="inline">callback</code> (JSONP) disertakan — lihat §5. Telah dikonfirmasi di production &amp; diperbaiki (Sept 2026): migrasi ke <code class="inline">fetch()</code> biasa di 5 halaman (index, otp, real_gate, real_belt, analytics). Tidak ada lagi dependensi JSONP.</li>
       <li><span class="badge pending">Berjalan</span> Backfill <code class="inline">flights_cache</code> dari 1 Jan 2026 — cek progres langsung di Apps Script Execution Log.</li>
       <li><span class="badge pending">Ditunda</span> Data transit/connecting flight ("joining") di analytics.html — <b>belum diimplementasi</b>, menunggu konfirmasi tim ops/AIS bagaimana penerbangan transit direpresentasikan di data sumber (field eksplisit vs deteksi manual by flight number+tanggal).</li>
-      <li><span class="badge pending">Cleanup</span> <code class="inline">parseFlightsCacheDoc()</code> di analytics.html masih menyimpan 3 fallback shape lama yang kini tidak relevan (schema asli sudah dikonfirmasi) — aman disederhanakan.</li>
+      <li><span class="badge ok">Fixed</span> <code class="inline">parseFlightsCacheDoc()</code> di analytics.html — 3 fallback shape lama dihapus, sekarang hanya menggunakan schema <code class="inline">arrivals</code>/<code class="inline">departures</code> yang sudah dikonfirmasi.</li>
     </ul>
   </section>
 
