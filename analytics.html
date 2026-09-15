@@ -499,6 +499,8 @@
         <thead><tr>
           <th data-key="date">Date<span class="arrow">↕</span></th>
           <th data-key="time">Time<span class="arrow">↕</span></th>
+          <th data-key="eta" class="num">Est.<span class="arrow">↕</span></th>
+          <th data-key="actual" class="num">Act.<span class="arrow">↕</span></th>
           <th data-key="flightNo">Flight<span class="arrow">↕</span></th>
           <th data-key="type">Type<span class="arrow">↕</span></th>
           <th data-key="route">Route<span class="arrow">↕</span></th>
@@ -628,6 +630,7 @@ function buildFlight(row, type, dateStr) {
   var flightRaw = first(row, ['nopen','flight','Flight','no_flight','callsign']);
   var parsed = parseFlightNo(flightRaw);
   var schedule = fmtTime(first(row, type==='ARR' ? ['time','jam','schedule','STA','sta','sch','Sch'] : ['time','jam','schedule','STD','std','sch','Sch']));
+  var eta      = fmtTime(first(row, type==='ARR' ? ['eta','ETA','eta_time'] : ['etd','ETD','etd_time'])); // estimated time
   var actual   = fmtTime(first(row, type==='ARR' ? ['actual','ATA','ata','Act','act','atd','ATD'] : ['actual','ATD','atd','Act','act','ata','ATA']));
   var city     = fmt(first(row, type==='ARR' ? ['city','City','kota','origin_city','origin_name'] : ['city','City','kota','destination_city','dest_name']));
   var iata     = fmt(first(row, type==='ARR' ? ['iata_code','origin','Origin','route','source_iata'] : ['iata_code','destination','Destination','dest','route']));
@@ -645,7 +648,7 @@ function buildFlight(row, type, dateStr) {
   var dow = new Date(dateStr+'T00:00:00').getDay();
 
   return {
-    date: dateStr, dow: dow, time: schedule||'--:--', hour: hour, type: type,
+    date: dateStr, dow: dow, time: schedule||'--:--', eta: eta||null, actual: actual||null, hour: hour, type: type,
     flightNo: parsed.display, airline: parsed.code, airlineName: (APP_CONFIG.airlineMap[parsed.code]||parsed.code),
     route: iata||'-', city: city||iata||'-', cls: cls,
     gate: gate||null, belt: belt||null, gb: type==='DEP' ? ('G'+(gate||'-')) : ('B'+(belt||'-')), bay: bay||'-',
@@ -1518,7 +1521,7 @@ function renderLogTable() {
   pageRows.forEach(function(f){
     var st = statusLabel(f);
     var tr = document.createElement('tr');
-    tr.innerHTML = '<td class="mono">'+f.date+'</td><td class="mono">'+f.time+'</td><td><b>'+f.flightNo+'</b></td>'+
+    tr.innerHTML = '<td class="mono">'+f.date+'</td><td class="mono">'+f.time+'</td><td class="mono">'+(f.eta||'–')+'</td><td class="mono">'+(f.actual||'–')+'</td><td><b>'+f.flightNo+'</b></td>'+
       '<td>'+f.type+'</td><td>'+f.route+' <span style="color:var(--text3)">('+f.city+')</span></td>'+
       '<td><span class="pill '+(f.cls==='INT'?'int':'dom')+'">'+f.cls+'</span></td>'+
       '<td class="mono">'+f.gb+'</td><td class="mono">'+f.bay+'</td><td class="num mono">'+(f.category===6?'–':f.delayMin+'m')+'</td>'+
