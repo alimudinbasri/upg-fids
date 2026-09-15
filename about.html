@@ -123,6 +123,7 @@
     .callout { border-left: 3px solid var(--teal); background: rgba(0,188,212,.08); padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 12.5px; line-height: 1.6; color: var(--text2); margin: 12px 0; }
     .callout.warn { border-color: var(--amber); background: rgba(255,193,7,.08); }
     .callout.danger { border-color: var(--red); background: rgba(255,82,82,.08); }
+    .callout.ok { border-color: var(--green); background: rgba(0,230,118,.08); }
     .callout strong { color: var(--text); }
 
     .badge { display: inline-block; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 20px; }
@@ -314,18 +315,19 @@ GET <span class="cm">{gasUrl}</span>?action=departure&amp;date=YYYY-MM-DD
       <code class="inline">actual</code>, <code class="inline">remark</code> (status teks, mis. "Landed"/"Departed"/"Delay operational"),
       <code class="inline">gate</code> (untuk departure), <code class="inline">belt</code> (untuk arrival),
       <code class="inline">bay_id</code> (parkir pesawat), <code class="inline">pax</code>, <code class="inline">reg</code> (registrasi pesawat), <code class="inline">type</code> (tipe pesawat).</p>
-    <div class="callout danger">
-      <strong>⚠ Bug diketahui, belum diperbaiki:</strong> endpoint GAS ini <b>hang/error kalau parameter
-      <code class="inline">callback=...</code> disertakan</b> (dites langsung: permintaan tanpa <code class="inline">callback</code>
-      selesai &lt;1 detik dengan JSON valid dan header <code class="inline">Access-Control-Allow-Origin: *</code>;
-      dengan <code class="inline">callback</code>, permintaan timeout total). Empat halaman
-      (<code class="inline">otp.html</code>, <code class="inline">real_gate.html</code>, <code class="inline">real_belt.html</code>,
-      <code class="inline">analytics.html</code>) memakai pola JSONP (<code class="inline">&lt;script&gt;</code> tag + parameter
-      <code class="inline">callback</code>) untuk fetch live — ini kemungkinan penyebab utama laporan "lambat" yang berulang
-      dari admin. <b>Belum dikonfirmasi apakah bug ini juga terjadi di domain production</b> (baru diuji dari environment
-      dev lokal); perbaikan yang disarankan: ganti mekanisme fetch dari JSONP menjadi <code class="inline">fetch()</code> biasa
-      tanpa parameter <code class="inline">callback</code>, karena CORS sudah permisif (<code class="inline">Access-Control-Allow-Origin: *</code>).</p>
-    </div>
+    <div class="callout ok">
+      <strong>✓ Bug JSONP — ditemukan &amp; diperbaiki (September 2026):</strong> endpoint GAS ini <b>hang/error
+      kalau parameter <code class="inline">callback=...</code> disertakan</b> (dites langsung: permintaan tanpa
+      <code class="inline">callback</code> selesai &lt;1 detik dengan JSON valid dan header
+      <code class="inline">Access-Control-Allow-Origin: *</code>; dengan <code class="inline">callback</code>,
+      permintaan timeout total). Awalnya ditemukan lewat testing lokal, lalu <b>dikonfirmasi terjadi juga di
+      production</b> saat <code class="inline">index.html</code> (papan FIDS utama) macet total di "No flight
+      data" / "Menunggu sinkronisasi data pertama…" — ini kemungkinan penyebab utama laporan "lambat" yang
+      berulang dari admin selama ini. Kelima halaman yang memanggil GAS langsung (<code class="inline">index.html</code>,
+      <code class="inline">otp.html</code>, <code class="inline">real_gate.html</code>, <code class="inline">real_belt.html</code>,
+      <code class="inline">analytics.html</code>) sudah diganti dari pola JSONP (<code class="inline">&lt;script&gt;</code> tag
+      + parameter <code class="inline">callback</code>) menjadi <code class="inline">fetch()</code> biasa tanpa
+      <code class="inline">callback</code>, memanfaatkan CORS yang sudah permisif di endpoint ini.</div>
   </section>
 
   <section class="doc-section" id="flights-cache">
@@ -475,7 +477,7 @@ firebase deploy --only hosting --project upg-fids</div>
   <section class="doc-section" id="todo">
     <h2>13. Masalah Diketahui &amp; TODO</h2>
     <ul>
-      <li><span class="badge bug">Bug</span> Endpoint GAS hang/error saat parameter <code class="inline">callback</code> (JSONP) disertakan — lihat §5. Perlu dikonfirmasi di production lalu (kemungkinan) migrasi ke <code class="inline">fetch()</code> biasa di 4 halaman yang masih pakai JSONP.</li>
+      <li><span class="badge ok">Fixed</span> Endpoint GAS hang/error saat parameter <code class="inline">callback</code> (JSONP) disertakan — lihat §5. Telah dikonfirmasi di production &amp; diperbaiki (Sept 2026): migrasi ke <code class="inline">fetch()</code> biasa di 5 halaman (index, otp, real_gate, real_belt, analytics). Tidak ada lagi dependensi JSONP.</li>
       <li><span class="badge pending">Berjalan</span> Backfill <code class="inline">flights_cache</code> dari 1 Jan 2026 — cek progres langsung di Apps Script Execution Log.</li>
       <li><span class="badge pending">Ditunda</span> Data transit/connecting flight ("joining") di analytics.html — <b>belum diimplementasi</b>, menunggu konfirmasi tim ops/AIS bagaimana penerbangan transit direpresentasikan di data sumber (field eksplisit vs deteksi manual by flight number+tanggal).</li>
       <li><span class="badge pending">Cleanup</span> <code class="inline">parseFlightsCacheDoc()</code> di analytics.html masih menyimpan 3 fallback shape lama yang kini tidak relevan (schema asli sudah dikonfirmasi) — aman disederhanakan.</li>
