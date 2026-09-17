@@ -787,24 +787,88 @@ function normalizeDep(row) {
     schedule, estimate, actual, gate, bay, reg, pax, remark, pairing:null, raw:row };
 }
 
+// ── DATE HELPERS (for cross-day pairing) ──
+function addDays(dateStr, delta) {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + delta);
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+function formatShortDate(ds) {
+  const d = new Date(ds + "T00:00:00");
+  if (isNaN(d)) return ds;
+  return String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0");
+}
+
 // ── PAIRING by REG ──
-function buildPairing(arrivals, departures) {
+// First pass matches within the same day only. A departure with no qualifying
+// same-day arrival (e.g. the aircraft actually landed late the previous
+// night) or an arrival with no qualifying same-day departure (aircraft's
+// next flight is early the next morning) is then looked up against the
+// adjacent day - but only fetched if actually needed, since most flights
+// pair fine within the same day. Every resolved pairing is tagged with
+// .pdate (the date it belongs to) so the UI can show it.
+async function buildPairing(arrivals, departures, date) {
   const depByReg = {}, arrByReg = {};
   departures.forEach(f => { if (f.reg && f.reg!=="-") (depByReg[f.reg]||(depByReg[f.reg]=[])).push(f); });
   arrivals.forEach(f   => { if (f.reg && f.reg!=="-") (arrByReg[f.reg]||(arrByReg[f.reg]=[])).push(f); });
 
+  const needsNextDayDep = [];  // arrivals with no same-day departure match
+  const needsPrevDayArr = [];  // departures with no same-day arrival match
+
   arrivals.forEach(arr => {
-    if (!arr.reg || arr.reg==="-") return;
+    if (!arr.reg || arr.reg==="-") { arr.pairing = null; return; }
     const deps = (depByReg[arr.reg]||[]).slice().sort((a,b)=>(a.schedule||"99:99").localeCompare(b.schedule||"99:99"));
     const t = arr.actual||arr.estimate||arr.schedule||"00:00";
-    arr.pairing = deps.find(d=>(d.schedule||"99:99")>=t)||deps[0]||null;
+    const match = deps.find(d=>(d.schedule||"99:99")>=t);
+    if (match) { match.pdate = date; arr.pairing = match; }
+    else { arr.pairing = null; needsNextDayDep.push(arr); }
   });
   departures.forEach(dep => {
-    if (!dep.reg || dep.reg==="-") return;
+    if (!dep.reg || dep.reg==="-") { dep.pairing = null; return; }
     const arrs = (arrByReg[dep.reg]||[]).slice().sort((a,b)=>(b.schedule||"00:00").localeCompare(a.schedule||"00:00"));
     const t = dep.schedule||dep.estimate||"23:59";
-    dep.pairing = arrs.find(a=>(a.actual||a.estimate||a.schedule||"00:00")<=t)||arrs[0]||null;
+    const match = arrs.find(a=>(a.actual||a.estimate||a.schedule||"00:00")<=t);
+    if (match) { match.pdate = date; dep.pairing = match; }
+    else { dep.pairing = null; needsPrevDayArr.push(dep); }
   });
+
+  // ── Cross-day fallback (only fetched if actually needed) ──
+  const fetches = [];
+  let prevArrivals = null, nextDepartures = null;
+  if (needsPrevDayArr.length) {
+    fetches.push(
+      fetchFlights("arrival", addDays(date, -1))
+        .then(raw => { prevArrivals = raw.map(normalizeArr).filter(x=>x.flight!=="-"); })
+        .catch(() => { prevArrivals = []; })
+    );
+  }
+  if (needsNextDayDep.length) {
+    fetches.push(
+      fetchFlights("departure", addDays(date, 1))
+        .then(raw => { nextDepartures = raw.map(normalizeDep).filter(x=>x.flight!=="-"); })
+        .catch(() => { nextDepartures = []; })
+    );
+  }
+  if (fetches.length) await Promise.all(fetches);
+
+  if (prevArrivals && prevArrivals.length) {
+    const prevByReg = {};
+    prevArrivals.forEach(f => { if (f.reg && f.reg!=="-") (prevByReg[f.reg]||(prevByReg[f.reg]=[])).push(f); });
+    const prevDate = addDays(date, -1);
+    needsPrevDayArr.forEach(dep => {
+      const arrs = (prevByReg[dep.reg]||[]).slice().sort((a,b)=>(b.schedule||"00:00").localeCompare(a.schedule||"00:00"));
+      if (arrs.length) { arrs[0].pdate = prevDate; dep.pairing = arrs[0]; }
+    });
+  }
+  if (nextDepartures && nextDepartures.length) {
+    const nextByReg = {};
+    nextDepartures.forEach(f => { if (f.reg && f.reg!=="-") (nextByReg[f.reg]||(nextByReg[f.reg]=[])).push(f); });
+    const nextDate = addDays(date, 1);
+    needsNextDayDep.forEach(arr => {
+      const deps = (nextByReg[arr.reg]||[]).slice().sort((a,b)=>(a.schedule||"99:99").localeCompare(b.schedule||"99:99"));
+      if (deps.length) { deps[0].pdate = nextDate; arr.pairing = deps[0]; }
+    });
+  }
 }
 
 // ── STATUS ──
@@ -955,7 +1019,7 @@ async function loadData() {
     const hasOpData  = f => !!(f.estimate||f.actual||f.gate||f.bay_id||f.belt||f.pax||f.remark);
     const arrivals   = arrRaw.map(normalizeArr).filter(x=>x.flight!=="-" && hasOpData(x));
     const departures = depRaw.map(normalizeDep).filter(x=>x.flight!=="-" && hasOpData(x));
-    buildPairing(arrivals, departures);
+    await buildPairing(arrivals, departures, date);
     allFlights = [...arrivals, ...departures];
     saveCache(date, allFlights);
     setError(null);
@@ -1030,11 +1094,13 @@ function renderFlights() {
       const locStr  = [p.gate?"Gate:"+p.gate:"", p.belt?"Belt:"+p.belt:""].filter(Boolean).join(" ");
       const locPart = locStr ? `<span class="pr-sep">·</span><span class="pr-pax">${esc(locStr)}</span>` : "";
       const paxPart = (p.pax>0) ? `<span class="pr-sep">·</span><span class="pr-pax">Pax: ${p.pax}</span>` : "";
+      const datePart = p.pdate ? `<span class="pr-sep">·</span><span class="pr-pax" title="Tanggal ${esc(p.pdate)}">${esc(formatShortDate(p.pdate))}</span>` : "";
       pairRowHtml = `<span class="pr-label">PAIRING</span>
         <span class="pr-badge ${p.type}">${p.type}</span>
         <span class="pr-flight">${esc(p.flight)}</span>
         <span class="pr-sep">/</span>
         <span class="pr-iata">${city2}</span>
+        ${datePart}
         ${schPart?`<span class="pr-sep">·</span>${schPart}`:""}
         ${estPart?`<span class="pr-sep">·</span>${estPart}`:""}
         ${actPart?`<span class="pr-sep">·</span>${actPart}`:""}
@@ -1261,6 +1327,7 @@ function exportFidsPdf() {
           p.type,
           p.flight || '',
           p.city || p.route || '',
+          p.pdate ? formatShortDate(p.pdate) : '',
           p.schedule || '',
           p.estimate ? 'E:'+p.estimate : '',
           p.actual   ? 'A:'+p.actual   : '',
