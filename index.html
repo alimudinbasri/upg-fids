@@ -758,7 +758,7 @@ function hl(text, q) {
 // ── NORMALIZE ──
 function normalizeArr(row) {
   const flight   = fmt(first(row,["nopen","flight","Flight","no_flight","callsign"]));
-  const schedule = fmtTime(first(row,["time","jam","schedule","STA","sta","sch","Sch"]));
+  const schedule = fmtTime(first(row,["schedule","STA","sta","sch","Sch","time","jam"]));
   const estimate = fmtTime(first(row,["estimate","ETA","eta","Est","est","etd","ETD"]));
   const actual   = fmtTime(first(row,["actual","ATA","ata","Act","act","atd","ATD"]));
   const belt     = fmt(first(row,["belt","Belt","carousel","conveyor","baggage"]),"");
@@ -773,7 +773,7 @@ function normalizeArr(row) {
 }
 function normalizeDep(row) {
   const flight   = fmt(first(row,["nopen","flight","Flight","no_flight","callsign"]));
-  const schedule = fmtTime(first(row,["time","jam","schedule","STD","std","sch","Sch"]));
+  const schedule = fmtTime(first(row,["schedule","STD","std","sch","Sch","time","jam"]));
   const estimate = fmtTime(first(row,["estimate","ETD","etd","Est","est","eta","ETA"]));
   const actual   = fmtTime(first(row,["actual","ATD","atd","Act","act","ata","ATA"]));
   const gate     = fmt(first(row,["gate","Gate","gate_id"]),"");

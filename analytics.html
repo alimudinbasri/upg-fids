@@ -629,7 +629,7 @@ function extractRows(data) {
 function buildFlight(row, type, dateStr) {
   var flightRaw = first(row, ['nopen','flight','Flight','no_flight','callsign']);
   var parsed = parseFlightNo(flightRaw);
-  var schedule = fmtTime(first(row, type==='ARR' ? ['time','jam','schedule','STA','sta','sch','Sch'] : ['time','jam','schedule','STD','std','sch','Sch']));
+  var schedule = fmtTime(first(row, type==='ARR' ? ['schedule','STA','sta','sch','Sch','time','jam'] : ['schedule','STD','std','sch','Sch','time','jam']));
   var eta      = fmtTime(first(row, type==='ARR' ? ['eta','ETA','eta_time'] : ['etd','ETD','etd_time'])); // estimated time
   var actual   = fmtTime(first(row, type==='ARR' ? ['actual','ATA','ata','Act','act','atd','ATD'] : ['actual','ATD','atd','Act','act','ata','ATA']));
   var city     = fmt(first(row, type==='ARR' ? ['city','City','kota','origin_city','origin_name'] : ['city','City','kota','destination_city','dest_name']));

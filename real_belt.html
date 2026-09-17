@@ -917,7 +917,7 @@ function mapFlights(rows) {
 
   return rows.map(function(row, index) {
     const nopen    = cleanText(first(row,['nopen','flight','Flight','no_flight','callsign']));
-    const schedule = toHHmm(first(row,['time','jam','schedule','STA','sta','sch','Sch','std','STD']));
+    const schedule = toHHmm(first(row,['schedule','STA','sta','sch','Sch','std','STD','time','jam']));
     const estimate = toHHmm(first(row,['estimate','ETA','eta','Est','est','etd','ETD']));
     const actual   = toHHmm(first(row,['actual','ATA','ata','Act','act','atd','ATD']));
     const belt     = cleanBelt(first(row,['belt','Belt','belt_id','belt_no','belt_number','belt_name','baggage_belt','conveyor']));
