@@ -264,6 +264,7 @@
           <tr><td><code class="inline">real_belt.html</code></td><td>Realisasi penempatan belt (bagasi) — sama seperti Real Gate tapi untuk belt kedatangan</td><td>User login</td></tr>
           <tr><td><code class="inline">otp.html</code></td><td>Laporan On-Time Performance per tanggal — kategori delay PM 89/2015, breakdown ARR/DEP</td><td>User login</td></tr>
           <tr><td><code class="inline">analytics.html</code></td><td>Dashboard analitik historis — tren, heatmap jam sibuk, rute/maskapai tersibuk, filter lanjutan, tabel log penerbangan. Baca dari <code class="inline">flights_cache</code> (Firestore) dengan fallback live-fetch ke GAS</td><td>User login</td></tr>
+          <tr><td><code class="inline">laporan.html</code></td><td>Laporan Realisasi Gate/Belt per rentang tanggal — date-range picker kalender, mode "Semua" (Gate + Belt sekaligus), grafik batang total flight per Gate/Belt (Chart.js), export PDF / PNG / JPG / Excel (.xlsx). Sumber data sama dengan analytics.html: <code class="inline">flights_cache</code> dengan fallback GAS</td><td>User login</td></tr>
           <tr><td><code class="inline">admin.html</code></td><td>Panel admin — activity log pengunjung, kelola daftar admin, blokir user, mode maintenance, hapus log lama</td><td><b>Admin only</b></td></tr>
           <tr><td><code class="inline">about.html</code></td><td>Halaman ini — dokumentasi teknis aplikasi</td><td><b>Admin only</b></td></tr>
           <tr><td><code class="inline">login.html</code></td><td>Halaman login (Google Sign-In)</td><td>Publik</td></tr>
@@ -287,7 +288,7 @@
     <h3><code class="inline">js/firebase-config.js</code></h3>
     <p>Konfigurasi project Firebase (<code class="inline">apiKey</code>, <code class="inline">projectId: "upg-fids"</code>, dst) — dipakai oleh <code class="inline">firebase.initializeApp()</code>.</p>
     <h3><code class="inline">js/auth-guard.js</code></h3>
-    <p>Auth gate <b>bersama</b> dipakai oleh index/real_gate/real_belt/otp/analytics (bukan admin.html — lihat §9).
+    <p>Auth gate <b>bersama</b> dipakai oleh index/real_gate/real_belt/otp/analytics/laporan (bukan admin.html dan about.html — lihat §9).
       Tugasnya: cek maintenance mode (baca publik), redirect ke login jika belum auth, cek status blokir, catat
       <code class="inline">activity_logs</code> + <code class="inline">presence</code> + <code class="inline">user_logs</code>,
       expose <code class="inline">window.CURRENT_USER</code>/<code class="inline">window.IS_ADMIN</code>/<code class="inline">window._db</code>
@@ -334,9 +335,10 @@ GET <span class="cm">{gasUrl}</span>?action=departure&amp;date=YYYY-MM-DD
 
   <section class="doc-section" id="flights-cache">
     <h2>6. Cache Historis (Firestore <code class="inline">flights_cache</code>)</h2>
-    <p><code class="inline">analytics.html</code> butuh data berhari-hari sekaligus, dan memanggil GAS secara live
-      untuk itu terlalu lambat. Solusinya: koleksi Firestore <code class="inline">flights_cache/{date}</code>
-      (satu dokumen per tanggal <code class="inline">YYYY-MM-DD</code>) diisi oleh proses Apps Script terjadwal (§10).</p>
+    <p><code class="inline">analytics.html</code> dan <code class="inline">laporan.html</code> butuh data berhari-hari
+      sekaligus, dan memanggil GAS secara live untuk itu terlalu lambat. Solusinya: koleksi Firestore
+      <code class="inline">flights_cache/{date}</code> (satu dokumen per tanggal <code class="inline">YYYY-MM-DD</code>)
+      diisi oleh proses Apps Script terjadwal (§10).</p>
     <h3>Skema dokumen (dikonfirmasi via Firebase Console, September 2026)</h3>
     <div class="code-block">flights_cache/2026-09-11 {
   arrivals:   <span class="cm">// STRING berisi JSON array, BUKAN array Firestore asli!</span>
@@ -349,11 +351,19 @@ GET <span class="cm">{gasUrl}</span>?action=departure&amp;date=YYYY-MM-DD
       <b>string hasil <code class="inline">JSON.stringify()</code></b>, harus di-<code class="inline">JSON.parse()</code> dulu
       sebelum dipakai — bukan array Firestore native. Ini sempat jadi bug ("0 cached, semua live") karena parser awal
       hanya mengecek <code class="inline">Array.isArray()</code>.</div>
-    <p>Fungsi <code class="inline">parseFlightsCacheDoc()</code> di <code class="inline">analytics.html</code> menangani
-      shape ini (field <code class="inline">arrivals</code>/<code class="inline">departures</code>, plural), dengan
-      beberapa fallback tebakan lama (<code class="inline">arrival</code>/<code class="inline">ARR</code>/<code class="inline">flights</code>)
-      yang sekarang praktis tidak terpakai lagi (bisa dibersihkan kalau mau simplifikasi). Kalau hari tertentu belum
-      ada di cache (atau gagal parse), otomatis <b>fallback ke live fetch</b> ke GAS.</p>
+    <p>Fungsi <code class="inline">parseFlightsCacheDoc()</code> menangani shape ini (field
+      <code class="inline">arrivals</code>/<code class="inline">departures</code>, plural). Sejak commit
+      <code class="inline">57a58c3</code> fungsi ini <b>hanya</b> menerima schema tersebut — tiga fallback tebakan lama
+      (<code class="inline">arrival</code>/<code class="inline">ARR</code>/<code class="inline">flights</code>) sudah
+      dihapus setelah schema asli dikonfirmasi. Kalau hari tertentu belum ada di cache (atau gagal parse), otomatis
+      <b>fallback ke live fetch</b> ke GAS.</p>
+    <div class="callout warn">
+      <strong>Duplikasi:</strong> <code class="inline">laporan.html</code> punya salinan sendiri dari lapisan akses data ini
+      (<code class="inline">parseFlightsCacheDoc</code>, <code class="inline">toRowArray</code>, <code class="inline">fetchDayLive</code>,
+      <code class="inline">fetchDayFromCache</code>, <code class="inline">waitForDb</code>, <code class="inline">extractRows</code>,
+      <code class="inline">dateRangeList</code>, …) — sebagian byte-identik dengan versi di <code class="inline">analytics.html</code>.
+      <b>Perbaikan bug di satu file harus diterapkan juga di file satunya.</b> <code class="inline">buildFlight()</code> sengaja berbeda:
+      versi laporan.html hanya mengambil 5 field (date/type/flightNo/gate/belt) karena laporan tidak butuh sisanya.</div>
     <h3>Status backfill</h3>
     <p>Batas tanggal paling awal yang bisa dipilih di analytics.html (<code class="inline">datasetStart</code>)
       di-hardcode ke <b>2026-01-01</b>, mengasumsikan backfill sudah/akan mencakup rentang itu. Backfill dijalankan
@@ -470,8 +480,15 @@ firebase deploy --only hosting --project upg-fids</div>
       <li><b>Tema warna:</b> dark-first, <code class="inline">:root</code> = dark, <code class="inline">:root[data-theme="light"]</code> = override terang. Toggle tersimpan di <code class="inline">localStorage</code> per halaman.</li>
       <li><b>Palet:</b> teal (<code class="inline">#00bcd4</code>) sebagai warna aksen utama, navy gelap (<code class="inline">#0a1628</code>/<code class="inline">#0d1e35</code>) sebagai latar.</li>
       <li><b>Header + hamburger nav:</b> pola identik di semua halaman (lihat §2) — drawer nav kiri, overlay gelap, tombol logout di bawah.</li>
-      <li><b>Tab bar mobile bawah:</b> muncul di lebar layar ≤720px, berisi FIDS/Gate/Belt/OTP/Analytics (Admin &amp; About sengaja tidak dimasukkan, cukup lewat drawer nav).</li>
-      <li><b>Chart.js pada analytics.html:</b> instance chart disimpan supaya bisa di-redraw ulang saat ganti tema (canvas tidak auto-update warna saat CSS variable berubah — ini sempat jadi bug di real_gate/real_belt sebelum dihindari di analytics.html sejak awal).</li>
+      <li><b>Tab bar mobile bawah:</b> muncul di lebar layar ≤720px, berisi FIDS/Gate/Belt/OTP/Analytics/Laporan (Admin &amp; About sengaja tidak dimasukkan, cukup lewat drawer nav).</li>
+      <li><b>Chart.js pada analytics.html &amp; laporan.html:</b> instance chart disimpan supaya bisa di-redraw ulang saat ganti tema (canvas tidak auto-update warna saat CSS variable berubah — ini sempat jadi bug di real_gate/real_belt sebelum dihindari di analytics.html sejak awal).</li>
+      <li><b>Versi library CDN di-pin persis</b> (commit <code class="inline">cb8b6ac</code>): <code class="inline">chart.js@4.5.1</code>,
+        <code class="inline">chartjs-plugin-datalabels@2.2.0</code>, <code class="inline">jspdf@2.5.1</code>,
+        <code class="inline">jspdf-autotable@3.5.25</code>, <code class="inline">html2canvas@1.4.1</code>,
+        <code class="inline">xlsx@0.18.5</code>, Firebase compat <code class="inline">9.23.0</code>.
+        Jangan pernah pakai URL tanpa nomor versi (<code class="inline">npm/chart.js</code>) atau range mayor (<code class="inline">@2</code>):
+        rilis breaking dari upstream bisa mematikan produksi tanpa ada perubahan kode di sisi kita, dan tidak bisa direproduksi lokal.
+        Naik versi harus jadi commit tersendiri yang bisa diuji dan di-revert.</li>
       <li><b>Bahasa UI:</b> analytics.html sudah full <b>Bahasa Inggris</b> (atas permintaan eksplisit); halaman lain (index/real_gate/real_belt/otp/admin) masih <b>Bahasa Indonesia</b>.</li>
     </ul>
   </section>
@@ -479,10 +496,29 @@ firebase deploy --only hosting --project upg-fids</div>
   <section class="doc-section" id="todo">
     <h2>13. Masalah Diketahui &amp; TODO</h2>
     <ul>
-      <li><span class="badge ok">Fixed</span> Endpoint GAS hang/error saat parameter <code class="inline">callback</code> (JSONP) disertakan — lihat §5. Telah dikonfirmasi di production &amp; diperbaiki (Sept 2026): migrasi ke <code class="inline">fetch()</code> biasa di 5 halaman (index, otp, real_gate, real_belt, analytics). Tidak ada lagi dependensi JSONP.</li>
+      <li><span class="badge ok">Fixed</span> Endpoint GAS hang/error saat parameter <code class="inline">callback</code> (JSONP) disertakan — lihat §5. Telah dikonfirmasi di production &amp; diperbaiki (Sept 2026): migrasi ke <code class="inline">fetch()</code> biasa di 5 halaman (index, otp, real_gate, real_belt, analytics). Tidak ada lagi dependensi JSONP di seluruh aplikasi — <code class="inline">laporan.html</code> lahir setelah perbaikan ini dan sudah pakai <code class="inline">fetch()</code> sejak awal. <b>Catatan:</b> fungsi di analytics.html/laporan.html masih <i>bernama</i> <code class="inline">jsonp()</code> walau isinya <code class="inline">fetch()</code> — nama yang menyesatkan, aman di-rename kapan saja.</li>
       <li><span class="badge pending">Berjalan</span> Backfill <code class="inline">flights_cache</code> dari 1 Jan 2026 — cek progres langsung di Apps Script Execution Log.</li>
       <li><span class="badge pending">Ditunda</span> Data transit/connecting flight ("joining") di analytics.html — <b>belum diimplementasi</b>, menunggu konfirmasi tim ops/AIS bagaimana penerbangan transit direpresentasikan di data sumber (field eksplisit vs deteksi manual by flight number+tanggal).</li>
       <li><span class="badge ok">Fixed</span> <code class="inline">parseFlightsCacheDoc()</code> di analytics.html — 3 fallback shape lama dihapus, sekarang hanya menggunakan schema <code class="inline">arrivals</code>/<code class="inline">departures</code> yang sudah dikonfirmasi.</li>
+      <li><span class="badge ok">Fixed</span> <code class="inline">index.html</code> dulu mendeklarasikan sendiri <code class="inline">DEFAULT_GATES</code>/<code class="inline">DEFAULT_BELTS</code>/<code class="inline">INT_GATES</code> alih-alih membaca <code class="inline">APP_CONFIG</code> (commit <code class="inline">9a45687</code>). Nilainya kebetulan masih cocok sehingga ini bug laten, bukan aktif — tapi reklasifikasi gate DOM↔INT akan membuat papan FIDS utama diam-diam berbeda dari 5 halaman lain. <code class="inline">INT_GATES</code> sekarang <b>diturunkan</b> dari <code class="inline">gateMeta[g].status</code>, bukan didaftar terpisah.</li>
+    </ul>
+
+    <h3>Temuan audit yang belum ditangani</h3>
+    <p>Hasil audit struktur menyeluruh (September 2026), diurutkan berdasarkan (risiko × kemungkinan) ÷ effort:</p>
+    <ul>
+      <li><span class="badge bug">Risiko tinggi</span> <b>Tidak ada lapisan kode bersama.</b> Hanya <code class="inline">app-config.js</code> yang benar-benar dipakai bersama; sisanya copy-paste: <code class="inline">openNav</code>/<code class="inline">closeNav</code> 8 salinan, <code class="inline">applyTheme</code> 6, <code class="inline">first()</code> 6, <code class="inline">tickClock</code> 5, subsistem WA Report 4 salinan (~250 baris masing-masing), <code class="inline">loadData</code> 4. Biayanya sudah terbukti nyata: outage JSONP butuh 5 perbaikan identik di 5 file. <b>Rencana bertahap (jangan sekaligus), satu commit per seam:</b>
+        <br>(a) <code class="inline">js/ui-chrome.js</code> — openNav/closeNav/applyTheme/tickClock (risiko sangat rendah, kode trivial tanpa state — latihan aman untuk membuktikan pola ekstraksi);
+        <br>(b) <code class="inline">js/wa-report.js</code> — 8 fungsi generik; <code class="inline">buildWaTagData()</code> + <code class="inline">getDefaultWaTemplate()</code> tetap per-halaman karena memang beda;
+        <br>(c) <code class="inline">js/flight-data.js</code> — lapisan akses data analytics/laporan yang sudah terbukti byte-identik; <code class="inline">buildFlight</code> masuk sebagai parameter;
+        <br>(d) konsolidasi klasifikasi DOM/INT — <b>terakhir</b>, karena menyentuh logika bisnis inti di halaman paling kompleks (real_gate/real_belt 2000+ baris, drag-and-drop).</li>
+      <li><span class="badge bug">Risiko sedang</span> <b>Empat implementasi klasifikasi DOM/INT</b> yang bersaing: <code class="inline">isIntlFlight()</code> (index), <code class="inline">detectFlightClass()</code> (analytics), <code class="inline">detectFlightCategory()</code>+<code class="inline">classifyFlightForReport()</code> (real_gate &amp; real_belt). Logikanya setara tapi terpisah — lihat rencana (d) di atas.</li>
+      <li><span class="badge pending">Cleanup</span> <code class="inline">buildWaTagData()</code> di index.html masih hardcode pengelompokan terminal TS/TE/INTER berikut label tampilannya. Sengaja tidak diubah saat <code class="inline">9a45687</code>: ini pengelompokan <i>terminal</i>, bukan status DOM/INT, dan tidak bisa diturunkan dari <code class="inline">gateMeta</code>. Menurunkan array-nya sambil membiarkan label tetap hardcode justru <b>menambah</b> risiko drift. Perbaikan yang benar butuh konsep <code class="inline">gateGroups</code> baru di app-config.js.</li>
+      <li><span class="badge pending">Cleanup</span> <b>Drift palet CSS.</b> <code class="inline">real_gate.html</code> berbeda dari <code class="inline">index.html</code> pada 21 dari 31 variabel <code class="inline">:root</code>, real_belt 19, analytics 15. Maksud visualnya sama, nilainya menyimpang. Kosmetik, tapi memburuk tiap kali ada edit.</li>
+      <li><span class="badge pending">Cleanup</span> <code class="inline">esc()</code> ada di index/otp/real_gate/real_belt tapi <b>tidak ada di analytics.html</b>, yang merender field AIS lewat konkatenasi mentah (<code class="inline">route</code>, <code class="inline">city</code>, <code class="inline">airline</code>, <code class="inline">flightNo</code>). Severity rendah selama sumber AIS tepercaya dan <code class="inline">flights_cache</code> terkunci ke akun sync — naik prioritas <b>hanya jika</b> sumber data diperluas.</li>
+      <li><span class="badge pending">Cleanup</span> <code class="inline">activity_logs</code> tumbuh tanpa batas (satu dokumen per pageview). Hanya ada purge manual per-batch di admin.html; belum ada TTL policy atau cleanup terjadwal.</li>
+      <li><span class="badge pending">Catatan</span> <code class="inline">emailToKey()</code> ada 3 salinan (auth-guard.js, admin.html, firestore.rules) dan <code class="inline">adminEmails</code> 2 salinan (app-config.js, firestore.rules). Stabil dan terdokumentasi, tapi divergensi akan gagal <i>open</i> di klien dan <i>closed</i> di rules — kombinasi yang sulit didiagnosis.</li>
+      <li><span class="badge pending">Catatan</span> <b>Tidak ada test, CI, atau linting.</b> Verifikasi sepenuhnya manual lewat browser. Untuk basis kode 616 KB dengan ~55% inline JS, seluruh risiko regresi ditanggung oleh review manusia.</li>
+      <li><span class="badge pending">Catatan</span> <code class="inline">sw.js</code> sengaja dimatikan (cache-killer) — tepat untuk data real-time, tapi <code class="inline">manifest.json</code> masih mengiklankan <code class="inline">display: standalone</code> + shortcuts, jadi peluncuran offline akan menampilkan error, bukan konten cache.</li>
     </ul>
   </section>
 
