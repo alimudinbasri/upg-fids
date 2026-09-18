@@ -528,6 +528,7 @@
 
 <script src="js/app-config.js"></script>
 <script src="js/ui-chrome.js"></script>
+<script src="js/flight-class.js"></script>
 <script src="js/flight-data.js"></script>
 <script>
 /* ============================================================
@@ -540,7 +541,7 @@ var GAS_URL = APP_CONFIG.gasUrl;
 
 function fmtDate(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function fmt(v, def) { def = def===undefined?'':def; var s = String(v===null||v===undefined?'':v).trim(); return s===''||s==='-' ? def : s; }
-function cleanText(v) { return String(v||'').trim(); }
+function cleanText(value) { return FlightClass.cleanText(value); }
 function first(obj, keys, def) {
   def = def===undefined?'':def;
   for (var i=0;i<keys.length;i++) { var k=keys[i]; if (obj[k]!==undefined && obj[k]!==null && String(obj[k]).trim()!=='') return obj[k]; }
@@ -581,26 +582,9 @@ function getCategory(schedule, actual, remark) {
 // Domestic/international classification — mirrors real_gate.html / real_belt.html:
 // prefer an explicit field on the raw AIS row if present, otherwise fall back to
 // the gate/belt's configured scope in js/app-config.js.
-function getGateScope(gate) {
-  var status = String((APP_CONFIG.gateMeta[gate]||{}).status||'').toUpperCase();
-  if (gate==='NO GATE') return 'ANY';
-  if (status.indexOf('INT')>=0) return 'INT';
-  if (status.indexOf('DOM')>=0) return 'DOM';
-  return 'ANY';
-}
-function getBeltScope(belt) {
-  var status = String((APP_CONFIG.beltMeta[belt]||{}).status||'').toUpperCase();
-  if (belt==='NO BELT') return 'ANY';
-  if (status.indexOf('INT')>=0) return 'INT';
-  if (status.indexOf('DOM')>=0) return 'DOM';
-  return 'ANY';
-}
-function detectFlightClass(row, gateOrBelt, scopeFn) {
-  var source = [row.flight_category,row.flight_type,row.category,row.dom_int,row.service_type,row.scope,row.domestic_international].map(cleanText).filter(Boolean)[0] || '';
-  if (/INT|INTERNATIONAL/i.test(source)) return 'INT';
-  if (/DOM|DOMESTIC/i.test(source)) return 'DOM';
-  return scopeFn(gateOrBelt)==='INT' ? 'INT' : 'DOM';
-}
+function getGateScope(gate) { return FlightClass.gateScope(gate); }
+function getBeltScope(belt) { return FlightClass.beltScope(belt); }
+function detectFlightClass(row, gateOrBelt, scopeFn) { return FlightClass.detectCategory(row, gateOrBelt, scopeFn); }
 
 function parseFlightNo(raw) {
   var clean = String(raw||'').toUpperCase().replace(/[^A-Z0-9]/g,'');

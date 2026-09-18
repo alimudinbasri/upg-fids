@@ -674,6 +674,7 @@ body.pdf-exporting-matrix .remark-blink, body.pdf-exporting-overview .remark-bli
 
 <script src="js/app-config.js"></script>
 <script src="js/ui-chrome.js"></script>
+<script src="js/flight-class.js"></script>
 <script src="js/wa-report.js"></script>
 <script>
 /* ========================================================
@@ -1107,11 +1108,7 @@ function migrateLegacyWaTemplate(opening, closing) { return _wa().migrateLegacy(
 // with the per-gate counts, even if flight_category was set at load time from
 // a gate the flight has since been moved off of (drag-and-drop, or a raw AIS
 // gate value that changed on refresh).
-function classifyFlightForReport(flight) {
-  const gateScope = getGateScope(flight.gate);
-  if (gateScope === 'INT' || gateScope === 'DOM') return gateScope;
-  return normalizeScope(flight.flight_category);
-}
+function classifyFlightForReport(flight) { return FlightClass.classifyForReport(flight, flight.gate, FlightClass.gateScope); }
 
 function buildWaTagData() {
   const flights = state.flights.filter(hasFilledGate);
@@ -1828,29 +1825,11 @@ function getHourBgClass(pax, meta) {
 function getGateMeta(gate) { return GATE_META[gate]||{seat:0,max:0,status:'GATE',off:false}; }
 function isGateOff(meta) { return Boolean(meta.off)||String(meta.status||'').toUpperCase().includes('OFF'); }
 
-function getGateScope(gate) {
-  const status=String(getGateMeta(gate).status||'').toUpperCase();
-  if (gate==='NO GATE') return 'ANY';
-  if (status.includes('INT')) return 'INT';
-  if (status.includes('DOM')) return 'DOM';
-  return 'ANY';
-}
+function getGateScope(gate) { return FlightClass.gateScope(gate); }
 
-function detectFlightCategory(row, gate) {
-  const source=[row.flight_category,row.flight_type,row.category,row.dom_int,row.service_type,row.scope,row.domestic_international].map(cleanText).find(Boolean)||'';
-  if (/INT|INTERNATIONAL/i.test(source)) return 'INT';
-  if (/DOM|DOMESTIC/i.test(source)) return 'DOM';
-  const gateScope=getGateScope(gate);
-  if (gateScope==='INT') return 'INT';
-  return 'DOM';
-}
+function detectFlightCategory(row, gate) { return FlightClass.detectCategory(row, gate, FlightClass.gateScope); }
 
-function normalizeScope(value) {
-  const text=String(value||'').toUpperCase();
-  if (text.includes('INT')) return 'INT';
-  if (text.includes('DOM')) return 'DOM';
-  return 'DOM';
-}
+function normalizeScope(value) { return FlightClass.normalizeScope(value); }
 
 function cleanGate(value) {
   let gate=String(value||'').trim().toUpperCase();
@@ -1903,7 +1882,7 @@ function toHHmm(value) {
 function hhmmToMinute(hhmm) { const m=String(hhmm||'').match(/^(\d{2}):(\d{2})$/); return m?Number(m[1])*60+Number(m[2]):null; }
 function minuteToHHmm(minute) { minute=clamp(Math.round(Number(minute||0)),0,1439); return String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0'); }
 function toNumber(value) { const n=Number(String(value||'0').replace(/[^\d.-]/g,'')); return isNaN(n)?0:n; }
-function cleanText(value) { return String(value||'').trim(); }
+function cleanText(value) { return FlightClass.cleanText(value); }
 
 function cell(text, className) {
   const div=document.createElement('div');

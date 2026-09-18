@@ -650,6 +650,7 @@ body.pdf-exporting-matrix .remark-blink, body.pdf-exporting-overview .remark-bli
 
 <script src="js/app-config.js"></script>
 <script src="js/ui-chrome.js"></script>
+<script src="js/flight-class.js"></script>
 <script src="js/wa-report.js"></script>
 <script>
 /* ========================================================
@@ -1072,11 +1073,7 @@ function migrateLegacyWaTemplate(opening, closing) { return _wa().migrateLegacy(
 // with the per-belt counts, even if flight_category was set at load time from
 // a belt the flight has since been moved off of (drag-and-drop, or a raw AIS
 // belt value that changed on refresh).
-function classifyFlightForReport(flight) {
-  const beltScope = getBeltScope(flight.belt);
-  if (beltScope === 'INT' || beltScope === 'DOM') return beltScope;
-  return normalizeScope(flight.flight_category);
-}
+function classifyFlightForReport(flight) { return FlightClass.classifyForReport(flight, flight.belt, FlightClass.beltScope); }
 
 function buildWaTagData() {
   const flights = state.flights.filter(hasFilledBelt);
@@ -1741,29 +1738,11 @@ function getFlightBarText(flight) {
 function getBeltMeta(belt) { return BELT_META[belt]||{status:'BELT',off:false}; }
 function isBeltOff(meta) { return Boolean(meta.off)||String(meta.status||'').toUpperCase().includes('OFF'); }
 
-function getBeltScope(belt) {
-  const status=String(getBeltMeta(belt).status||'').toUpperCase();
-  if (belt==='NO BELT') return 'ANY';
-  if (status.includes('INT')) return 'INT';
-  if (status.includes('DOM')) return 'DOM';
-  return 'ANY';
-}
+function getBeltScope(belt) { return FlightClass.beltScope(belt); }
 
-function detectFlightCategory(row, belt) {
-  const source=[row.flight_category,row.flight_type,row.category,row.dom_int,row.service_type,row.scope,row.domestic_international].map(cleanText).find(Boolean)||'';
-  if (/INT|INTERNATIONAL/i.test(source)) return 'INT';
-  if (/DOM|DOMESTIC/i.test(source)) return 'DOM';
-  const beltScope=getBeltScope(belt);
-  if (beltScope==='INT') return 'INT';
-  return 'DOM';
-}
+function detectFlightCategory(row, belt) { return FlightClass.detectCategory(row, belt, FlightClass.beltScope); }
 
-function normalizeScope(value) {
-  const text=String(value||'').toUpperCase();
-  if (text.includes('INT')) return 'INT';
-  if (text.includes('DOM')) return 'DOM';
-  return 'DOM';
-}
+function normalizeScope(value) { return FlightClass.normalizeScope(value); }
 
 function cleanBelt(value) {
   let belt=String(value||'').trim().toUpperCase();
@@ -1815,7 +1794,7 @@ function toHHmm(value) {
 
 function hhmmToMinute(hhmm) { const m=String(hhmm||'').match(/^(\d{2}):(\d{2})$/); return m?Number(m[1])*60+Number(m[2]):null; }
 function minuteToHHmm(minute) { minute=clamp(Math.round(Number(minute||0)),0,1439); return String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0'); }
-function cleanText(value) { return String(value||'').trim(); }
+function cleanText(value) { return FlightClass.cleanText(value); }
 
 function cell(text, className) {
   const div=document.createElement('div');

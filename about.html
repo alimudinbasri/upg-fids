@@ -287,6 +287,28 @@
       (10 belt), <code class="inline">airlineMap</code> (kode → nama maskapai), <code class="inline">prefixColorFixed</code>/<code class="inline">prefixColorPalette</code> (warna per maskapai).</p>
     <h3><code class="inline">js/firebase-config.js</code></h3>
     <p>Konfigurasi project Firebase (<code class="inline">apiKey</code>, <code class="inline">projectId: "upg-fids"</code>, dst) — dipakai oleh <code class="inline">firebase.initializeApp()</code>.</p>
+    <h3>Modul bersama hasil refactor (September 2026)</h3>
+    <p>Empat modul di bawah ini lahir dari penghapusan duplikasi copy-paste antar halaman. Semuanya dimuat
+      di slot yang sama dengan <code class="inline">app-config.js</code>, yaitu <b>sebelum</b> seluruh inline script halaman.</p>
+    <ul>
+      <li><code class="inline">js/ui-chrome.js</code> — <code class="inline">UIChrome.initNav({triggerId})</code> (drawer nav;
+        <code class="inline">#hamBtn</code> di semua halaman kecuali otp.html yang pakai <code class="inline">#btnNav</code>) dan
+        <code class="inline">UIChrome.initTheme({storageKey, onChange, iconLight, iconDark, stampDark})</code>.
+        <b>Tidak</b> memuat <code class="inline">tickClock()</code>: analytics/index menampilkan tanggal dalam Bahasa Inggris,
+        real_gate/real_belt/laporan dalam Bahasa Indonesia — membaginya berarti mengoper array nama hari/bulan, yang justru isi fungsinya.</li>
+      <li><code class="inline">js/wa-report.js</code> — <code class="inline">WaReport.create(cfg)</code> +
+        <code class="inline">WaReport.showToast()</code>/<code class="inline">renderTemplate()</code>.
+        <code class="inline">getDefaultWaTemplate()</code> dan <code class="inline">buildWaTagData()</code> tetap di tiap halaman karena
+        empat laporan itu memang berbeda, bukan empat salinan.
+        <b>Jebakan:</b> halaman memasang listener dengan referensi fungsi telanjang dari init yang jalan lebih awal di file, jadi wrapper-nya
+        <b>harus</b> <code class="inline">function</code> declaration (ter-hoist) dengan singleton malas — <code class="inline">var x = api.close</code>
+        akan mematikan tombol tanpa error apa pun.</li>
+      <li><code class="inline">js/flight-data.js</code> — <code class="inline">FlightData.create({buildFlight, lsPrefix, onDayLoaded})</code>,
+        lapisan multi-hari untuk analytics/laporan. Urutan baca: memori → <code class="inline">flights_cache</code> → GAS live → localStorage → <code class="inline">[]</code>.
+        Halaman satu-hari (index/otp/real_gate/real_belt) sengaja <b>tidak</b> memakainya.</li>
+      <li><code class="inline">js/flight-class.js</code> — <code class="inline">FlightClass.gateScope/beltScope/detectCategory/classifyForReport</code>
+        untuk analytics/real_gate/real_belt. <code class="inline">index.html</code> sengaja <b>tidak</b> ikut — lihat §13.</li>
+    </ul>
     <h3><code class="inline">js/auth-guard.js</code></h3>
     <p>Auth gate <b>bersama</b> dipakai oleh index/real_gate/real_belt/otp/analytics/laporan (bukan admin.html dan about.html — lihat §9).
       Tugasnya: cek maintenance mode (baca publik), redirect ke login jika belum auth, cek status blokir, catat
@@ -506,12 +528,16 @@ firebase deploy --only hosting --project upg-fids</div>
     <h3>Temuan audit yang belum ditangani</h3>
     <p>Hasil audit struktur menyeluruh (September 2026), diurutkan berdasarkan (risiko × kemungkinan) ÷ effort:</p>
     <ul>
-      <li><span class="badge bug">Risiko tinggi</span> <b>Tidak ada lapisan kode bersama.</b> Hanya <code class="inline">app-config.js</code> yang benar-benar dipakai bersama; sisanya copy-paste: <code class="inline">openNav</code>/<code class="inline">closeNav</code> 8 salinan, <code class="inline">applyTheme</code> 6, <code class="inline">first()</code> 6, <code class="inline">tickClock</code> 5, subsistem WA Report 4 salinan (~250 baris masing-masing), <code class="inline">loadData</code> 4. Biayanya sudah terbukti nyata: outage JSONP butuh 5 perbaikan identik di 5 file. <b>Rencana bertahap (jangan sekaligus), satu commit per seam:</b>
-        <br>(a) <code class="inline">js/ui-chrome.js</code> — openNav/closeNav/applyTheme/tickClock (risiko sangat rendah, kode trivial tanpa state — latihan aman untuk membuktikan pola ekstraksi);
-        <br>(b) <code class="inline">js/wa-report.js</code> — 8 fungsi generik; <code class="inline">buildWaTagData()</code> + <code class="inline">getDefaultWaTemplate()</code> tetap per-halaman karena memang beda;
-        <br>(c) <code class="inline">js/flight-data.js</code> — lapisan akses data analytics/laporan yang sudah terbukti byte-identik; <code class="inline">buildFlight</code> masuk sebagai parameter;
-        <br>(d) konsolidasi klasifikasi DOM/INT — <b>terakhir</b>, karena menyentuh logika bisnis inti di halaman paling kompleks (real_gate/real_belt 2000+ baris, drag-and-drop).</li>
-      <li><span class="badge bug">Risiko sedang</span> <b>Empat implementasi klasifikasi DOM/INT</b> yang bersaing: <code class="inline">isIntlFlight()</code> (index), <code class="inline">detectFlightClass()</code> (analytics), <code class="inline">detectFlightCategory()</code>+<code class="inline">classifyFlightForReport()</code> (real_gate &amp; real_belt). Logikanya setara tapi terpisah — lihat rencana (d) di atas.</li>
+      <li><span class="badge ok">Selesai</span> <b>Lapisan kode bersama — rencana 4 seam, semuanya sudah dikerjakan</b> (September 2026). Dulu hanya <code class="inline">app-config.js</code> yang dipakai bersama; sisanya copy-paste, dan biayanya terbukti nyata: outage JSONP butuh 5 perbaikan identik di 5 file. Dikerjakan satu commit per seam, bukan sekaligus:
+        <br>(a) <code class="inline">js/ui-chrome.js</code> — <code class="inline">initNav()</code> (8 halaman) + <code class="inline">initTheme()</code> (6 halaman). Commit <code class="inline">6c2cff4</code> &amp; <code class="inline">16e3da1</code>;
+        <br>(b) <code class="inline">js/wa-report.js</code> — toast, mesin template, Firestore load/save, migrasi legacy, modal, copy clipboard (4 halaman). Commit <code class="inline">49b2865</code>;
+        <br>(c) <code class="inline">js/flight-data.js</code> — lapisan data multi-hari analytics/laporan. Commit <code class="inline">958a884</code>;
+        <br>(d) <code class="inline">js/flight-class.js</code> — klasifikasi DOM/INT untuk analytics/real_gate/real_belt.
+        <br><b>Aturan untuk penerus:</b> perbaikan bug di area ini sekarang cukup di satu tempat. Jangan menyalin fungsi dari modul kembali ke halaman.</li>
+      <li><span class="badge bug">Perlu keputusan ops</span> <b><code class="inline">index.html</code> mengklasifikasi DOM/INT dengan aturan berbeda</b> dan <b>sengaja tidak disatukan</b> di seam (d). <code class="inline">isIntlFlight()</code> hanya membaca 2 field (<code class="inline">flight_category</code>, <code class="inline">category</code>) dan mencocokkannya <b>persis</b> (<code class="inline">'INT'</code>/<code class="inline">'INTERNATIONAL'</code>), sedangkan ketiga halaman lain membaca 7 field dan mencocokkan dengan regex substring. Diuji pada 340 kombinasi kategori×gate: <b>70 di antaranya berbeda hasil.</b> Tidak ada yang jelas lebih benar:
+        <br>• index <b>melewatkan</b> nilai nyata yang ditangkap regex — <code class="inline">"INTL"</code> dan <code class="inline">"International Flight"</code> jatuh ke fallback gate;
+        <br>• regex punya <b>false positive</b> yang tidak dimiliki index — <code class="inline">/INT/</code> cocok dengan <code class="inline">"PO<b>INT</b>"</code> dan <code class="inline">/DOM/</code> cocok dengan <code class="inline">"<b>DOM</b>INICA"</code>.
+        <br>Menyatukannya akan diam-diam mengubah angka domestik/internasional di papan FIDS utama <b>dan di laporan WhatsApp yang dikirim ops</b>. Keputusannya butuh jawaban: <b>nilai apa saja yang sebenarnya dikirim feed AIS di field-field ini?</b> Setelah itu diketahui, perbaikannya kecil — pilih satu aturan di <code class="inline">js/flight-class.js</code> lalu arahkan index.html ke sana.</li>
       <li><span class="badge pending">Cleanup</span> <code class="inline">buildWaTagData()</code> di index.html masih hardcode pengelompokan terminal TS/TE/INTER berikut label tampilannya. Sengaja tidak diubah saat <code class="inline">9a45687</code>: ini pengelompokan <i>terminal</i>, bukan status DOM/INT, dan tidak bisa diturunkan dari <code class="inline">gateMeta</code>. Menurunkan array-nya sambil membiarkan label tetap hardcode justru <b>menambah</b> risiko drift. Perbaikan yang benar butuh konsep <code class="inline">gateGroups</code> baru di app-config.js.</li>
       <li><span class="badge pending">Cleanup</span> <b>Drift palet CSS.</b> <code class="inline">real_gate.html</code> berbeda dari <code class="inline">index.html</code> pada 21 dari 31 variabel <code class="inline">:root</code>, real_belt 19, analytics 15. Maksud visualnya sama, nilainya menyimpang. Kosmetik, tapi memburuk tiap kali ada edit.</li>
       <li><span class="badge pending">Cleanup</span> <code class="inline">esc()</code> ada di index/otp/real_gate/real_belt tapi <b>tidak ada di analytics.html</b>, yang merender field AIS lewat konkatenasi mentah (<code class="inline">route</code>, <code class="inline">city</code>, <code class="inline">airline</code>, <code class="inline">flightNo</code>). Severity rendah selama sumber AIS tepercaya dan <code class="inline">flights_cache</code> terkunci ke akun sync — naik prioritas <b>hanya jika</b> sumber data diperluas.</li>
