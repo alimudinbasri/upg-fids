@@ -87,11 +87,60 @@ var FlightData = (function () {
   // window._db is set by js/auth-guard.js once login is confirmed, which
   // happens after this script runs — poll for it rather than initializing
   // Firebase a second time.
-  function waitForDb() {
+  // timeoutMs is optional. Without it this waits forever, which is what the
+  // multi-day pages want — they have nothing to show until login completes.
+  // index.html passes one: it can still fall back to a live GAS fetch, so
+  // hanging here would turn a recoverable situation into a blank page.
+  function waitForDb(timeoutMs) {
     return new Promise(function (resolve) {
       if (window._db) { resolve(window._db); return; }
-      var iv = setInterval(function () { if (window._db) { clearInterval(iv); resolve(window._db); } }, 50);
+      var iv = setInterval(function () {
+        if (window._db) { clearInterval(iv); resolve(window._db); }
+      }, 50);
+      if (timeoutMs) {
+        setTimeout(function () { clearInterval(iv); resolve(window._db || null); }, timeoutMs);
+      }
     });
+  }
+
+  // ── Reading flights_cache directly ──────────────────────────────────────
+  // One document per date holding BOTH directions, so a day costs one read.
+  // Returns raw AIS rows — each page normalizes them its own way — or null
+  // when the day is not cached, so the caller can fall back to a live fetch.
+  function readDayDoc(dateStr, timeoutMs) {
+    return waitForDb(timeoutMs).then(function (db) {
+      if (!db) return null;
+      return db.collection('flights_cache').doc(dateStr).get().then(function (doc) {
+        if (!doc.exists) return null;
+        var d = doc.data() || {};
+        var arrivals = toRowArray(d.arrivals);
+        var departures = toRowArray(d.departures);
+        if (!arrivals.length && !departures.length) return null;
+        return { arrivals: arrivals, departures: departures, updatedAt: d.updatedAt || null };
+      });
+    }).catch(function (err) {
+      console.warn('flights_cache read failed for', dateStr, err);
+      return null;
+    });
+  }
+
+  // The sync skips rewriting unchanged days, so flights_cache.updatedAt stops
+  // moving during quiet periods and cannot answer "is the sync alive?". That
+  // question has its own tiny document, written on every run.
+  function readSyncHeartbeat(timeoutMs) {
+    return waitForDb(timeoutMs).then(function (db) {
+      if (!db) return null;
+      return db.collection('sync_status').doc('heartbeat').get().then(function (doc) {
+        return doc.exists ? (doc.data() || null) : null;
+      });
+    }).catch(function () { return null; });
+  }
+
+  // Infinity when there is no usable heartbeat — callers treat that as "dead".
+  function heartbeatAgeMs(hb) {
+    if (!hb || !hb.lastRun) return Infinity;
+    var t = Date.parse(hb.lastRun);
+    return isNaN(t) ? Infinity : Math.max(0, Date.now() - t);
   }
 
   // ── Per-page instance ───────────────────────────────────────
@@ -198,6 +247,8 @@ var FlightData = (function () {
   return {
     create: create,
     fmt: fmt, first: first, extractRows: extractRows, toRowArray: toRowArray,
-    dateRangeList: dateRangeList, waitForDb: waitForDb
+    dateRangeList: dateRangeList, waitForDb: waitForDb,
+    readDayDoc: readDayDoc, readSyncHeartbeat: readSyncHeartbeat,
+    heartbeatAgeMs: heartbeatAgeMs
   };
 })();

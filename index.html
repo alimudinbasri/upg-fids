@@ -707,6 +707,7 @@
 <script src="js/app-config.js"></script>
 <script src="js/ui-chrome.js"></script>
 <script src="js/flight-class.js"></script>
+<script src="js/flight-data.js"></script>
 <script src="js/wa-report.js"></script>
 <script>
 // ── CONFIG ──
@@ -948,6 +949,61 @@ async function fetchFlights(kind, date) {
 }
 
 // ── CACHE (stale-while-revalidate, avoids blank screen while GAS is slow) ──
+/* ── Where today's data comes from ────────────────────────────────────────
+ * Firestore flights_cache is written by an Apps Script sync every 2 minutes
+ * and answers in ~45ms, against ~2s warm / ~9.5s cold for a live GAS call —
+ * and one document holds both directions, so three days cost three reads
+ * instead of four HTTP round-trips.
+ *
+ * That makes the sync a single point of failure, so it is never trusted
+ * blindly. The sync skips rewriting unchanged days, which means
+ * flights_cache.updatedAt legitimately stops moving overnight and cannot be
+ * used to tell "sync is dead" from "nothing changed". sync_status/heartbeat
+ * is written on every run and answers that question instead; if it is stale
+ * or missing, this falls back to live GAS exactly as before.
+ */
+const SYNC_MAX_AGE_MS = 10 * 60 * 1000;   // sync runs every 2 min
+const DB_WAIT_MS      = 4000;             // don't hang waiting for login
+let lastLoadSource = null;
+
+async function fetchAllRaw(date) {
+  const prev = addDays(date, -1), next = addDays(date, 1);
+
+  const hbAge = FlightData.heartbeatAgeMs(await FlightData.readSyncHeartbeat(DB_WAIT_MS));
+
+  if (hbAge < SYNC_MAX_AGE_MS) {
+    const [t, p, n] = await Promise.all([
+      FlightData.readDayDoc(date, DB_WAIT_MS),
+      FlightData.readDayDoc(prev, DB_WAIT_MS),
+      FlightData.readDayDoc(next, DB_WAIT_MS)
+    ]);
+    if (t) {
+      // The adjacent days only feed PAIRING. A miss there degrades pairing for
+      // a few flights; it is no reason to throw away a good today and pay for
+      // four GAS calls.
+      const [prevArr, nextDep] = await Promise.all([
+        p ? Promise.resolve(p.arrivals)   : fetchFlights("arrival",   prev).catch(() => []),
+        n ? Promise.resolve(n.departures) : fetchFlights("departure", next).catch(() => [])
+      ]);
+      return { arr: t.arrivals, dep: t.departures, prevArr, nextDep,
+               source: "firestore", updatedAt: t.updatedAt,
+               partial: (!p || !n) ? "pairing dari GAS" : null };
+    }
+  }
+
+  // Firestore unusable — live GAS, all four in one wave.
+  const [arr, dep, prevArr, nextDep] = await Promise.all([
+    fetchFlights("arrival", date),
+    fetchFlights("departure", date),
+    fetchFlights("arrival",   prev).catch(() => []),
+    fetchFlights("departure", next).catch(() => [])
+  ]);
+  return { arr, dep, prevArr, nextDep, source: "gas",
+           why: hbAge === Infinity ? "sync tidak terdeteksi"
+              : hbAge >= SYNC_MAX_AGE_MS ? "sync terakhir " + Math.round(hbAge / 60000) + " menit lalu"
+              : "cache hari ini kosong" };
+}
+
 const CACHE_KEY = "fids_flight_cache_v1";
 function loadCache(date) {
   try {
@@ -980,6 +1036,23 @@ function updateSyncFooter(when) {
   const timeStr = String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0") + ":" + String(d.getSeconds()).padStart(2,"0");
   txt.textContent = "Data berhasil sinkron dengan server pada " + dateStr + ", pukul " + timeStr;
   el.classList.remove("stale");
+
+  // Say where the data came from. Without this a dead sync looks identical to
+  // a healthy one until someone notices the numbers have stopped moving.
+  const src = lastLoadSource;
+  if (!src) return;
+  if (src.source === "firestore") {
+    let extra = " · dari cache";
+    if (src.updatedAt) {
+      const mins = Math.max(0, Math.round((Date.now() - Date.parse(src.updatedAt)) / 60000));
+      extra += " (data " + (mins < 1 ? "baru saja" : mins + " menit lalu") + ")";
+    }
+    if (src.partial) extra += " · " + src.partial;
+    txt.textContent += extra;
+  } else {
+    txt.textContent += " · langsung dari AIS" + (src.why ? " (" + src.why + ")" : "");
+    el.classList.add("stale");
+  }
 }
 
 // ── LOAD DATA ──
@@ -1004,19 +1077,9 @@ async function loadData() {
   }
 
   try {
-    // All four requests go out together. buildPairing() used to fire the two
-    // cross-day ones only after today's pair had landed, which made the load
-    // two sequential round-trips instead of one. Measured over five days, both
-    // cross-day fetches were needed every single time (25-32 flights each),
-    // so fetching them up front is not speculative — it is what always happens,
-    // just without the extra wait. The GAS endpoint answers in ~2s warm and
-    // ~9.5s cold, so this halves the critical path.
-    const [arrRaw, depRaw, prevArrRaw, nextDepRaw] = await Promise.all([
-      fetchFlights("arrival", date),
-      fetchFlights("departure", date),
-      fetchFlights("arrival",   addDays(date, -1)).catch(() => []),
-      fetchFlights("departure", addDays(date,  1)).catch(() => [])
-    ]);
+    const raw = await fetchAllRaw(date);
+    const { arr: arrRaw, dep: depRaw, prevArr: prevArrRaw, nextDep: nextDepRaw } = raw;
+    lastLoadSource = raw;
     const hasOpData  = f => !!(f.estimate||f.actual||f.gate||f.bay_id||f.belt||f.pax||f.remark);
     const arrivals   = arrRaw.map(normalizeArr).filter(x=>x.flight!=="-" && hasOpData(x));
     const departures = depRaw.map(normalizeDep).filter(x=>x.flight!=="-" && hasOpData(x));
