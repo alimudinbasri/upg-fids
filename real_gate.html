@@ -673,6 +673,7 @@ body.pdf-exporting-matrix .remark-blink, body.pdf-exporting-overview .remark-bli
   </div>
 
 <script src="js/app-config.js"></script>
+<script src="js/ui-chrome.js"></script>
 <script>
 /* ========================================================
    CONFIG
@@ -2034,17 +2035,8 @@ function showStatus(message, isError) {
   });
 })();
 
-// ── HAMBURGER NAV ──
-(function(){
-  const btn = document.getElementById('hamBtn');
-  const overlay = document.getElementById('navOverlay');
-  const panel = document.getElementById('navPanel');
-  function openNav() { if(panel) panel.classList.add('show'); if(overlay) overlay.classList.add('show'); }
-  function closeNav() { if(panel) panel.classList.remove('show'); if(overlay) overlay.classList.remove('show'); }
-  if (btn) btn.addEventListener('click', openNav);
-  if (overlay) overlay.addEventListener('click', closeNav);
-  document.addEventListener('keydown', function(e) { if (e.key==='Escape') closeNav(); });
-})();
+// ── HAMBURGER NAV ── (shared: js/ui-chrome.js)
+UIChrome.initNav();
 </script>
 <script>
 if ("serviceWorker" in navigator) {

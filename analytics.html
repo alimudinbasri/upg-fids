@@ -527,6 +527,7 @@
 </div>
 
 <script src="js/app-config.js"></script>
+<script src="js/ui-chrome.js"></script>
 <script>
 /* ============================================================
    LIVE FLIGHT DATA (Google Apps Script / AIS)
@@ -805,16 +806,7 @@ function palette() {
   });
 })();
 
-(function(){
-  var btn = document.getElementById('hamBtn');
-  var overlay = document.getElementById('navOverlay');
-  var panel = document.getElementById('navPanel');
-  function openNav(){ panel.classList.add('show'); overlay.classList.add('show'); }
-  function closeNav(){ panel.classList.remove('show'); overlay.classList.remove('show'); }
-  btn.addEventListener('click', openNav);
-  overlay.addEventListener('click', closeNav);
-  document.addEventListener('keydown', function(e){ if (e.key==='Escape') closeNav(); });
-})();
+UIChrome.initNav(); // shared: js/ui-chrome.js
 
 function tickClock() {
   var now = new Date();

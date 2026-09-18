@@ -317,6 +317,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="js/app-config.js"></script>
+<script src="js/ui-chrome.js"></script>
 <script src="js/firebase-config.js"></script>
 <script>
   const HARDCODED_ADMINS = APP_CONFIG.adminEmails;
@@ -464,16 +465,7 @@
   }); // end onAuthStateChanged
 
   // ── HAMBURGER NAV ──
-  (function(){
-    const btn     = document.getElementById('hamBtn');
-    const overlay = document.getElementById('navOverlay');
-    const panel   = document.getElementById('navPanel');
-    function openNav()  { panel.classList.add('show');    overlay.classList.add('show'); }
-    function closeNav() { panel.classList.remove('show'); overlay.classList.remove('show'); }
-    if (btn)     btn.addEventListener('click', openNav);
-    if (overlay) overlay.addEventListener('click', closeNav);
-    document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeNav(); });
-  })();
+  UIChrome.initNav(); // shared: js/ui-chrome.js
 
   // ── LOGOUT ──
   document.getElementById("btn-logout").addEventListener("click", function() {

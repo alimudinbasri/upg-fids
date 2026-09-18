@@ -570,6 +570,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
 </div>
 
 <script src="js/app-config.js"></script>
+<script src="js/ui-chrome.js"></script>
 <script>
 /* ============================================================
    CONFIG
@@ -1274,8 +1275,9 @@ function exportPdf() {
 /* ============================================================
    NAV PANEL
 ============================================================ */
-function openNav()  { document.getElementById('navPanel').classList.add('show');    document.getElementById('navOverlay').classList.add('show'); }
-function closeNav() { document.getElementById('navPanel').classList.remove('show'); document.getElementById('navOverlay').classList.remove('show'); }
+// Nav drawer wiring lives in js/ui-chrome.js; it exposes window.openNav /
+// window.closeNav, which the option-dropdown Escape handler below also uses.
+UIChrome.initNav({ triggerId: 'btnNav' });
 
 /* ============================================================
    INIT
@@ -1383,8 +1385,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // Nav
-  document.getElementById('btnNav').addEventListener('click', openNav);
-  document.getElementById('navOverlay').addEventListener('click', closeNav);
+
 
   // WA Report
   document.getElementById('btnWaReport').addEventListener('click', function() {
