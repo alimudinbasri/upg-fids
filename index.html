@@ -812,7 +812,11 @@ function formatShortDate(ds) {
 // adjacent day - but only fetched if actually needed, since most flights
 // pair fine within the same day. Every resolved pairing is tagged with
 // .pdate (the date it belongs to) so the UI can show it.
-async function buildPairing(arrivals, departures, date) {
+// Synchronous: the caller fetches the adjacent days in the same wave as today's
+// data and hands them in, so nothing here waits on the network.
+function buildPairing(arrivals, departures, date, prevArrivals, nextDepartures) {
+  prevArrivals   = prevArrivals   || [];
+  nextDepartures = nextDepartures || [];
   const depByReg = {}, arrByReg = {};
   departures.forEach(f => { if (f.reg && f.reg!=="-") (depByReg[f.reg]||(depByReg[f.reg]=[])).push(f); });
   arrivals.forEach(f   => { if (f.reg && f.reg!=="-") (arrByReg[f.reg]||(arrByReg[f.reg]=[])).push(f); });
@@ -837,26 +841,8 @@ async function buildPairing(arrivals, departures, date) {
     else { dep.pairing = null; needsPrevDayArr.push(dep); }
   });
 
-  // ── Cross-day fallback (only fetched if actually needed) ──
-  const fetches = [];
-  let prevArrivals = null, nextDepartures = null;
-  if (needsPrevDayArr.length) {
-    fetches.push(
-      fetchFlights("arrival", addDays(date, -1))
-        .then(raw => { prevArrivals = raw.map(normalizeArr).filter(x=>x.flight!=="-"); })
-        .catch(() => { prevArrivals = []; })
-    );
-  }
-  if (needsNextDayDep.length) {
-    fetches.push(
-      fetchFlights("departure", addDays(date, 1))
-        .then(raw => { nextDepartures = raw.map(normalizeDep).filter(x=>x.flight!=="-"); })
-        .catch(() => { nextDepartures = []; })
-    );
-  }
-  if (fetches.length) await Promise.all(fetches);
-
-  if (prevArrivals && prevArrivals.length) {
+  // ── Cross-day fallback, from data the caller already fetched ──
+  if (needsPrevDayArr.length && prevArrivals.length) {
     const prevByReg = {};
     prevArrivals.forEach(f => { if (f.reg && f.reg!=="-") (prevByReg[f.reg]||(prevByReg[f.reg]=[])).push(f); });
     const prevDate = addDays(date, -1);
@@ -865,7 +851,7 @@ async function buildPairing(arrivals, departures, date) {
       if (arrs.length) { arrs[0].pdate = prevDate; dep.pairing = arrs[0]; }
     });
   }
-  if (nextDepartures && nextDepartures.length) {
+  if (needsNextDayDep.length && nextDepartures.length) {
     const nextByReg = {};
     nextDepartures.forEach(f => { if (f.reg && f.reg!=="-") (nextByReg[f.reg]||(nextByReg[f.reg]=[])).push(f); });
     const nextDate = addDays(date, 1);
@@ -1018,13 +1004,25 @@ async function loadData() {
   }
 
   try {
-    const [arrRaw, depRaw] = await Promise.all([
-      fetchFlights("arrival",date), fetchFlights("departure",date)
+    // All four requests go out together. buildPairing() used to fire the two
+    // cross-day ones only after today's pair had landed, which made the load
+    // two sequential round-trips instead of one. Measured over five days, both
+    // cross-day fetches were needed every single time (25-32 flights each),
+    // so fetching them up front is not speculative — it is what always happens,
+    // just without the extra wait. The GAS endpoint answers in ~2s warm and
+    // ~9.5s cold, so this halves the critical path.
+    const [arrRaw, depRaw, prevArrRaw, nextDepRaw] = await Promise.all([
+      fetchFlights("arrival", date),
+      fetchFlights("departure", date),
+      fetchFlights("arrival",   addDays(date, -1)).catch(() => []),
+      fetchFlights("departure", addDays(date,  1)).catch(() => [])
     ]);
     const hasOpData  = f => !!(f.estimate||f.actual||f.gate||f.bay_id||f.belt||f.pax||f.remark);
     const arrivals   = arrRaw.map(normalizeArr).filter(x=>x.flight!=="-" && hasOpData(x));
     const departures = depRaw.map(normalizeDep).filter(x=>x.flight!=="-" && hasOpData(x));
-    await buildPairing(arrivals, departures, date);
+    const prevArrivals   = prevArrRaw.map(normalizeArr).filter(x=>x.flight!=="-");
+    const nextDepartures = nextDepRaw.map(normalizeDep).filter(x=>x.flight!=="-");
+    buildPairing(arrivals, departures, date, prevArrivals, nextDepartures);
     allFlights = [...arrivals, ...departures];
     saveCache(date, allFlights);
     setError(null);
