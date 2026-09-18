@@ -282,6 +282,7 @@
 
 <script src="js/app-config.js"></script>
 <script src="js/ui-chrome.js"></script>
+<script src="js/flight-data.js"></script>
 <script>
 /* ============================================================
    LIVE + CACHED FLIGHT DATA
@@ -299,21 +300,24 @@ function first(obj, keys, def) {
   return def;
 }
 
-function jsonp(action, date) {
-  return new Promise(function(resolve, reject) {
-    var tid = setTimeout(function(){ reject(new Error('Timeout: '+action+' '+date)); }, 20000);
-    fetch(GAS_URL+'?action='+action+'&date='+encodeURIComponent(date), { cache: 'no-store' })
-      .then(function(res){ if (!res.ok) throw new Error('HTTP '+res.status); return res.json(); })
-      .then(function(data){ clearTimeout(tid); resolve(data); })
-      .catch(function(err){ clearTimeout(tid); reject(new Error('Fetch error: '+action+' '+date+' - '+err.message)); });
-  });
-}
-function extractRows(data) {
-  if (Array.isArray(data)) return data;
-  if (data && data.data && Array.isArray(data.data)) return data.data;
-  if (data && typeof data==='object') { var keys=['rows','flights','result','records']; for (var i=0;i<keys.length;i++) if (Array.isArray(data[keys[i]])) return data[keys[i]]; }
-  return [];
-}
+// ── FLIGHT DATA ── shared layer: js/flight-data.js
+// buildFlight() stays here: laporan only needs date/type/flightNo/gate/belt.
+var _fd = FlightData.create({
+  buildFlight: buildFlight,
+  lsPrefix: 'laporanDay_'
+});
+function jsonp(action, date) { return _fd.gasFetch(action, date); }
+function extractRows(data) { return FlightData.extractRows(data); }
+function toRowArray(v) { return FlightData.toRowArray(v); }
+function waitForDb() { return FlightData.waitForDb(); }
+function parseFlightsCacheDoc(data, dateStr) { return _fd.parseCacheDoc(data, dateStr); }
+function fetchDayFromCache(dateStr) { return _fd.fromCache(dateStr); }
+function fetchDayLive(dateStr) { return _fd.fromLive(dateStr); }
+function loadDayFromLS(dateStr) { return _fd.loadFromLS(dateStr); }
+function saveDayToLS(dateStr, flights) { return _fd.saveToLS(dateStr, flights); }
+function dateRangeList(fromStr, toStr) { return FlightData.dateRangeList(fromStr, toStr); }
+function fetchDay(dateStr) { return _fd.fetchDay(dateStr); }
+function fetchDays(dateList, onProgress) { return _fd.fetchDays(dateList, { onProgress: onProgress }); }
 
 // Only the fields this report needs (gate/belt/type/date) - same
 // field-priority lists as real_gate.html/real_belt.html/analytics.html.
@@ -324,83 +328,8 @@ function buildFlight(row, type, dateStr) {
   return { date: dateStr, type: type, flightNo: flightNo, gate: gate, belt: belt };
 }
 
-function toRowArray(v) {
-  if (Array.isArray(v)) return v;
-  if (typeof v === 'string' && v.trim()) {
-    try { var parsed = JSON.parse(v); return Array.isArray(parsed) ? parsed : []; } catch(e) { return []; }
-  }
-  return [];
-}
-function parseFlightsCacheDoc(data, dateStr) {
-  if (!data) return null;
-  var arrRaw = toRowArray(data.arrivals);
-  var depRaw = toRowArray(data.departures);
-  if (!arrRaw.length && !depRaw.length) return null;
-  var arrRows = arrRaw.map(function(r){ return buildFlight(r,'ARR',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
-  var depRows = depRaw.map(function(r){ return buildFlight(r,'DEP',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
-  return arrRows.concat(depRows);
-}
 
-function waitForDb() {
-  return new Promise(function(resolve){
-    if (window._db) { resolve(window._db); return; }
-    var iv = setInterval(function(){ if (window._db) { clearInterval(iv); resolve(window._db); } }, 50);
-  });
-}
-function fetchDayFromCache(dateStr) {
-  return waitForDb().then(function(db){ return db.collection('flights_cache').doc(dateStr).get(); })
-    .then(function(doc){ return doc.exists ? parseFlightsCacheDoc(doc.data(), dateStr) : null; })
-    .catch(function(err){ console.warn('flights_cache read failed for', dateStr, err); return null; });
-}
-function fetchDayLive(dateStr) {
-  return Promise.all([jsonp('arrival', dateStr), jsonp('departure', dateStr)]).then(function(results){
-    var arrRows = extractRows(results[0]).map(function(r){ return buildFlight(r,'ARR',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
-    var depRows = extractRows(results[1]).map(function(r){ return buildFlight(r,'DEP',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
-    return arrRows.concat(depRows);
-  });
-}
 
-var dayCache = {};
-var LS_PREFIX = 'laporanDay_';
-function loadDayFromLS(dateStr) {
-  try { var raw = localStorage.getItem(LS_PREFIX+dateStr); if (!raw) return null; return JSON.parse(raw).flights; } catch(e) { return null; }
-}
-function saveDayToLS(dateStr, flights) {
-  try { localStorage.setItem(LS_PREFIX+dateStr, JSON.stringify({flights:flights, ts:Date.now()})); } catch(e) {}
-}
-function fetchDay(dateStr) {
-  if (dayCache[dateStr]) return Promise.resolve(dayCache[dateStr]);
-  return fetchDayFromCache(dateStr).then(function(cached){
-    if (cached && cached.length) return cached;
-    return fetchDayLive(dateStr);
-  }).catch(function(err){
-    console.warn('Failed to fetch flights for', dateStr, err);
-    return loadDayFromLS(dateStr) || [];
-  }).then(function(dayFlights){
-    dayCache[dateStr] = dayFlights;
-    saveDayToLS(dateStr, dayFlights);
-    return dayFlights;
-  });
-}
-function dateRangeList(fromStr, toStr) {
-  var list = [], d = new Date(fromStr+'T00:00:00'), end = new Date(toStr+'T00:00:00');
-  while (d<=end) { list.push(fmtDate(d)); d.setDate(d.getDate()+1); }
-  return list;
-}
-function fetchDays(dateList, onProgress) {
-  var CONCURRENCY = 6, out = [], i = 0, done = 0;
-  function next() {
-    if (i>=dateList.length) return Promise.resolve(out);
-    var batch = dateList.slice(i, i+CONCURRENCY); i += CONCURRENCY;
-    return Promise.all(batch.map(fetchDay)).then(function(results){
-      results.forEach(function(r){ out = out.concat(r); });
-      done += batch.length;
-      if (onProgress) onProgress(done, dateList.length);
-      return next();
-    });
-  }
-  return next();
-}
 
 /* ============================================================
    REPORT AGGREGATION + RENDER

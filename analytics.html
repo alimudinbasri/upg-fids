@@ -528,6 +528,7 @@
 
 <script src="js/app-config.js"></script>
 <script src="js/ui-chrome.js"></script>
+<script src="js/flight-data.js"></script>
 <script>
 /* ============================================================
    LIVE FLIGHT DATA (Google Apps Script / AIS)
@@ -613,21 +614,28 @@ function parseFlightNo(raw) {
 // is present (confirmed against the live endpoint), but responds in well
 // under a second to a bare request and sends Access-Control-Allow-Origin: *,
 // so a normal cross-origin fetch works fine.
-function jsonp(action, date) {
-  return new Promise(function(resolve, reject) {
-    var tid = setTimeout(function(){ reject(new Error('Timeout: '+action+' '+date)); }, 20000);
-    fetch(GAS_URL+'?action='+action+'&date='+encodeURIComponent(date), { cache: 'no-store' })
-      .then(function(res){ if (!res.ok) throw new Error('HTTP '+res.status); return res.json(); })
-      .then(function(data){ clearTimeout(tid); resolve(data); })
-      .catch(function(err){ clearTimeout(tid); reject(new Error('Fetch error: '+action+' '+date+' - '+err.message)); });
-  });
-}
-function extractRows(data) {
-  if (Array.isArray(data)) return data;
-  if (data && data.data && Array.isArray(data.data)) return data.data;
-  if (data && typeof data==='object') { var keys=['rows','flights','result','records']; for (var i=0;i<keys.length;i++) if (Array.isArray(data[keys[i]])) return data[keys[i]]; }
-  return [];
-}
+// ── FLIGHT DATA ── shared layer: js/flight-data.js
+// buildFlight() stays here: analytics needs the full flight record.
+// onDayLoaded collects the route/bay vocabularies for the filter dropdowns.
+var _fd = FlightData.create({
+  buildFlight: buildFlight,
+  lsPrefix: 'analyticsDay_',
+  onDayLoaded: function (dayFlights) {
+    dayFlights.forEach(function (f) { ALL_ROUTES_SEEN[f.route] = f.city; ALL_BAYS_SEEN[f.bay] = 1; });
+  }
+});
+function jsonp(action, date) { return _fd.gasFetch(action, date); }
+function extractRows(data) { return FlightData.extractRows(data); }
+function toRowArray(v) { return FlightData.toRowArray(v); }
+function waitForDb() { return FlightData.waitForDb(); }
+function parseFlightsCacheDoc(data, dateStr) { return _fd.parseCacheDoc(data, dateStr); }
+function fetchDayFromCache(dateStr) { return _fd.fromCache(dateStr); }
+function fetchDayLive(dateStr) { return _fd.fromLive(dateStr); }
+function loadDayFromLS(dateStr) { return _fd.loadFromLS(dateStr); }
+function saveDayToLS(dateStr, flights) { return _fd.saveToLS(dateStr, flights); }
+function dateRangeList(fromStr, toStr) { return FlightData.dateRangeList(fromStr, toStr); }
+function fetchDay(dateStr, stats) { return _fd.fetchDay(dateStr, stats); }
+function fetchDays(dateList, stats, onProgress) { return _fd.fetchDays(dateList, { stats: stats, onProgress: onProgress }); }
 
 function buildFlight(row, type, dateStr) {
   var flightRaw = first(row, ['nopen','flight','Flight','no_flight','callsign']);
@@ -664,25 +672,11 @@ function buildFlight(row, type, dateStr) {
 var today = new Date(); today.setHours(0,0,0,0);
 var datasetStart = new Date(2026,0,1);
 
-var dayCache = {};       // date -> flights[] fetched this page load
 var ALL_ROUTES_SEEN = {}, ALL_BAYS_SEEN = {};
-var LS_PREFIX = 'analyticsDay_';
 
-function loadDayFromLS(dateStr) {
-  try { var raw = localStorage.getItem(LS_PREFIX+dateStr); if (!raw) return null; return JSON.parse(raw).flights; } catch(e) { return null; }
-}
-function saveDayToLS(dateStr, flights) {
-  try { localStorage.setItem(LS_PREFIX+dateStr, JSON.stringify({flights:flights, ts:Date.now()})); } catch(e) {}
-}
 
 // window._db is set by js/auth-guard.js (which runs after this script, once
 // login is confirmed) — wait for it instead of initializing Firebase again here.
-function waitForDb() {
-  return new Promise(function(resolve){
-    if (window._db) { resolve(window._db); return; }
-    var iv = setInterval(function(){ if (window._db) { clearInterval(iv); resolve(window._db); } }, 50);
-  });
-}
 
 // Parse a flights_cache/{date} document. Confirmed real shape (via Firebase
 // Console, 2026-09): { arrivals: "<JSON string of row objects>", departures:
@@ -692,87 +686,15 @@ function waitForDb() {
 // iata_code, city, ...), which buildFlight() already knows how to read.
 // A couple of older shape guesses are kept as fallbacks in case the writer
 // changes format later; anything unrecognized is treated as a cache miss.
-function toRowArray(v) {
-  if (Array.isArray(v)) return v;
-  if (typeof v === 'string' && v.trim()) {
-    try { var parsed = JSON.parse(v); return Array.isArray(parsed) ? parsed : []; } catch(e) { return []; }
-  }
-  return [];
-}
-function parseFlightsCacheDoc(data, dateStr) {
-  // Schema Firestore yang dikonfirmasi: { arrivals: "<JSON-string>", departures: "<JSON-string>", updatedAt: "ISO" }
-  if (!data) return null;
-  var arrRaw = toRowArray(data.arrivals);
-  var depRaw = toRowArray(data.departures);
-  if (!arrRaw.length && !depRaw.length) return null;
-  var arrRows = arrRaw.map(function(r){ return buildFlight(r,'ARR',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
-  var depRows = depRaw.map(function(r){ return buildFlight(r,'DEP',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
-  return arrRows.concat(depRows);
-}
 
-function fetchDayFromCache(dateStr) {
-  return waitForDb().then(function(db){
-    return db.collection('flights_cache').doc(dateStr).get();
-  }).then(function(doc){
-    return doc.exists ? parseFlightsCacheDoc(doc.data(), dateStr) : null;
-  }).catch(function(err){
-    console.warn('flights_cache read failed for', dateStr, err);
-    return null;
-  });
-}
 
-function fetchDayLive(dateStr) {
-  return Promise.all([jsonp('arrival', dateStr), jsonp('departure', dateStr)]).then(function(results){
-    var arrRows = extractRows(results[0]).map(function(r){ return buildFlight(r,'ARR',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
-    var depRows = extractRows(results[1]).map(function(r){ return buildFlight(r,'DEP',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
-    return arrRows.concat(depRows);
-  });
-}
 
 // stats is a per-call {cache,live} counter object (see loadAndRenderAll) —
 // kept local to each load rather than a shared global, so an old, superseded
 // load (e.g. "All data" abandoned in favor of "Today") can't corrupt the
 // counters of whichever load is actually still being shown to the user.
-function fetchDay(dateStr, stats) {
-  if (dayCache[dateStr]) return Promise.resolve(dayCache[dateStr]);
-  // Try the Firestore cache first (fast, no GAS round-trip). Fall back to a
-  // live AIS fetch when the day isn't cached yet (e.g. today, before the
-  // daily sync has run) or the cached document came back empty/unparseable.
-  return fetchDayFromCache(dateStr).then(function(cached){
-    if (cached && cached.length) { stats.cache++; return cached; }
-    stats.live++;
-    return fetchDayLive(dateStr);
-  }).catch(function(err){
-    console.warn('Failed to fetch flights for', dateStr, err);
-    return loadDayFromLS(dateStr) || [];
-  }).then(function(dayFlights){
-    dayFlights.forEach(function(f){ ALL_ROUTES_SEEN[f.route]=f.city; ALL_BAYS_SEEN[f.bay]=1; });
-    dayCache[dateStr] = dayFlights;
-    saveDayToLS(dateStr, dayFlights);
-    return dayFlights;
-  });
-}
 
-function dateRangeList(fromStr, toStr) {
-  var list = [], d = new Date(fromStr+'T00:00:00'), end = new Date(toStr+'T00:00:00');
-  while (d<=end) { list.push(fmtDate(d)); d.setDate(d.getDate()+1); }
-  return list;
-}
 
-function fetchDays(dateList, stats, onProgress) {
-  var CONCURRENCY = 6, out = [], i = 0, done = 0;
-  function next() {
-    if (i>=dateList.length) return Promise.resolve(out);
-    var batch = dateList.slice(i, i+CONCURRENCY); i += CONCURRENCY;
-    return Promise.all(batch.map(function(d){ return fetchDay(d, stats); })).then(function(results){
-      results.forEach(function(r){ out = out.concat(r); });
-      done += batch.length;
-      if (onProgress) onProgress(done, dateList.length, out);
-      return next();
-    });
-  }
-  return next();
-}
 
 var FLIGHTS = [];
 
