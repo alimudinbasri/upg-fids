@@ -889,21 +889,8 @@ document.querySelectorAll('#drPresets .dr-preset-item').forEach(function(b){
 });
 updateDrTriggerLabel();
 
-(function() {
-  var root = document.documentElement;
-  var btn  = document.getElementById('themeToggle');
-  function applyTheme(t) {
-    if (t === 'light') { root.setAttribute('data-theme','light'); btn.textContent='☀️'; }
-    else               { root.removeAttribute('data-theme');       btn.textContent='🌙'; }
-  }
-  applyTheme(localStorage.getItem('laporanTheme') || 'dark');
-  btn.addEventListener('click', function(){
-    var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-    localStorage.setItem('laporanTheme', next);
-    applyTheme(next);
-    redrawCharts(); // canvas colors don't auto-follow CSS variables - must redraw
-  });
-})();
+// canvas colors don't auto-follow CSS variables - must redraw
+UIChrome.initTheme({ storageKey: 'laporanTheme', onChange: function () { redrawCharts(); } });
 
 UIChrome.initNav(); // shared: js/ui-chrome.js
 

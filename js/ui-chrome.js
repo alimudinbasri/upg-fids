@@ -49,5 +49,59 @@ var UIChrome = (function () {
     return { open: openNav, close: closeNav };
   }
 
-  return { initNav: initNav };
+  // ── Dark/light theme toggle ─────────────────────────────────
+  // Markup contract: #themeToggle is the button; the light palette is
+  // CSS-selected by :root[data-theme="light"] on every page.
+  //
+  // opts:
+  //   storageKey   localStorage key — one per page, deliberately, so the
+  //                pages remember their themes independently
+  //   onChange     (theme) -> void, run after a *user* toggle only, not on
+  //                the initial apply. analytics.html and laporan.html use
+  //                it to redraw their canvases, which do not follow CSS
+  //                variables on their own.
+  //   iconLight /  button glyph per state. otp.html has always shown these
+  //   iconDark     the other way round from the other five pages; that is
+  //                preserved here rather than silently "fixed", because it
+  //                is visible to users. See about.html §13.
+  //   stampDark    otp.html sets data-theme="dark" where the others remove
+  //                the attribute. No CSS anywhere matches [data-theme="dark"]
+  //                so both render identically, but the DOM differs and the
+  //                toggle reads the attribute back — preserved for the same
+  //                reason.
+  function initTheme(opts) {
+    opts = opts || {};
+    var root = document.documentElement;
+    var btn  = document.getElementById('themeToggle');
+    if (!btn) return null;
+
+    var iconLight = opts.iconLight || '☀️';
+    var iconDark  = opts.iconDark  || '🌙';
+
+    function applyTheme(t) {
+      if (t === 'light') {
+        root.setAttribute('data-theme', 'light');
+        btn.textContent = iconLight;
+      } else {
+        if (opts.stampDark) root.setAttribute('data-theme', 'dark');
+        else root.removeAttribute('data-theme');
+        btn.textContent = iconDark;
+      }
+    }
+
+    var stored = null;
+    try { stored = localStorage.getItem(opts.storageKey); } catch (e) {}
+    applyTheme(stored || 'dark');
+
+    btn.addEventListener('click', function () {
+      var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      try { localStorage.setItem(opts.storageKey, next); } catch (e) {}
+      applyTheme(next);
+      if (opts.onChange) opts.onChange(next);
+    });
+
+    return { apply: applyTheme };
+  }
+
+  return { initNav: initNav, initTheme: initTheme };
 })();

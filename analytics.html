@@ -790,21 +790,8 @@ function palette() {
   };
 }
 
-(function(){
-  var root = document.documentElement;
-  var btn  = document.getElementById('themeToggle');
-  function applyTheme(t) {
-    if (t === 'light') { root.setAttribute('data-theme','light'); btn.textContent='☀️'; }
-    else               { root.removeAttribute('data-theme');       btn.textContent='🌙'; }
-  }
-  applyTheme(localStorage.getItem('analyticsTheme') || 'dark');
-  btn.addEventListener('click', function(){
-    var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-    localStorage.setItem('analyticsTheme', next);
-    applyTheme(next);
-    renderAll(); // charts are canvas-drawn — must redraw with the new theme's colors
-  });
-})();
+// charts are canvas-drawn — must redraw with the new theme's colors
+UIChrome.initTheme({ storageKey: 'analyticsTheme', onChange: function () { renderAll(); } });
 
 UIChrome.initNav(); // shared: js/ui-chrome.js
 

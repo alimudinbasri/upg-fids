@@ -1044,10 +1044,10 @@ function startClock() {
 /* ============================================================
    THEME
 ============================================================ */
-function applyTheme(t) {
-  document.documentElement.setAttribute('data-theme', t);
-  document.getElementById('themeToggle').textContent = t==='light' ? '🌙' : '☀️';
-}
+// Icons are deliberately the reverse of the other five pages, and dark is
+// stamped as data-theme="dark" rather than removing the attribute. Both are
+// pre-existing otp.html behavior, preserved rather than silently changed.
+UIChrome.initTheme({ storageKey: 'otpTheme', iconLight: '🌙', iconDark: '☀️', stampDark: true });
 
 /* ============================================================
    EXPORT PDF
@@ -1302,7 +1302,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const tanggalEl = document.getElementById('tanggal');
   tanggalEl.value = today();
 
-  applyTheme(localStorage.getItem('otpTheme') || 'dark');
+  // (theme is applied by UIChrome.initTheme above, at parse time)
 
   loadData();
   startCountdown();
@@ -1327,12 +1327,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
   updateSortIndicators();
-
-  document.getElementById('themeToggle').addEventListener('click', function() {
-    const next = document.documentElement.getAttribute('data-theme')==='light' ? 'dark' : 'light';
-    localStorage.setItem('otpTheme', next);
-    applyTheme(next);
-  });
 
   // Tabs
   document.querySelectorAll('.tab-btn').forEach(function(btn) {
