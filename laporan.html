@@ -171,6 +171,8 @@
     table.rep-table tr.total-row td:first-child { background: var(--bg3); }
     table.rep-table tr.avg-row td { font-weight: 700; font-style: italic; color: var(--teal2); border-top: 2px solid var(--teal-dim); }
     table.rep-table tr.avg-row td:first-child { background: var(--card); }
+    table.rep-table tr.pct-row td { font-weight: 700; color: var(--amber); }
+    table.rep-table tr.pct-row td:first-child { background: var(--card); }
     table.rep-table td.num { font-variant-numeric: tabular-nums; }
     .state-msg { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13px; }
   </style>
@@ -351,6 +353,16 @@ function formatAvg(n) {
   if (s.slice(-3)==='.00') s = s.slice(0,-3);
   return s.replace('.',',');
 }
+// Share of the period's flights that used this gate/belt. The row sums to
+// 100%, which is what makes it useful: it shows load distribution, not
+// utilisation against some capacity nobody has told us.
+function formatPct(n, total) {
+  if (!total) return '0%';
+  var s = (n / total * 100).toFixed(1);
+  if (s.slice(-2) === '.0') s = s.slice(0, -2);
+  return s.replace('.', ',') + '%';
+}
+
 function isFilledSlot(v) {
   v = String(v||'').trim().toUpperCase();
   return !!v && v!=='NO GATE' && v!=='NO BELT' && v!=='UNASSIGNED' && v!=='-' && v!=='N/A' && v!=='NA' && v!=='NULL';
@@ -402,6 +414,9 @@ function buildReportTableHtml(rep) {
   var avgCells = rep.items.map(function(it) {
     return '<td class="num">'+formatAvg((rep.itemTotals[it]||0)/nDays)+'</td>';
   }).join('');
+  var pctCells = rep.items.map(function(it) {
+    return '<td class="num">'+formatPct(rep.itemTotals[it]||0, grandTotal)+'</td>';
+  }).join('');
 
   return (
     '<div class="panel">' +
@@ -412,6 +427,7 @@ function buildReportTableHtml(rep) {
         '<tbody>' + dayRows +
           '<tr class="total-row"><td>TOTAL '+nDays+' HARI</td>'+totalCells+'<td class="num">'+grandTotal+'</td></tr>' +
           '<tr class="avg-row"><td>RATA-RATA / HARI</td>'+avgCells+'<td class="num">'+formatAvg(grandTotal/nDays)+'</td></tr>' +
+          '<tr class="pct-row"><td>% PEMAKAIAN</td>'+pctCells+'<td class="num">100%</td></tr>' +
         '</tbody>' +
       '</table></div>' +
     '</div>' +
@@ -545,6 +561,7 @@ function addReportPdfPage(doc, rep) {
   });
   var totalRow = ['TOTAL '+nDays+' HARI'].concat(rep.items.map(function(it){ return rep.itemTotals[it]||0; })).concat([grandTotal]);
   var avgRow = ['RATA-RATA / HARI'].concat(rep.items.map(function(it){ return formatAvg((rep.itemTotals[it]||0)/nDays); })).concat([formatAvg(grandTotal/nDays)]);
+  var pctRow = ['% PEMAKAIAN'].concat(rep.items.map(function(it){ return formatPct(rep.itemTotals[it]||0, grandTotal); })).concat(['100%']);
 
   // Header split across 2 lines: "Conveyor" / "Belt N" for belt, "Gate" / "N" for gate.
   var headerCells = rep.items.map(function(it) {
@@ -562,7 +579,7 @@ function addReportPdfPage(doc, rep) {
     startY: 26,
     head: [['Hari / Tanggal'].concat(headerCells).concat(['Total\nFlight'])],
     body: dayBody,
-    foot: [totalRow, avgRow],
+    foot: [totalRow, avgRow, pctRow],
     styles: { fontSize: TABLE_FONT_SIZE, cellPadding: 2, halign: 'center' },
     headStyles: { fillColor: [10,40,80], textColor: [255,255,255], fontStyle: 'bold', halign: 'center' },
     footStyles: { fillColor: [225,232,242], textColor: [10,40,80], fontStyle: 'bold', halign: 'center' },
@@ -662,6 +679,7 @@ function exportReportExcel() {
     });
     aoa.push(['TOTAL '+nDays+' HARI'].concat(rep.items.map(function(it){ return rep.itemTotals[it]||0; })).concat([grandTotal]));
     aoa.push(['RATA-RATA / HARI'].concat(rep.items.map(function(it){ return Number(((rep.itemTotals[it]||0)/nDays).toFixed(2)); })).concat([Number((grandTotal/nDays).toFixed(2))]));
+    aoa.push(['% PEMAKAIAN'].concat(rep.items.map(function(it){ return grandTotal ? Number((((rep.itemTotals[it]||0)/grandTotal)*100).toFixed(1)) : 0; })).concat([100]));
 
     var ws = XLSX.utils.aoa_to_sheet(aoa);
     var sheetName = (rep.mode==='belt' ? 'Conveyor Belt' : 'Gate').slice(0,31);
