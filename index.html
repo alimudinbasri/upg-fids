@@ -233,7 +233,12 @@
     .fn-IU { background: #d87700; color: #fff; }
     .fn-IP { background: #006000; color: #fff; }
     .fn-XX { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
-    .flight-meta { font-size: 11px; color: var(--text3); margin: 0px 0px 2px; }
+    /* Registration and aircraft type stay on one line. Both are identifiers —
+       "PKLGQ" broken across two lines stops reading as a registration at a
+       glance, which is the only reason it is on screen. Ellipsis rather than
+       overflow so an unusually long aircraft type cannot push the column out. */
+    .flight-meta { font-size: 11px; color: var(--text3); margin: 0px 0px 2px;
+                   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     /* City */
     .city-name { font-size: 12px; color: var(--text2); font-weight: 500; line-height: 1.2; }
@@ -393,13 +398,13 @@
       .table-head {
         display: grid !important;
         position: sticky !important;
-        grid-template-columns: 8% 20% 17% 20% 15% 20%;
+        grid-template-columns: 9% 22% 16% 16% 15% 22%;
         padding: 4px 4px;
         font-size: 10px; letter-spacing: 0;
       }
       .flight-card {
         display: grid !important;
-        grid-template-columns: 10% 17% 17% 17% 17% 22%;
+        grid-template-columns: 9% 22% 16% 16% 15% 22%;
         padding: 2px;
       }
       .th         { gap: 1px; padding: 1px 2px; white-space: normal; line-height: 1.25; overflow: visible; }
@@ -412,6 +417,10 @@
       /* Flight col */
       .flight-num { font-size: 11px; padding: 2px 6px; letter-spacing: 0; }
       .flight-meta{ font-size: 10px; }
+      /* On the narrowest phones the registration + aircraft type needs ~71px
+         and the column gives ~69px. Half a point smaller clears it rather
+         than ellipsing a character off the type. */
+      @media (max-width: 380px) { .flight-meta { font-size: 9.5px; } }
 
       /* Time col */
       .time-row   { gap: 2px; }
