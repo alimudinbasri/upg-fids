@@ -218,6 +218,10 @@
     .type-badge.DEP { background: rgba(255,193,7,.15); color: var(--amber); border: 1px solid var(--amber2); }
 
     .col-flight, .col-city, .col-time, .col-location, .col-remarks { min-width: 0; padding: 0 4px; }
+    /* Flight number badge and the registration/type line under it are centred
+       on each other. Scoped to this column so the Pax line, which reuses
+       .flight-meta over in the city column, keeps its own alignment. */
+    .col-flight { text-align: center; }
 
     /* Flight — nomor penerbangan berwarna per maskapai */
     .flight-num {
