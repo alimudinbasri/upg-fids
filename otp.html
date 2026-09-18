@@ -1044,10 +1044,7 @@ function startClock() {
 /* ============================================================
    THEME
 ============================================================ */
-// Icons are deliberately the reverse of the other five pages, and dark is
-// stamped as data-theme="dark" rather than removing the attribute. Both are
-// pre-existing otp.html behavior, preserved rather than silently changed.
-UIChrome.initTheme({ storageKey: 'otpTheme', iconLight: '🌙', iconDark: '☀️', stampDark: true });
+UIChrome.initTheme({ storageKey: 'otpTheme' });
 
 /* ============================================================
    EXPORT PDF

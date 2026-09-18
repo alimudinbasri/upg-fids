@@ -706,6 +706,7 @@
 
 <script src="js/app-config.js"></script>
 <script src="js/ui-chrome.js"></script>
+<script src="js/flight-class.js"></script>
 <script src="js/wa-report.js"></script>
 <script>
 // ── CONFIG ──
@@ -1437,19 +1438,26 @@ function exportFidsPdf() {
 
 // ── WA REPORT ──
 // Sourced from js/app-config.js — same as real_gate.html / real_belt.html do.
-// INT_GATES is derived from gateMeta.status rather than listed separately, so
-// reclassifying a gate DOM<->INT in app-config.js propagates here too.
 const DEFAULT_GATES = APP_CONFIG.defaultGates;
 const DEFAULT_BELTS = APP_CONFIG.defaultBelts;
-const INT_GATES     = DEFAULT_GATES.filter(function(g) {
-  return String((APP_CONFIG.gateMeta[g] || {}).status || '').toUpperCase().indexOf('INT') >= 0;
-});
 
+// The gate/belt id exactly as the per-gate and per-belt breakdowns below
+// key their stats. Classification and breakdown MUST normalize identically
+// or the totals drift from the rows they are meant to total — the bug class
+// fixed for real_belt/real_gate in 05541e1.
+function waGateId(f) { return String(f.gate || '').trim().toUpperCase().replace(/^GATE\s*/i, ''); }
+function waBeltId(f) { return String(f.belt || '').trim().toUpperCase().replace(/^BELT\s*/i, ''); }
+
+// Departures are classified by their gate, arrivals by their belt.
+// Arrivals previously went through the gate path too — but normalizeArr()
+// never sets a gate (the AIS feed carries none on arrival rows: 0 of 395
+// sampled), so every arrival fell back to an empty gate and was counted
+// domestic. belt_int_flight was therefore always 0. Sampled over four days,
+// the correct figure was 12.
 function isIntlFlight(f) {
-  const cat = String(f.raw&&f.raw.flight_category||f.raw&&f.raw.category||'').toUpperCase();
-  if (cat==='INT'||cat==='INTERNATIONAL') return true;
-  if (cat==='DOM'||cat==='DOMESTIC') return false;
-  return INT_GATES.includes(String(f.gate||'').trim().toUpperCase());
+  return f.type === 'ARR'
+    ? FlightClass.detectCategory(f.raw || {}, waBeltId(f), FlightClass.beltScope) === 'INT'
+    : FlightClass.detectCategory(f.raw || {}, waGateId(f), FlightClass.gateScope) === 'INT';
 }
 // ── WA SETTINGS: load & save ke Firestore ──
 var _waSaveTimer = null;
@@ -1539,7 +1547,7 @@ function buildWaTagData() {
   const gateStats={};
   DEFAULT_GATES.forEach(g=>{gateStats[g]={fc:0,pax:0};});
   depFlights.forEach(f=>{
-    const g=String(f.gate||'').trim().toUpperCase().replace(/^GATE\s*/i,'');
+    const g=waGateId(f);
     if (!gateStats[g]) gateStats[g]={fc:0,pax:0};
     gateStats[g].fc++; gateStats[g].pax+=Number(f.pax||0);
   });
@@ -1550,7 +1558,7 @@ function buildWaTagData() {
   const arrFlights=allFlights.filter(f=>f.type==='ARR'&&String(f.belt||'').trim()!=='');
   const beltStats={};
   DEFAULT_BELTS.forEach(b=>{beltStats[b]={fc:0};});
-  arrFlights.forEach(f=>{const b=String(f.belt||'').trim().toUpperCase().replace(/^BELT\s*/i,'');if (!beltStats[b]) beltStats[b]={fc:0};beltStats[b].fc++;});
+  arrFlights.forEach(f=>{const b=waBeltId(f);if (!beltStats[b]) beltStats[b]={fc:0};beltStats[b].fc++;});
   const bDom=arrFlights.filter(f=>!isIntlFlight(f)), bInt=arrFlights.filter(f=>isIntlFlight(f));
 
   const data = {

@@ -60,32 +60,26 @@ var UIChrome = (function () {
   //                the initial apply. analytics.html and laporan.html use
   //                it to redraw their canvases, which do not follow CSS
   //                variables on their own.
-  //   iconLight /  button glyph per state. otp.html has always shown these
-  //   iconDark     the other way round from the other five pages; that is
-  //                preserved here rather than silently "fixed", because it
-  //                is visible to users. See about.html §13.
-  //   stampDark    otp.html sets data-theme="dark" where the others remove
-  //                the attribute. No CSS anywhere matches [data-theme="dark"]
-  //                so both render identically, but the DOM differs and the
-  //                toggle reads the attribute back — preserved for the same
-  //                reason.
+  //
+  // The button shows the mode it is currently in: ☀️ in light, 🌙 in dark.
+  // otp.html used to show these reversed and to stamp data-theme="dark"
+  // instead of removing the attribute; both were brought in line with the
+  // other five pages once confirmed unintentional. Keep all six identical —
+  // if a page ever needs to differ, that is a product decision, not a
+  // parameter to quietly add back here.
   function initTheme(opts) {
     opts = opts || {};
     var root = document.documentElement;
     var btn  = document.getElementById('themeToggle');
     if (!btn) return null;
 
-    var iconLight = opts.iconLight || '☀️';
-    var iconDark  = opts.iconDark  || '🌙';
-
     function applyTheme(t) {
       if (t === 'light') {
         root.setAttribute('data-theme', 'light');
-        btn.textContent = iconLight;
+        btn.textContent = '☀️';
       } else {
-        if (opts.stampDark) root.setAttribute('data-theme', 'dark');
-        else root.removeAttribute('data-theme');
-        btn.textContent = iconDark;
+        root.removeAttribute('data-theme');
+        btn.textContent = '🌙';
       }
     }
 
