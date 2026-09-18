@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <title>Laporan Realisasi – M-FIDS</title>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.25/dist/jspdf.plugin.autotable.min.js" defer></script>
+  <style>
+    :root {
+      --bg:        #0a1628;
+      --bg2:       #0d1e35;
+      --bg3:       #122444;
+      --card:      #0d1e35;
+      --text:      #eaf6ff;
+      --text2:     #90cce0;
+      --text3:     #6aafc8;
+      --border:    #2a4868;
+      --teal:      #00bcd4;
+      --teal2:     #00e5ff;
+      --teal-dim:  #008fa3;
+      --amber:     #ffc107;
+      --green:     #00e676;
+      --red:       #ff5252;
+      --radius-sm: 8px;
+    }
+    :root[data-theme="light"] {
+      --bg:        #edf3fb;
+      --bg2:       #ffffff;
+      --bg3:       #ddeaf7;
+      --card:      #ffffff;
+      --text:      #091422;
+      --text2:     #18365a;
+      --text3:     #2c5070;
+      --border:    #8ab0d0;
+      --teal:      #0097a7;
+      --teal2:     #00838f;
+      --teal-dim:  #006978;
+      --amber:     #b85200;
+      --green:     #1b7a38;
+      --red:       #c62828;
+    }
+    :root[data-theme="light"] .fids-header { background: linear-gradient(135deg,#0d2137 0%,#0a2845 60%,#082040 100%); }
+    .clock      { color: #00e7fc !important; }
+    .clock-date { color: #68b8ff !important; }
+    .brand-name { color: #ffffff !important; }
+    .brand-sub  { color: #8fb8d8 !important; }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 13px; min-height: 100dvh; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .mono { font-variant-numeric: tabular-nums; }
+
+    .sticky-top { position: sticky; top: 0; z-index: 100; }
+    .fids-header { background: linear-gradient(135deg,#0d2137 0%,#0a2845 60%,#082040 100%); border-bottom: 2px solid var(--teal-dim); padding: 14px 16px 12px; display: flex; align-items: center; gap: 12px; }
+    .brand { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+    .brand-logo { background: var(--teal); color: #000; font-weight: 900; font-size: 20px; letter-spacing: -.5px; padding: 6px 12px; border-radius: var(--radius-sm); flex-shrink: 0; line-height: 1; }
+    .brand-info { min-width: 0; }
+    .brand-name { font-size: 13px; font-weight: 700; }
+    .brand-sub  { font-size: 11px; margin-top: 1px; }
+    .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
+    .clock { font-size: 22px; font-weight: 700; letter-spacing: 1px; font-variant-numeric: tabular-nums; line-height: 1; }
+    .clock-date { font-size: 10px; }
+    .ham-btn { background: none; border: 1.5px solid rgba(0,188,212,.3); border-radius: 8px; color: #00e5ff; font-size: 20px; cursor: pointer; padding: 4px 8px; flex-shrink: 0; line-height: 1; transition: background .15s; }
+    .ham-btn:hover { background: rgba(0,188,212,.12); }
+
+    .nav-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 4998; display: none; }
+    .nav-overlay.show { display: block; }
+    .nav-panel { position: fixed; top: 0; left: 0; width: 220px; height: 100%; background: #0a1e38; border-right: 1.5px solid var(--border); z-index: 4999; transform: translateX(-100%); transition: transform .22s ease; display: flex; flex-direction: column; }
+    .nav-panel.show { transform: translateX(0); }
+    .nav-panel-head { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .nav-panel-logo { background: var(--teal); color: #000; font-weight: 900; font-size: 13px; padding: 5px 9px; border-radius: 6px; letter-spacing: -.3px; }
+    .nav-panel-title { font-size: 12px; font-weight: 700; color: #97ceff !important; }
+    .nav-links { padding: 10px 8px; display: flex; flex-direction: column; gap: 3px; }
+    .nav-link { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; text-decoration: none; color: #9cc4f5 !important; font-size: 13px; font-weight: 700; transition: background .15s; white-space: nowrap; border-left: 3px solid transparent; }
+    .nav-link:hover { background: rgba(0,188,212,.1); }
+    .nav-link.active { background: rgba(0,188,212,.18); color: #aae8ef !important; border-left-color: var(--teal); }
+    .nav-link-icon { font-size: 17px; width: 26px; text-align: center; flex-shrink: 0; }
+    .nav-footer { margin-top: auto; padding: 12px 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+    .nav-user-name { font-size: 11px; color: #6aafc8; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .btn-logout { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; background: rgba(255,82,82,.1); border: 1px solid rgba(255,82,82,.3); color: #ff7070; font-size: 13px; font-weight: 700; cursor: pointer; width: 100%; transition: background .15s; }
+    .btn-logout:hover { background: rgba(255,82,82,.2); }
+
+    .mobile-tabbar { display: none; }
+    @media (max-width: 720px) {
+      .mobile-tabbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 300; background: var(--bg2); border-top: 1px solid var(--border); padding: 6px 2px calc(6px + env(safe-area-inset-bottom)); }
+      .mtab-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; text-decoration: none; color: var(--text3); padding: 4px 2px; border-radius: 8px; min-width: 0; }
+      .mtab-icon { font-size: 18px; line-height: 1; }
+      .mtab-label { font-size: 9px; font-weight: 700; white-space: nowrap; }
+      .mtab-item.active { color: var(--teal); }
+      body { padding-bottom: 58px; }
+    }
+
+    .filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 16px; background: var(--bg2); border-bottom: 1px solid var(--border); }
+    .filter-bar label { font-size: 11px; color: var(--text3); font-weight: 600; }
+    .date-input { background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 6px 10px; font-size: 12px; font-family: inherit; }
+    .date-input:focus { outline: none; border-color: var(--teal); }
+    .toggle-group { display: flex; gap: 4px; }
+    .toggle-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text3); border-radius: 7px; padding: 7px 12px; font-size: 12px; font-weight: 700; cursor: pointer; transition: .15s; }
+    .toggle-btn:hover { border-color: var(--teal); color: var(--text); }
+    .toggle-btn.active { background: var(--teal); color: #001318; border-color: var(--teal); }
+    .btn-primary { background: var(--teal); color: #001318; border: none; border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .btn-primary:hover { background: var(--teal2); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-secondary { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .btn-secondary:hover { border-color: var(--teal); color: var(--text); }
+    .theme-toggle-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-sm); padding: 6px 10px; cursor: pointer; font-size: 15px; line-height: 1; }
+    .theme-toggle-btn:hover { background: var(--bg2); }
+
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
+    .status-msg { font-size: 12px; color: var(--text3); padding: 8px 0; min-height: 18px; }
+    .status-msg.error { color: var(--red); }
+    .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 18px; }
+    .panel h2 { font-size: 14px; color: var(--teal2); margin-bottom: 4px; }
+    .panel .sub { font-size: 11.5px; color: var(--text3); margin-bottom: 12px; }
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; border: 1px solid var(--border); }
+    table.rep-table { width: 100%; border-collapse: collapse; font-size: 11.5px; white-space: nowrap; }
+    table.rep-table th, table.rep-table td { padding: 6px 10px; text-align: center; border-bottom: 1px solid var(--border); border-right: 1px solid rgba(42,72,104,.35); }
+    table.rep-table th:first-child, table.rep-table td:first-child { text-align: left; position: sticky; left: 0; background: var(--card); z-index: 1; }
+    table.rep-table th { background: var(--bg3); color: var(--text2); font-weight: 800; white-space: nowrap; }
+    table.rep-table tbody tr:hover td { background: rgba(0,188,212,.05); }
+    table.rep-table tr.total-row td { font-weight: 800; background: var(--bg3); color: var(--text); }
+    table.rep-table tr.total-row td:first-child { background: var(--bg3); }
+    table.rep-table td.num { font-variant-numeric: tabular-nums; }
+    .state-msg { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <script>document.documentElement.style.visibility="hidden";</script>
+
+<div class="nav-overlay" id="navOverlay"></div>
+<div class="nav-panel" id="navPanel">
+  <div class="nav-panel-head">
+    <span class="nav-panel-logo">UPG</span>
+    <span class="nav-panel-title">Sultan Hasanuddin</span>
+  </div>
+  <nav class="nav-links">
+    <a href="index.html" class="nav-link"><span class="nav-link-icon">📺</span>FIDS</a>
+    <a href="real_gate.html" class="nav-link"><span class="nav-link-icon">🚪</span>Real Gate</a>
+    <a href="real_belt.html" class="nav-link"><span class="nav-link-icon">🛄</span>Real Belt</a>
+    <a href="otp.html"       class="nav-link"><span class="nav-link-icon">📊</span>OTP Report</a>
+    <a href="analytics.html" class="nav-link"><span class="nav-link-icon">📈</span>Analytics</a>
+    <a href="laporan.html"   class="nav-link active"><span class="nav-link-icon">📄</span>Laporan Realisasi</a>
+    <a href="admin.html" id="nav-admin-link" class="nav-link" style="display:none"><span class="nav-link-icon">🛡</span>Admin</a>
+    <a href="about.html" id="nav-about-link" class="nav-link" style="display:none"><span class="nav-link-icon">ℹ️</span>About</a>
+  </nav>
+  <div class="nav-footer">
+    <div class="nav-user-name" id="nav-user-name">–</div>
+    <button class="btn-logout" id="btn-logout"><span style="font-size:16px;">⏻</span> Logout</button>
+  </div>
+</div>
+
+<nav class="mobile-tabbar">
+  <a href="index.html" class="mtab-item"><span class="mtab-icon">📺</span><span class="mtab-label">FIDS</span></a>
+  <a href="real_gate.html" class="mtab-item"><span class="mtab-icon">🚪</span><span class="mtab-label">Gate</span></a>
+  <a href="real_belt.html" class="mtab-item"><span class="mtab-icon">🛄</span><span class="mtab-label">Belt</span></a>
+  <a href="otp.html" class="mtab-item"><span class="mtab-icon">📊</span><span class="mtab-label">OTP</span></a>
+  <a href="analytics.html" class="mtab-item"><span class="mtab-icon">📈</span><span class="mtab-label">Analytics</span></a>
+  <a href="laporan.html" class="mtab-item active"><span class="mtab-icon">📄</span><span class="mtab-label">Laporan</span></a>
+</nav>
+
+<div class="sticky-top">
+<header class="fids-header">
+  <button class="ham-btn" id="hamBtn" title="Menu">☰</button>
+  <div class="brand">
+    <div class="brand-logo">📄</div>
+    <div class="brand-info">
+      <div class="brand-name">Sultan Hasanuddin<br>International Airport</div>
+      <div class="brand-sub">Makassar (UPG) · Laporan Realisasi</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="clock" id="clock">--:--:--</div>
+    <div class="clock-date" id="clockDate">–</div>
+  </div>
+</header>
+<div class="filter-bar">
+  <div class="toggle-group" id="tgMode">
+    <button type="button" class="toggle-btn active" data-mode="belt">🛄 Conveyor Belt</button>
+    <button type="button" class="toggle-btn" data-mode="gate">🚪 Gate</button>
+  </div>
+  <label for="dateFrom">Dari</label>
+  <input type="date" class="date-input" id="dateFrom">
+  <label for="dateTo">Sampai</label>
+  <input type="date" class="date-input" id="dateTo">
+  <button type="button" class="btn-primary" id="btnGenerate">Tampilkan</button>
+  <button type="button" class="btn-secondary" id="btnExportPdf">📄 Export PDF</button>
+  <button type="button" class="theme-toggle-btn" id="themeToggle" title="Toggle Dark/Light">🌙</button>
+</div>
+</div>
+
+<div class="wrap">
+  <div class="status-msg" id="statusMsg"></div>
+  <div id="reportRoot">
+    <div class="state-msg">Pilih rentang tanggal, lalu klik "Tampilkan".</div>
+  </div>
+</div>
+
+<script src="js/app-config.js"></script>
+<script>
+/* ============================================================
+   LIVE + CACHED FLIGHT DATA
+   Same approach as analytics.html: read flights_cache/{date} from
+   Firestore first (fast), fall back to a live AIS/GAS fetch for any
+   day not cached yet.
+============================================================ */
+var GAS_URL = APP_CONFIG.gasUrl;
+
+function fmtDate(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function fmt(v, def) { def = def===undefined?'':def; var s = String(v===null||v===undefined?'':v).trim(); return s===''||s==='-' ? def : s; }
+function first(obj, keys, def) {
+  def = def===undefined?'':def;
+  for (var i=0;i<keys.length;i++) { var k=keys[i]; if (obj[k]!==undefined && obj[k]!==null && String(obj[k]).trim()!=='') return obj[k]; }
+  return def;
+}
+
+function jsonp(action, date) {
+  return new Promise(function(resolve, reject) {
+    var tid = setTimeout(function(){ reject(new Error('Timeout: '+action+' '+date)); }, 20000);
+    fetch(GAS_URL+'?action='+action+'&date='+encodeURIComponent(date), { cache: 'no-store' })
+      .then(function(res){ if (!res.ok) throw new Error('HTTP '+res.status); return res.json(); })
+      .then(function(data){ clearTimeout(tid); resolve(data); })
+      .catch(function(err){ clearTimeout(tid); reject(new Error('Fetch error: '+action+' '+date+' - '+err.message)); });
+  });
+}
+function extractRows(data) {
+  if (Array.isArray(data)) return data;
+  if (data && data.data && Array.isArray(data.data)) return data.data;
+  if (data && typeof data==='object') { var keys=['rows','flights','result','records']; for (var i=0;i<keys.length;i++) if (Array.isArray(data[keys[i]])) return data[keys[i]]; }
+  return [];
+}
+
+// Only the fields this report needs (gate/belt/type/date) - same
+// field-priority lists as real_gate.html/real_belt.html/analytics.html.
+function buildFlight(row, type, dateStr) {
+  var flightNo = fmt(first(row, ['nopen','flight','Flight','no_flight','callsign']));
+  var gate = type==='DEP' ? fmt(first(row,['gate','Gate','gate_id'])) : '';
+  var belt = type==='ARR' ? fmt(first(row,['belt','Belt','carousel'])) : '';
+  return { date: dateStr, type: type, flightNo: flightNo, gate: gate, belt: belt };
+}
+
+function toRowArray(v) {
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string' && v.trim()) {
+    try { var parsed = JSON.parse(v); return Array.isArray(parsed) ? parsed : []; } catch(e) { return []; }
+  }
+  return [];
+}
+function parseFlightsCacheDoc(data, dateStr) {
+  if (!data) return null;
+  var arrRaw = toRowArray(data.arrivals);
+  var depRaw = toRowArray(data.departures);
+  if (!arrRaw.length && !depRaw.length) return null;
+  var arrRows = arrRaw.map(function(r){ return buildFlight(r,'ARR',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
+  var depRows = depRaw.map(function(r){ return buildFlight(r,'DEP',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
+  return arrRows.concat(depRows);
+}
+
+function waitForDb() {
+  return new Promise(function(resolve){
+    if (window._db) { resolve(window._db); return; }
+    var iv = setInterval(function(){ if (window._db) { clearInterval(iv); resolve(window._db); } }, 50);
+  });
+}
+function fetchDayFromCache(dateStr) {
+  return waitForDb().then(function(db){ return db.collection('flights_cache').doc(dateStr).get(); })
+    .then(function(doc){ return doc.exists ? parseFlightsCacheDoc(doc.data(), dateStr) : null; })
+    .catch(function(err){ console.warn('flights_cache read failed for', dateStr, err); return null; });
+}
+function fetchDayLive(dateStr) {
+  return Promise.all([jsonp('arrival', dateStr), jsonp('departure', dateStr)]).then(function(results){
+    var arrRows = extractRows(results[0]).map(function(r){ return buildFlight(r,'ARR',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
+    var depRows = extractRows(results[1]).map(function(r){ return buildFlight(r,'DEP',dateStr); }).filter(function(f){ return f.flightNo && f.flightNo!=='-'; });
+    return arrRows.concat(depRows);
+  });
+}
+
+var dayCache = {};
+var LS_PREFIX = 'laporanDay_';
+function loadDayFromLS(dateStr) {
+  try { var raw = localStorage.getItem(LS_PREFIX+dateStr); if (!raw) return null; return JSON.parse(raw).flights; } catch(e) { return null; }
+}
+function saveDayToLS(dateStr, flights) {
+  try { localStorage.setItem(LS_PREFIX+dateStr, JSON.stringify({flights:flights, ts:Date.now()})); } catch(e) {}
+}
+function fetchDay(dateStr) {
+  if (dayCache[dateStr]) return Promise.resolve(dayCache[dateStr]);
+  return fetchDayFromCache(dateStr).then(function(cached){
+    if (cached && cached.length) return cached;
+    return fetchDayLive(dateStr);
+  }).catch(function(err){
+    console.warn('Failed to fetch flights for', dateStr, err);
+    return loadDayFromLS(dateStr) || [];
+  }).then(function(dayFlights){
+    dayCache[dateStr] = dayFlights;
+    saveDayToLS(dateStr, dayFlights);
+    return dayFlights;
+  });
+}
+function dateRangeList(fromStr, toStr) {
+  var list = [], d = new Date(fromStr+'T00:00:00'), end = new Date(toStr+'T00:00:00');
+  while (d<=end) { list.push(fmtDate(d)); d.setDate(d.getDate()+1); }
+  return list;
+}
+function fetchDays(dateList, onProgress) {
+  var CONCURRENCY = 6, out = [], i = 0, done = 0;
+  function next() {
+    if (i>=dateList.length) return Promise.resolve(out);
+    var batch = dateList.slice(i, i+CONCURRENCY); i += CONCURRENCY;
+    return Promise.all(batch.map(fetchDay)).then(function(results){
+      results.forEach(function(r){ out = out.concat(r); });
+      done += batch.length;
+      if (onProgress) onProgress(done, dateList.length);
+      return next();
+    });
+  }
+  return next();
+}
+
+/* ============================================================
+   REPORT AGGREGATION + RENDER
+============================================================ */
+var DAY_NAMES = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+var MONTH_ABBR = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+function formatDayLabel(dateStr) {
+  var d = new Date(dateStr+'T00:00:00');
+  return DAY_NAMES[d.getDay()]+', '+String(d.getDate()).padStart(2,'0')+' '+MONTH_ABBR[d.getMonth()]+' '+d.getFullYear();
+}
+function formatShortDate(dateStr) {
+  var d = new Date(dateStr+'T00:00:00');
+  return String(d.getDate()).padStart(2,'0')+'-'+MONTH_ABBR[d.getMonth()]+'-'+d.getFullYear();
+}
+// Matches the PDF example's rounding: 2 decimals, comma separator,
+// trailing ",00" dropped entirely (e.g. 70/7 -> "10", not "10,00").
+function formatAvg(n) {
+  var s = n.toFixed(2);
+  if (s.slice(-3)==='.00') s = s.slice(0,-3);
+  return s.replace('.',',');
+}
+function isFilledSlot(v) {
+  v = String(v||'').trim().toUpperCase();
+  return !!v && v!=='NO GATE' && v!=='NO BELT' && v!=='UNASSIGNED' && v!=='-' && v!=='N/A' && v!=='NA' && v!=='NULL';
+}
+
+var lastReport = null; // kept for PDF export
+
+function aggregateReport(flights, dateList, mode) {
+  var items = (mode==='belt' ? APP_CONFIG.defaultBelts : APP_CONFIG.defaultGates).slice();
+  var typeFilter = mode==='belt' ? 'ARR' : 'DEP';
+
+  var dayMatrix = {};
+  dateList.forEach(function(d){ dayMatrix[d] = {}; items.forEach(function(it){ dayMatrix[d][it]=0; }); });
+  var itemTotals = {}; items.forEach(function(it){ itemTotals[it]=0; });
+
+  flights.forEach(function(f) {
+    if (f.type !== typeFilter) return;
+    var val = String((mode==='belt'?f.belt:f.gate)||'').trim().toUpperCase();
+    if (!isFilledSlot(val)) return;
+    if (!dayMatrix[f.date]) return;
+    if (dayMatrix[f.date][val]===undefined) { dayMatrix[f.date][val]=0; }
+    if (itemTotals[val]===undefined) { itemTotals[val]=0; items.push(val); }
+    dayMatrix[f.date][val]++;
+    itemTotals[val]++;
+  });
+
+  return { dayMatrix: dayMatrix, itemTotals: itemTotals, items: items, dateList: dateList, mode: mode };
+}
+
+function renderReport(rep) {
+  var label = rep.mode==='belt' ? 'Belt' : 'Gate';
+  var nDays = rep.dateList.length;
+  var grandTotal = 0;
+
+  var dayRows = rep.dateList.map(function(d) {
+    var rowTotal = 0;
+    var cells = rep.items.map(function(it) {
+      var c = rep.dayMatrix[d][it]||0;
+      rowTotal += c;
+      return '<td class="num">'+c+'</td>';
+    }).join('');
+    grandTotal += rowTotal;
+    return '<tr><td>'+formatDayLabel(d)+'</td>'+cells+'<td class="num"><b>'+rowTotal+'</b></td></tr>';
+  }).join('');
+
+  var totalCells = rep.items.map(function(it) {
+    return '<td class="num">'+(rep.itemTotals[it]||0)+'</td>';
+  }).join('');
+
+  var summaryRows = rep.items.map(function(it) {
+    var total = rep.itemTotals[it]||0;
+    return '<tr><td>'+label+' '+it+'</td><td class="num">'+total+'</td><td class="num">'+formatAvg(total/nDays)+'</td></tr>';
+  }).join('');
+
+  var html =
+    '<div class="panel">' +
+      '<h2>Realisasi Penggunaan '+(rep.mode==='belt'?'Conveyor Belt':'Gate')+' per Hari</h2>' +
+      '<div class="sub">Periode '+formatShortDate(rep.dateList[0])+' &ndash; '+formatShortDate(rep.dateList[rep.dateList.length-1])+' ('+nDays+' hari)</div>' +
+      '<div class="table-scroll"><table class="rep-table" id="tblDaily">' +
+        '<thead><tr><th>Hari / Tanggal</th>' + rep.items.map(function(it){ return '<th>'+label+' '+it+'</th>'; }).join('') + '<th>Total Flight</th></tr></thead>' +
+        '<tbody>' + dayRows + '<tr class="total-row"><td>TOTAL '+nDays+' HARI</td>'+totalCells+'<td class="num">'+grandTotal+'</td></tr></tbody>' +
+      '</table></div>' +
+    '</div>' +
+    '<div class="panel">' +
+      '<h2>Rekap Penggunaan per '+(rep.mode==='belt'?'Conveyor Belt':'Gate')+'</h2>' +
+      '<div class="table-scroll"><table class="rep-table" id="tblSummary">' +
+        '<thead><tr><th>'+(rep.mode==='belt'?'Conveyor Belt':'Gate')+'</th><th>Total Flight '+nDays+' Hari</th><th>Rata-rata / Hari</th></tr></thead>' +
+        '<tbody>' + summaryRows + '<tr class="total-row"><td>TOTAL</td><td class="num">'+grandTotal+'</td><td class="num">'+formatAvg(grandTotal/nDays)+' flight/hari</td></tr></tbody>' +
+      '</table></div>' +
+    '</div>';
+
+  document.getElementById('reportRoot').innerHTML = html;
+  lastReport = rep;
+}
+
+function setStatus(msg, isError) {
+  var el = document.getElementById('statusMsg');
+  el.textContent = msg||'';
+  el.className = 'status-msg' + (isError?' error':'');
+}
+
+function generateReport() {
+  var mode = document.querySelector('#tgMode .toggle-btn.active').dataset.mode;
+  var from = document.getElementById('dateFrom').value;
+  var to   = document.getElementById('dateTo').value;
+  if (!from || !to) { setStatus('Pilih tanggal "Dari" dan "Sampai" terlebih dahulu.', true); return; }
+  if (from > to) { setStatus('Tanggal "Dari" tidak boleh setelah tanggal "Sampai".', true); return; }
+
+  var dateList = dateRangeList(from, to);
+  var btn = document.getElementById('btnGenerate');
+  btn.disabled = true; btn.textContent = 'Memuat…';
+  document.getElementById('reportRoot').innerHTML = '<div class="state-msg">Memuat data ('+dateList.length+' hari)…</div>';
+  setStatus('');
+
+  fetchDays(dateList, function(done, totalN) {
+    setStatus('Memuat data… ('+done+'/'+totalN+' hari)');
+  }).then(function(flights) {
+    var rep = aggregateReport(flights, dateList, mode);
+    renderReport(rep);
+    setStatus('');
+  }).catch(function(err) {
+    console.error(err);
+    document.getElementById('reportRoot').innerHTML = '<div class="state-msg">Gagal memuat data.</div>';
+    setStatus('Error: '+err.message, true);
+  }).finally(function() {
+    btn.disabled = false; btn.textContent = 'Tampilkan';
+  });
+}
+
+function exportReportPdf() {
+  if (!lastReport) { setStatus('Tampilkan laporan dulu sebelum export PDF.', true); return; }
+  if (!window.jspdf) { setStatus('jsPDF belum siap, coba lagi sesaat.', true); return; }
+  var rep = lastReport;
+  var label = rep.mode==='belt' ? 'Conveyor Belt' : 'Gate';
+  var nDays = rep.dateList.length;
+  var grandTotal = 0;
+
+  var { jsPDF } = window.jspdf;
+  var doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  var PW = 297, ML = 12, MR = 12;
+
+  doc.setFillColor(10,40,80);
+  doc.rect(0,0,PW,20,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(13); doc.setFont(undefined,'bold');
+  doc.text('LAPORAN REALISASI PENGGUNAAN '+label.toUpperCase(), PW/2, 9, {align:'center'});
+  doc.setFontSize(9); doc.setFont(undefined,'normal');
+  doc.text('Bandar Udara Sultan Hasanuddin Makassar (UPG)  |  Periode '+formatShortDate(rep.dateList[0])+' - '+formatShortDate(rep.dateList[rep.dateList.length-1]), PW/2, 15, {align:'center'});
+
+  var dayBody = rep.dateList.map(function(d) {
+    var rowTotal = 0;
+    var row = [formatDayLabel(d)].concat(rep.items.map(function(it){ var c=rep.dayMatrix[d][it]||0; rowTotal+=c; return c; }));
+    row.push(rowTotal);
+    grandTotal += rowTotal;
+    return row;
+  });
+  var totalRow = ['TOTAL '+nDays+' HARI'].concat(rep.items.map(function(it){ return rep.itemTotals[it]||0; })).concat([grandTotal]);
+
+  doc.autoTable({
+    startY: 26,
+    head: [['Hari / Tanggal'].concat(rep.items.map(function(it){ return label+' '+it; })).concat(['Total Flight'])],
+    body: dayBody,
+    foot: [totalRow],
+    styles: { fontSize: 7.5, cellPadding: 2, halign: 'center' },
+    headStyles: { fillColor: [10,40,80], textColor: [255,255,255], fontStyle: 'bold', halign: 'center' },
+    footStyles: { fillColor: [225,232,242], textColor: [10,40,80], fontStyle: 'bold', halign: 'center' },
+    columnStyles: { 0: { halign: 'left' } },
+    alternateRowStyles: { fillColor: [245,248,252] },
+    margin: { left: ML, right: MR },
+  });
+
+  var y = doc.lastAutoTable.finalY + 8;
+  doc.setTextColor(10,40,80); doc.setFontSize(11); doc.setFont(undefined,'bold');
+  doc.text('Rekap Penggunaan per '+label, ML, y);
+  y += 4;
+
+  var summaryBody = rep.items.map(function(it) {
+    var total = rep.itemTotals[it]||0;
+    return [label+' '+it, total, formatAvg(total/nDays)];
+  });
+  var summaryTotalRow = ['TOTAL', grandTotal, formatAvg(grandTotal/nDays)+' flight/hari'];
+
+  doc.autoTable({
+    startY: y,
+    head: [[label, 'Total Flight '+nDays+' Hari', 'Rata-rata / Hari']],
+    body: summaryBody,
+    foot: [summaryTotalRow],
+    styles: { fontSize: 8.5, cellPadding: 2.5, halign: 'center' },
+    headStyles: { fillColor: [10,40,80], textColor: [255,255,255], fontStyle: 'bold', halign: 'center' },
+    footStyles: { fillColor: [225,232,242], textColor: [10,40,80], fontStyle: 'bold', halign: 'center' },
+    columnStyles: { 0: { halign: 'left' } },
+    alternateRowStyles: { fillColor: [245,248,252] },
+    margin: { left: ML, right: MR },
+    tableWidth: 120,
+  });
+
+  doc.save('Laporan-Realisasi-'+label.replace(/\s+/g,'')+'-'+rep.dateList[0]+'_'+rep.dateList[rep.dateList.length-1]+'.pdf');
+}
+
+/* ============================================================
+   INIT / UI WIRING
+============================================================ */
+document.querySelectorAll('#tgMode .toggle-btn').forEach(function(b) {
+  b.addEventListener('click', function() {
+    document.querySelectorAll('#tgMode .toggle-btn').forEach(function(x){ x.classList.remove('active'); });
+    b.classList.add('active');
+  });
+});
+document.getElementById('btnGenerate').addEventListener('click', generateReport);
+document.getElementById('btnExportPdf').addEventListener('click', exportReportPdf);
+
+(function() {
+  var to = new Date();
+  var from = new Date(); from.setDate(from.getDate()-6);
+  document.getElementById('dateTo').value = fmtDate(to);
+  document.getElementById('dateFrom').value = fmtDate(from);
+})();
+
+(function() {
+  var root = document.documentElement;
+  var btn  = document.getElementById('themeToggle');
+  function applyTheme(t) {
+    if (t === 'light') { root.setAttribute('data-theme','light'); btn.textContent='☀️'; }
+    else               { root.removeAttribute('data-theme');       btn.textContent='🌙'; }
+  }
+  applyTheme(localStorage.getItem('laporanTheme') || 'dark');
+  btn.addEventListener('click', function(){
+    var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    localStorage.setItem('laporanTheme', next);
+    applyTheme(next);
+  });
+})();
+
+(function() {
+  var btn = document.getElementById('hamBtn');
+  var overlay = document.getElementById('navOverlay');
+  var panel = document.getElementById('navPanel');
+  function openNav(){ panel.classList.add('show'); overlay.classList.add('show'); }
+  function closeNav(){ panel.classList.remove('show'); overlay.classList.remove('show'); }
+  btn.addEventListener('click', openNav);
+  overlay.addEventListener('click', closeNav);
+  document.addEventListener('keydown', function(e){ if (e.key==='Escape') closeNav(); });
+})();
+
+function tickClock() {
+  var now = new Date();
+  document.getElementById('clock').textContent = String(now.getHours()).padStart(2,'0')+'.'+String(now.getMinutes()).padStart(2,'0')+'.'+String(now.getSeconds()).padStart(2,'0');
+  var days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+  var months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  document.getElementById('clockDate').textContent = days[now.getDay()]+', '+now.getDate()+' '+months[now.getMonth()]+' '+now.getFullYear();
+}
+tickClock(); setInterval(tickClock, 1000);
+</script>
+
+<!-- Firebase Auth Guard (js/app-config.js is loaded earlier, before the main script) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/auth-guard.js"></script>
+</body>
+</html>
