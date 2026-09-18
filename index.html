@@ -273,11 +273,16 @@
     .status-pill.cancelled { background: rgba(255,82,82,.15);  color: var(--red);    border: 1px solid var(--red); }
     .status-pill.secondcall{ background: rgba(255,193,7,.18);  color: var(--amber);  border: 1px solid var(--amber2); }
     .status-pill.lastcall  { background: rgba(255,82,82,.2);   color: var(--red);    border: 1px solid var(--red); }
+    /* Gate closed — the airport's own boards show this in red, same weight as
+       Last Call. It used to fall through to .default and read as unimportant. */
+    .status-pill.gateclosed{ background: rgba(255,82,82,.22);  color: var(--red);    border: 1px solid var(--red); }
+    .status-pill.unsched   { background: rgba(144,153,168,.16); color: #b0bec5;      border: 1px dashed #78909c; }
     .status-pill.default   { background: rgba(90,143,160,.12); color: var(--text3);  border: 1px solid var(--border); }
 
-    /* Blink for Boarding / Second Call / Last Call */
+    /* Blink for Boarding / Second Call / Last Call / Gate Closed */
     .status-pill.boarding,
     .status-pill.secondcall,
+    .status-pill.gateclosed,
     .status-pill.lastcall  { animation: blink-pill 1.2s ease-in-out infinite; }
     @keyframes blink-pill {
       0%,100% { opacity: 1; }
@@ -776,7 +781,7 @@ function normalizeArr(row) {
   const pax      = Number(first(row,["pax","Pax","total_pax","penumpang"],0))||0;
   const city     = fmt(first(row,["city","City","kota","origin_city","origin_name"]));
   const route    = fmt(first(row,["iata_code","origin","Origin","route","source_iata"]));
-  const remark   = fmt(first(row,["remark","Remark","status","Status"]),"Scheduled");
+  const remark   = remarkLabel(fmt(first(row,["remark","Remark","status","Status"]),"Scheduled"));
   return { type:"ARR", flight, airline:guessAirline(flight), city, route,
     schedule, estimate, actual, belt, bay, reg, pax, remark, pairing:null, raw:row };
 }
@@ -791,7 +796,7 @@ function normalizeDep(row) {
   const pax      = Number(first(row,["pax","Pax","total_pax","penumpang"],0))||0;
   const city     = fmt(first(row,["city","City","kota","destination_city","dest_name"]));
   const route    = fmt(first(row,["iata_code","destination","Destination","dest","route"]));
-  const remark   = fmt(first(row,["remark","Remark","status","Status"]),"Scheduled");
+  const remark   = remarkLabel(fmt(first(row,["remark","Remark","status","Status"]),"Scheduled"));
   return { type:"DEP", flight, airline:guessAirline(flight), city, route,
     schedule, estimate, actual, gate, bay, reg, pax, remark, pairing:null, raw:row };
 }
@@ -867,6 +872,17 @@ function buildPairing(arrivals, departures, date, prevArrivals, nextDepartures) 
 }
 
 // ── STATUS ──
+// The airport's own departure boards relabel some AIS states. The one that
+// matters is AIS's bare "Closed", which those boards show as "Gate Closed" —
+// staff read both screens, and searching the app for "gate closed" found
+// nothing. Relabelled here at normalization rather than at render time so the
+// search box, the WA report and the display all agree on one wording.
+const REMARK_LABELS = { "closed": "Gate Closed" };
+function remarkLabel(raw) {
+  const r = String(raw || "").trim();
+  return REMARK_LABELS[r.toLowerCase()] || r;
+}
+
 function statusClass(remark) {
   const r = String(remark||"").toLowerCase();
   if (/landed|mendarat/.test(r))              return "landed";
@@ -874,9 +890,15 @@ function statusClass(remark) {
   if (/last.?call/.test(r))                   return "lastcall";
   if (/second.?call|2nd.?call/.test(r))       return "secondcall";
   if (/board/.test(r))                        return "boarding";
+  // Before the check-in test, because "Check In Close" contains "close" —
+  // matched on the whole value so only a bare "Closed"/"Gate Closed" counts.
+  if (/^(gate\s*)?closed$/.test(r.trim()))    return "gateclosed";
   if (/check.?in/.test(r))                    return "checkin";
   if (/delay|terlambat/.test(r))              return "delayed";
   if (/cancel|batal/.test(r))                 return "cancelled";
+  // Before the "scheduled" test: /scheduled/ matches the tail of
+  // "unscheduled", so an unscheduled flight was being shown as on time.
+  if (/unscheduled|tidak.?terjadwal/.test(r)) return "unsched";
   if (/on.?time|tepat|scheduled/.test(r))     return "ontime";
   return "default";
 }
