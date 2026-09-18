@@ -1100,7 +1100,16 @@ async function loadData() {
       if (footerEl) footerEl.classList.add("stale");
     }
   } finally {
-    isLoading=false; setLoading(false); renderFlights(); _startCountdown();
+    isLoading=false; setLoading(false); renderFlights();
+    // Live only pays off for today, served from Firestore. Anything else —
+    // a past date, or a GAS fallback — keeps the 5-minute poll.
+    if (lastLoadSource && lastLoadSource.source === "firestore" && date === today() && window._db) {
+      if (!liveUnsub) startLiveUpdates(date);
+      else setLiveBadge(true);
+    } else {
+      teardownLive();
+      _startCountdown();
+    }
   }
 }
 
@@ -1268,6 +1277,7 @@ var _cdDeadline = Date.now() + 300000;
 var _cdTimer    = null;
 function _startCountdown() {
   if (_cdTimer) clearInterval(_cdTimer);
+  if (liveUnsub) return;              // live listener is driving updates instead
   _cdDeadline = Date.now() + 300000;
   _cdTimer = setInterval(function() {
     var rem = Math.max(0, _cdDeadline - Date.now());
@@ -1276,6 +1286,112 @@ function _startCountdown() {
     if (el && !isLoading) el.textContent = String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0');
     if (rem <= 0 && !isLoading) loadData();
   }, 1000);
+}
+
+/* ── Live updates ─────────────────────────────────────────────────────────
+ * When today's flights are coming from Firestore, onSnapshot pushes each
+ * change the moment the sync writes it — better than the 5-minute poll it
+ * replaces on both counts: fresher (the sync runs every 2 minutes) and no
+ * repeated fetching.
+ *
+ * The danger is silence. If the sync dies, a listener simply stops firing
+ * and the board would sit on stale data looking perfectly healthy. So the
+ * heartbeat document is watched too, and a watchdog tears the whole thing
+ * down and returns to GAS polling if it goes quiet.
+ *
+ * Only today is watched. The adjacent days feed PAIRING only and change
+ * rarely, so they are refreshed by the periodic full reload below rather
+ * than held open as two more listeners.
+ */
+// var, not let: _startCountdown() is hoisted and reads liveUnsub, so a
+// temporal-dead-zone error here would be a very confusing way to fail.
+var LIVE_NEIGHBOUR_REFRESH_MS = 10 * 60 * 1000;
+var liveUnsub = null, liveHbUnsub = null, liveWatchdog = null, liveRefresh = null;
+
+function setLiveBadge(on) {
+  const btn = document.getElementById("refreshBtn");
+  const el  = document.getElementById("refreshCountdown");
+  if (!el) return;
+  el.textContent = on ? "LIVE" : "05:00";
+  if (btn) btn.title = on
+    ? "Terhubung langsung ke database — pembaruan masuk otomatis. Klik untuk muat ulang."
+    : "Auto refresh every 5 minutes. Click to refresh now.";
+}
+
+// Pure teardown. Kept separate from stopLiveUpdates() so that the reload
+// path cannot recurse back into setup.
+function teardownLive() {
+  try { if (liveUnsub) liveUnsub(); } catch (e) {}
+  try { if (liveHbUnsub) liveHbUnsub(); } catch (e) {}
+  liveUnsub = liveHbUnsub = null;
+  if (liveWatchdog) { clearInterval(liveWatchdog); liveWatchdog = null; }
+  if (liveRefresh)  { clearInterval(liveRefresh);  liveRefresh = null; }
+  setLiveBadge(false);
+}
+
+// Teardown because something went wrong, then reload so loadData() can
+// re-decide the source and restart polling.
+function stopLiveUpdates(why) {
+  if (!liveUnsub && !liveHbUnsub) return;
+  teardownLive();
+  console.warn("[live] stopped:", why);
+  if (!isLoading) loadData();
+}
+
+function startLiveUpdates(date) {
+  if (!window._db || date !== today()) return;
+  teardownLive();
+  var lastHeartbeat = Date.now();
+
+  liveUnsub = window._db.collection("flights_cache").doc(date)
+    .onSnapshot(function (doc) {
+      if (!doc.exists) return;
+      const d = doc.data() || {};
+      const arrivals   = FlightData.toRowArray(d.arrivals);
+      const departures = FlightData.toRowArray(d.departures);
+      if (!arrivals.length && !departures.length) return;
+      applyLiveSnapshot(arrivals, departures, d.updatedAt, date);
+    }, function (err) { stopLiveUpdates("flights_cache: " + err.message); });
+
+  liveHbUnsub = window._db.collection("sync_status").doc("heartbeat")
+    .onSnapshot(function (doc) {
+      const age = FlightData.heartbeatAgeMs(doc.exists ? doc.data() : null);
+      if (age < SYNC_MAX_AGE_MS) lastHeartbeat = Date.now();
+    }, function () { /* watchdog will catch it */ });
+
+  // Catches the case the listeners never fire again at all.
+  liveWatchdog = setInterval(function () {
+    if (Date.now() - lastHeartbeat > SYNC_MAX_AGE_MS) {
+      stopLiveUpdates("no heartbeat for " + Math.round((Date.now() - lastHeartbeat) / 60000) + " min");
+    }
+  }, 30000);
+
+  // Refresh the PAIRING neighbours occasionally — three cheap Firestore
+  // reads, not the four GAS calls the old 5-minute poll cost.
+  liveRefresh = setInterval(function () { if (!isLoading) loadData(); }, LIVE_NEIGHBOUR_REFRESH_MS);
+
+  if (_cdTimer) { clearInterval(_cdTimer); _cdTimer = null; }
+  setLiveBadge(true);
+}
+
+// A pushed change to today's document: rebuild from it, reusing the
+// neighbours from the last full load for pairing.
+function applyLiveSnapshot(arrRaw, depRaw, updatedAt, date) {
+  const hasOpData  = f => !!(f.estimate||f.actual||f.gate||f.bay_id||f.belt||f.pax||f.remark);
+  const arrivals   = arrRaw.map(normalizeArr).filter(x=>x.flight!=="-" && hasOpData(x));
+  const departures = depRaw.map(normalizeDep).filter(x=>x.flight!=="-" && hasOpData(x));
+  const prev = (lastLoadSource && lastLoadSource.prevArr) || [];
+  const next = (lastLoadSource && lastLoadSource.nextDep) || [];
+  buildPairing(arrivals, departures, date,
+    prev.map(normalizeArr).filter(x=>x.flight!=="-"),
+    next.map(normalizeDep).filter(x=>x.flight!=="-"));
+  allFlights = [...arrivals, ...departures];
+  if (lastLoadSource) { lastLoadSource.source = "firestore"; lastLoadSource.updatedAt = updatedAt; }
+  saveCache(date, allFlights);
+  setError(null);
+  setStaleNotice(null);
+  updateSyncFooter(new Date());
+  renderFlights();
 }
 
 // ── INIT ──
