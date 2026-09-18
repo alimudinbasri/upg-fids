@@ -217,6 +217,7 @@
   <div class="toggle-group" id="tgMode">
     <button type="button" class="toggle-btn active" data-mode="belt">🛄 Conveyor Belt</button>
     <button type="button" class="toggle-btn" data-mode="gate">🚪 Gate</button>
+    <button type="button" class="toggle-btn" data-mode="all">📋 Semua</button>
   </div>
   <div class="dr-picker" id="drPicker">
     <button type="button" class="dr-trigger" id="drTrigger">
@@ -430,7 +431,7 @@ function aggregateReport(flights, dateList, mode) {
   return { dayMatrix: dayMatrix, itemTotals: itemTotals, items: items, dateList: dateList, mode: mode };
 }
 
-function renderReport(rep) {
+function buildReportTableHtml(rep) {
   var label = rep.mode==='belt' ? 'Belt' : 'Gate';
   var nDays = rep.dateList.length;
   var grandTotal = 0;
@@ -453,21 +454,26 @@ function renderReport(rep) {
     return '<td class="num">'+formatAvg((rep.itemTotals[it]||0)/nDays)+'</td>';
   }).join('');
 
-  var html =
+  return (
     '<div class="panel">' +
       '<h2>Realisasi Penggunaan '+(rep.mode==='belt'?'Conveyor Belt':'Gate')+' per Hari</h2>' +
       '<div class="sub">Periode '+formatShortDate(rep.dateList[0])+' &ndash; '+formatShortDate(rep.dateList[rep.dateList.length-1])+' ('+nDays+' hari)</div>' +
-      '<div class="table-scroll"><table class="rep-table" id="tblDaily">' +
+      '<div class="table-scroll"><table class="rep-table">' +
         '<thead><tr><th>Hari / Tanggal</th>' + rep.items.map(function(it){ return '<th>'+label+' '+it+'</th>'; }).join('') + '<th>Total Flight</th></tr></thead>' +
         '<tbody>' + dayRows +
           '<tr class="total-row"><td>TOTAL '+nDays+' HARI</td>'+totalCells+'<td class="num">'+grandTotal+'</td></tr>' +
           '<tr class="avg-row"><td>RATA-RATA / HARI</td>'+avgCells+'<td class="num">'+formatAvg(grandTotal/nDays)+'</td></tr>' +
         '</tbody>' +
       '</table></div>' +
-    '</div>';
+    '</div>'
+  );
+}
 
-  document.getElementById('reportRoot').innerHTML = html;
-  lastReport = rep;
+// reps: array of aggregateReport() results, rendered in order (used both for
+// a single Belt/Gate report and for "Semua" - Gate first, then Belt).
+function renderReports(reps) {
+  document.getElementById('reportRoot').innerHTML = reps.map(buildReportTableHtml).join('');
+  lastReport = { reports: reps };
 }
 
 function setStatus(msg, isError) {
@@ -491,8 +497,10 @@ function generateReport() {
   fetchDays(dateList, function(done, totalN) {
     setStatus('Memuat data… ('+done+'/'+totalN+' hari)');
   }).then(function(flights) {
-    var rep = aggregateReport(flights, dateList, mode);
-    renderReport(rep);
+    var reps = mode==='all'
+      ? [aggregateReport(flights, dateList, 'gate'), aggregateReport(flights, dateList, 'belt')]
+      : [aggregateReport(flights, dateList, mode)];
+    renderReports(reps);
     setStatus('');
   }).catch(function(err) {
     console.error(err);
@@ -503,16 +511,12 @@ function generateReport() {
   });
 }
 
-function exportReportPdf() {
-  if (!lastReport) { setStatus('Tampilkan laporan dulu sebelum export PDF.', true); return; }
-  if (!window.jspdf) { setStatus('jsPDF belum siap, coba lagi sesaat.', true); return; }
-  var rep = lastReport;
+// Draws one report's banner + table onto the current page of doc (caller is
+// responsible for calling doc.addPage() beforehand if this isn't the first).
+function addReportPdfPage(doc, rep) {
   var label = rep.mode==='belt' ? 'Conveyor Belt' : 'Gate';
   var nDays = rep.dateList.length;
   var grandTotal = 0;
-
-  var { jsPDF } = window.jspdf;
-  var doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   var PW = 297, ML = 12, MR = 12;
   var TABLE_FONT_SIZE = 7.5;
 
@@ -558,8 +562,23 @@ function exportReportPdf() {
     alternateRowStyles: { fillColor: [245,248,252] },
     margin: { left: ML, right: MR },
   });
+}
 
-  doc.save('Laporan-Realisasi-'+label.replace(/\s+/g,'')+'-'+rep.dateList[0]+'_'+rep.dateList[rep.dateList.length-1]+'.pdf');
+function exportReportPdf() {
+  if (!lastReport || !lastReport.reports || !lastReport.reports.length) { setStatus('Tampilkan laporan dulu sebelum export PDF.', true); return; }
+  if (!window.jspdf) { setStatus('jsPDF belum siap, coba lagi sesaat.', true); return; }
+  var reps = lastReport.reports;
+
+  var { jsPDF } = window.jspdf;
+  var doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  reps.forEach(function(rep, i) {
+    if (i > 0) doc.addPage();
+    addReportPdfPage(doc, rep);
+  });
+
+  var first = reps[0];
+  var names = reps.map(function(r){ return r.mode==='belt' ? 'ConveyorBelt' : 'Gate'; }).join('-');
+  doc.save('Laporan-Realisasi-'+names+'-'+first.dateList[0]+'_'+first.dateList[first.dateList.length-1]+'.pdf');
 }
 
 /* ============================================================
