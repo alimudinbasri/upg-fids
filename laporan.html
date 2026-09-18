@@ -10,6 +10,8 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.25/dist/jspdf.plugin.autotable.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
   <style>
     :root {
@@ -159,6 +161,7 @@
     .panel h2 { font-size: 14px; color: var(--teal2); margin-bottom: 4px; }
     .panel .sub { font-size: 11.5px; color: var(--text3); margin-bottom: 12px; }
     .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; border: 1px solid var(--border); }
+    .chart-wrap { position: relative; height: 260px; }
     table.rep-table { width: 100%; border-collapse: collapse; font-size: 11.5px; white-space: nowrap; }
     table.rep-table th, table.rep-table td { padding: 6px 10px; text-align: center; border-bottom: 1px solid var(--border); border-right: 1px solid rgba(42,72,104,.35); }
     table.rep-table th:first-child, table.rep-table td:first-child { text-align: left; position: sticky; left: 0; background: var(--card); z-index: 1; }
@@ -481,15 +484,72 @@ function buildReportTableHtml(rep) {
           '<tr class="avg-row"><td>RATA-RATA / HARI</td>'+avgCells+'<td class="num">'+formatAvg(grandTotal/nDays)+'</td></tr>' +
         '</tbody>' +
       '</table></div>' +
+    '</div>' +
+    '<div class="panel">' +
+      '<h2>Grafik Total Flight per '+(rep.mode==='belt'?'Conveyor Belt':'Gate')+'</h2>' +
+      '<div class="chart-wrap"><canvas id="chart_'+rep.mode+'"></canvas></div>' +
     '</div>'
   );
+}
+
+/* ============================================================
+   USAGE CHART (Chart.js) - total flights per Gate/Belt over the range
+============================================================ */
+var activeCharts = [];
+function ensureChartPluginRegistered() {
+  if (typeof Chart!=='undefined' && typeof ChartDataLabels!=='undefined' && !window.__chartDataLabelsRegistered) {
+    Chart.register(ChartDataLabels);
+    window.__chartDataLabelsRegistered = true;
+  }
+}
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function destroyCharts() {
+  activeCharts.forEach(function(c){ try { c.destroy(); } catch(e){} });
+  activeCharts = [];
+}
+function renderUsageChart(rep) {
+  if (typeof Chart==='undefined') return; // Chart.js still loading (deferred) - skip, redrawCharts() runs again on theme toggle/next generate
+  var canvas = document.getElementById('chart_'+rep.mode);
+  if (!canvas) return;
+  ensureChartPluginRegistered();
+  var label = rep.mode==='belt' ? 'Belt' : 'Gate';
+  var textColor = cssVar('--text2') || '#90cce0';
+  var gridColor = cssVar('--border') || '#2a4868';
+  var barColor  = rep.mode==='belt' ? '#18a9b2' : '#4e73df';
+
+  var chart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: rep.items.map(function(it){ return label+' '+it; }),
+      datasets: [{ label: 'Total Flight', data: rep.items.map(function(it){ return rep.itemTotals[it]||0; }), backgroundColor: barColor, borderRadius: 5 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        datalabels: { anchor: 'end', align: 'top', color: textColor, font: { size: 10, weight: '700' }, formatter: function(v){ return v>0 ? v : ''; } }
+      },
+      scales: {
+        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor, precision: 0 } },
+        x: { grid: { display: false }, ticks: { color: textColor } }
+      }
+    }
+  });
+  activeCharts.push(chart);
+}
+function redrawCharts() {
+  if (!lastReport || !lastReport.reports) return;
+  destroyCharts();
+  lastReport.reports.forEach(renderUsageChart);
 }
 
 // reps: array of aggregateReport() results, rendered in order (used both for
 // a single Belt/Gate report and for "Semua" - Gate first, then Belt).
 function renderReports(reps) {
+  destroyCharts();
   document.getElementById('reportRoot').innerHTML = reps.map(buildReportTableHtml).join('');
   lastReport = { reports: reps };
+  reps.forEach(renderUsageChart);
 }
 
 function setStatus(msg, isError) {
@@ -507,6 +567,7 @@ function generateReport() {
   var dateList = dateRangeList(from, to);
   var btn = document.getElementById('btnGenerate');
   btn.disabled = true; btn.textContent = 'Memuat…';
+  destroyCharts();
   document.getElementById('reportRoot').innerHTML = '<div class="state-msg">Memuat data ('+dateList.length+' hari)…</div>';
   setStatus('');
 
@@ -520,6 +581,7 @@ function generateReport() {
     setStatus('');
   }).catch(function(err) {
     console.error(err);
+    destroyCharts();
     document.getElementById('reportRoot').innerHTML = '<div class="state-msg">Gagal memuat data.</div>';
     setStatus('Error: '+err.message, true);
   }).finally(function() {
@@ -578,6 +640,20 @@ function addReportPdfPage(doc, rep) {
     alternateRowStyles: { fillColor: [245,248,252] },
     margin: { left: ML, right: MR },
   });
+
+  // Chart image - reuses the already-rendered on-screen canvas as-is.
+  var canvas = document.getElementById('chart_'+rep.mode);
+  if (canvas) {
+    var imgData = canvas.toDataURL('image/png', 1.0);
+    var y = doc.lastAutoTable.finalY + 10;
+    var imgW = 160, imgH = imgW * (canvas.height / canvas.width);
+    var pageH = doc.internal.pageSize.getHeight();
+    if (y + imgH + 10 > pageH) { doc.addPage(); y = 15; }
+    doc.setTextColor(10,40,80); doc.setFontSize(10); doc.setFont(undefined,'bold');
+    doc.text('Grafik Total Flight per '+label, ML, y);
+    y += 4;
+    doc.addImage(imgData, 'PNG', ML, y, imgW, imgH);
+  }
 }
 
 function exportReportPdf() {
@@ -824,6 +900,7 @@ updateDrTriggerLabel();
     var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
     localStorage.setItem('laporanTheme', next);
     applyTheme(next);
+    redrawCharts(); // canvas colors don't auto-follow CSS variables - must redraw
   });
 })();
 
