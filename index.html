@@ -1271,12 +1271,12 @@ function renderFlights() {
         ${paxPart}`;
     }
 
-    // ── Flight meta: REG + aircraft type ──
+    // ── Flight meta: registration + aircraft type ──
     // Both are searchable, so both are shown and highlighted — a row that
     // matches on data you cannot see just looks like a broken search.
     // AIS uses "ZZZZZ" as its placeholder for an unknown registration;
     // showing that to staff means nothing, so it is suppressed.
-    const regTxt  = (f.reg && !/^Z+$/i.test(f.reg)) ? `REG ${hl(f.reg, q)}` : "";
+    const regTxt  = (f.reg && !/^Z+$/i.test(f.reg)) ? hl(f.reg, q) : "";
     const typeTxt = f.acType ? hl(f.acType, q) : "";
     const flightMeta = [regTxt, typeTxt].filter(Boolean).join(" · ");
 
