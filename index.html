@@ -781,9 +781,10 @@ function normalizeArr(row) {
   const pax      = Number(first(row,["pax","Pax","total_pax","penumpang"],0))||0;
   const city     = fmt(first(row,["city","City","kota","origin_city","origin_name"]));
   const route    = fmt(first(row,["iata_code","origin","Origin","route","source_iata"]));
+  const acType   = fmt(first(row,["type","Type","aircraft_type","actype","equipment"]),"");
   const remark   = remarkLabel(fmt(first(row,["remark","Remark","status","Status"]),"Scheduled"));
   return { type:"ARR", flight, airline:guessAirline(flight), city, route,
-    schedule, estimate, actual, belt, bay, reg, pax, remark, pairing:null, raw:row };
+    schedule, estimate, actual, belt, bay, reg, acType, pax, remark, pairing:null, raw:row };
 }
 function normalizeDep(row) {
   const flight   = fmt(first(row,["nopen","flight","Flight","no_flight","callsign"]));
@@ -796,9 +797,10 @@ function normalizeDep(row) {
   const pax      = Number(first(row,["pax","Pax","total_pax","penumpang"],0))||0;
   const city     = fmt(first(row,["city","City","kota","destination_city","dest_name"]));
   const route    = fmt(first(row,["iata_code","destination","Destination","dest","route"]));
+  const acType   = fmt(first(row,["type","Type","aircraft_type","actype","equipment"]),"");
   const remark   = remarkLabel(fmt(first(row,["remark","Remark","status","Status"]),"Scheduled"));
   return { type:"DEP", flight, airline:guessAirline(flight), city, route,
-    schedule, estimate, actual, gate, bay, reg, pax, remark, pairing:null, raw:row };
+    schedule, estimate, actual, gate, bay, reg, acType, pax, remark, pairing:null, raw:row };
 }
 
 // ── DATE HELPERS (for cross-day pairing) ──
@@ -881,6 +883,34 @@ const REMARK_LABELS = { "closed": "Gate Closed" };
 function remarkLabel(raw) {
   const r = String(raw || "").trim();
   return REMARK_LABELS[r.toLowerCase()] || r;
+}
+
+/* Everything the search box looks at, lower-cased once per row.
+ *
+ * Times are included twice — as displayed ("18:15") and digits-only
+ * ("1815") — because people type them both ways and a search that only
+ * accepts one looks broken.
+ *
+ * f.type is deliberately NOT here: it holds "ARR"/"DEP", and including it
+ * would make typing "dep" match every departure, which the tabs already do
+ * and which would drown out a search for a flight like "DEP-123".
+ * The aircraft type lives in f.acType for exactly that reason.
+ */
+function searchHaystack(f) {
+  const out = [];
+  const push = v => { const s = String(v == null ? "" : v).trim().toLowerCase(); if (s) out.push(s); };
+  const pushTime = v => {
+    const s = String(v == null ? "" : v).trim().toLowerCase();
+    if (!s) return;
+    out.push(s);
+    const bare = s.replace(/[:.]/g, "");
+    if (bare !== s) out.push(bare);
+  };
+  push(f.flight); push(f.city); push(f.route); push(f.airline);
+  push(f.remark); push(f.reg); push(f.acType);
+  push(f.gate); push(f.belt); push(f.bay); push(f.pax);
+  pushTime(f.schedule); pushTime(f.estimate); pushTime(f.actual);
+  return out;
 }
 
 function statusClass(remark) {
@@ -1181,8 +1211,7 @@ function renderFlights() {
     if (activeTab==="arr" && f.type!=="ARR") return false;
     if (activeTab==="dep" && f.type!=="DEP") return false;
     if (!q) return true;
-    return [f.flight,f.city,f.route,f.airline,f.remark,f.gate||"",f.belt||"",f.bay||""]
-      .some(v=>String(v||"").toLowerCase().includes(q));
+    return searchHaystack(f).some(v => v.includes(q));
   });
 
   // Update counts
@@ -1242,8 +1271,14 @@ function renderFlights() {
         ${paxPart}`;
     }
 
-    // ── Flight meta: REG ──
-    const flightMeta = f.reg ? `REG ${esc(f.reg)}` : "";
+    // ── Flight meta: REG + aircraft type ──
+    // Both are searchable, so both are shown and highlighted — a row that
+    // matches on data you cannot see just looks like a broken search.
+    // AIS uses "ZZZZZ" as its placeholder for an unknown registration;
+    // showing that to staff means nothing, so it is suppressed.
+    const regTxt  = (f.reg && !/^Z+$/i.test(f.reg)) ? `REG ${hl(f.reg, q)}` : "";
+    const typeTxt = f.acType ? hl(f.acType, q) : "";
+    const flightMeta = [regTxt, typeTxt].filter(Boolean).join(" · ");
 
     return `<div class="flight-card ${isArr?"arr":"dep"}">
       <div class="col-type">
