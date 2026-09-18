@@ -100,6 +100,38 @@
     .filter-bar label { font-size: 11px; color: var(--text3); font-weight: 600; }
     .date-input { background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 6px 10px; font-size: 12px; font-family: inherit; }
     .date-input:focus { outline: none; border-color: var(--teal); }
+
+    /* ── Custom calendar date-range picker (same component as analytics.html) ── */
+    .dr-picker { position: relative; }
+    .dr-trigger { display: flex; align-items: center; gap: 8px; background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 12px; font-size: 12px; font-family: inherit; cursor: pointer; font-weight: 600; }
+    .dr-trigger:hover { border-color: var(--teal); }
+    .dr-trigger .dr-caret { color: var(--text3); font-size: 10px; }
+    .dr-panel { position: absolute; top: calc(100% + 8px); left: 0; z-index: 250; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 14px; box-shadow: 0 12px 34px rgba(0,0,0,.4); display: none; gap: 16px; }
+    .dr-panel.show { display: flex; }
+    .dr-presets { display: flex; flex-direction: column; gap: 3px; min-width: 130px; border-right: 1px solid var(--border); padding-right: 14px; }
+    .dr-preset-item { background: transparent; border: none; color: var(--text2); text-align: left; padding: 7px 10px; border-radius: 7px; cursor: pointer; font-size: 12px; font-family: inherit; }
+    .dr-preset-item:hover { background: var(--bg3); color: var(--text); }
+    .dr-preset-item.active { background: var(--teal); color: #001318; }
+    .dr-cal { width: 264px; }
+    .dr-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 12px; font-weight: 700; }
+    .dr-cal-head button { background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: 6px; width: 24px; height: 24px; cursor: pointer; line-height: 1; }
+    .dr-cal-head button:hover { border-color: var(--teal); }
+    .dr-cal-head button:disabled { opacity: .3; cursor: not-allowed; }
+    .dr-cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; }
+    .dr-cal-dow { font-size: 9px; font-weight: 700; color: var(--text3); text-align: center; padding: 2px 0 6px; }
+    .dr-cal-day { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 11px; cursor: pointer; color: var(--text2); font-family: inherit; background: transparent; border: none; }
+    .dr-cal-day:hover:not(.disabled) { background: var(--bg3); border-radius: 6px; }
+    .dr-cal-day.other-month { opacity: .28; }
+    .dr-cal-day.disabled { opacity: .2; cursor: not-allowed; }
+    .dr-cal-day.today { box-shadow: inset 0 0 0 1px var(--teal); border-radius: 6px; }
+    .dr-cal-day.in-range { background: color-mix(in srgb, var(--teal) 20%, transparent); }
+    .dr-cal-day.range-start, .dr-cal-day.range-end { background: var(--teal) !important; color: #001318; font-weight: 700; border-radius: 6px; }
+    .dr-cal-foot { margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .dr-cal-foot span { font-size: 10.5px; color: var(--text3); }
+    .dr-cal-actions { display: flex; gap: 6px; }
+    .dr-btn-apply { background: var(--teal); color: #001318; border: none; border-radius: 7px; padding: 6px 14px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .dr-btn-cancel { background: var(--bg3); border: 1px solid var(--border); color: var(--text3); border-radius: 7px; padding: 6px 14px; font-size: 11px; cursor: pointer; font-family: inherit; }
+    @media (max-width: 520px) { .dr-panel { flex-direction: column; } .dr-presets { border-right: none; border-bottom: 1px solid var(--border); padding-right: 0; padding-bottom: 10px; flex-direction: row; flex-wrap: wrap; } }
     .toggle-group { display: flex; gap: 4px; }
     .toggle-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text3); border-radius: 7px; padding: 7px 12px; font-size: 12px; font-weight: 700; cursor: pointer; transition: .15s; }
     .toggle-btn:hover { border-color: var(--teal); color: var(--text); }
@@ -126,6 +158,8 @@
     table.rep-table tbody tr:hover td { background: rgba(0,188,212,.05); }
     table.rep-table tr.total-row td { font-weight: 800; background: var(--bg3); color: var(--text); }
     table.rep-table tr.total-row td:first-child { background: var(--bg3); }
+    table.rep-table tr.avg-row td { font-weight: 700; font-style: italic; color: var(--teal2); border-top: 2px solid var(--teal-dim); }
+    table.rep-table tr.avg-row td:first-child { background: var(--card); }
     table.rep-table td.num { font-variant-numeric: tabular-nums; }
     .state-msg { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13px; }
   </style>
@@ -184,10 +218,34 @@
     <button type="button" class="toggle-btn active" data-mode="belt">🛄 Conveyor Belt</button>
     <button type="button" class="toggle-btn" data-mode="gate">🚪 Gate</button>
   </div>
-  <label for="dateFrom">Dari</label>
-  <input type="date" class="date-input" id="dateFrom">
-  <label for="dateTo">Sampai</label>
-  <input type="date" class="date-input" id="dateTo">
+  <div class="dr-picker" id="drPicker">
+    <button type="button" class="dr-trigger" id="drTrigger">
+      <span>📅</span><span id="drTriggerLabel">–</span><span class="dr-caret">▾</span>
+    </button>
+    <div class="dr-panel" id="drPanel">
+      <div class="dr-presets" id="drPresets">
+        <button type="button" class="dr-preset-item" data-preset="1">Hari ini</button>
+        <button type="button" class="dr-preset-item active" data-preset="7">7 hari terakhir</button>
+        <button type="button" class="dr-preset-item" data-preset="30">30 hari terakhir</button>
+        <button type="button" class="dr-preset-item" data-preset="month">Bulan ini</button>
+      </div>
+      <div class="dr-cal">
+        <div class="dr-cal-head">
+          <button type="button" id="drPrevMonth">‹</button>
+          <span id="drMonthLabel">–</span>
+          <button type="button" id="drNextMonth">›</button>
+        </div>
+        <div class="dr-cal-grid" id="drCalGrid"></div>
+        <div class="dr-cal-foot">
+          <span id="drSelectionText">Pilih tanggal mulai</span>
+          <div class="dr-cal-actions">
+            <button type="button" class="dr-btn-cancel" id="drCancel">Batal</button>
+            <button type="button" class="dr-btn-apply" id="drApply">Terapkan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
   <button type="button" class="btn-primary" id="btnGenerate">Tampilkan</button>
   <button type="button" class="btn-secondary" id="btnExportPdf">📄 Export PDF</button>
   <button type="button" class="theme-toggle-btn" id="themeToggle" title="Toggle Dark/Light">🌙</button>
@@ -390,10 +448,8 @@ function renderReport(rep) {
   var totalCells = rep.items.map(function(it) {
     return '<td class="num">'+(rep.itemTotals[it]||0)+'</td>';
   }).join('');
-
-  var summaryRows = rep.items.map(function(it) {
-    var total = rep.itemTotals[it]||0;
-    return '<tr><td>'+label+' '+it+'</td><td class="num">'+total+'</td><td class="num">'+formatAvg(total/nDays)+'</td></tr>';
+  var avgCells = rep.items.map(function(it) {
+    return '<td class="num">'+formatAvg((rep.itemTotals[it]||0)/nDays)+'</td>';
   }).join('');
 
   var html =
@@ -402,14 +458,10 @@ function renderReport(rep) {
       '<div class="sub">Periode '+formatShortDate(rep.dateList[0])+' &ndash; '+formatShortDate(rep.dateList[rep.dateList.length-1])+' ('+nDays+' hari)</div>' +
       '<div class="table-scroll"><table class="rep-table" id="tblDaily">' +
         '<thead><tr><th>Hari / Tanggal</th>' + rep.items.map(function(it){ return '<th>'+label+' '+it+'</th>'; }).join('') + '<th>Total Flight</th></tr></thead>' +
-        '<tbody>' + dayRows + '<tr class="total-row"><td>TOTAL '+nDays+' HARI</td>'+totalCells+'<td class="num">'+grandTotal+'</td></tr></tbody>' +
-      '</table></div>' +
-    '</div>' +
-    '<div class="panel">' +
-      '<h2>Rekap Penggunaan per '+(rep.mode==='belt'?'Conveyor Belt':'Gate')+'</h2>' +
-      '<div class="table-scroll"><table class="rep-table" id="tblSummary">' +
-        '<thead><tr><th>'+(rep.mode==='belt'?'Conveyor Belt':'Gate')+'</th><th>Total Flight '+nDays+' Hari</th><th>Rata-rata / Hari</th></tr></thead>' +
-        '<tbody>' + summaryRows + '<tr class="total-row"><td>TOTAL</td><td class="num">'+grandTotal+'</td><td class="num">'+formatAvg(grandTotal/nDays)+' flight/hari</td></tr></tbody>' +
+        '<tbody>' + dayRows +
+          '<tr class="total-row"><td>TOTAL '+nDays+' HARI</td>'+totalCells+'<td class="num">'+grandTotal+'</td></tr>' +
+          '<tr class="avg-row"><td>RATA-RATA / HARI</td>'+avgCells+'<td class="num">'+formatAvg(grandTotal/nDays)+'</td></tr>' +
+        '</tbody>' +
       '</table></div>' +
     '</div>';
 
@@ -425,10 +477,9 @@ function setStatus(msg, isError) {
 
 function generateReport() {
   var mode = document.querySelector('#tgMode .toggle-btn.active').dataset.mode;
-  var from = document.getElementById('dateFrom').value;
-  var to   = document.getElementById('dateTo').value;
-  if (!from || !to) { setStatus('Pilih tanggal "Dari" dan "Sampai" terlebih dahulu.', true); return; }
-  if (from > to) { setStatus('Tanggal "Dari" tidak boleh setelah tanggal "Sampai".', true); return; }
+  var from = repFrom, to = repTo;
+  if (!from || !to) { setStatus('Pilih rentang tanggal terlebih dahulu.', true); return; }
+  if (from > to) { setStatus('Tanggal awal tidak boleh setelah tanggal akhir.', true); return; }
 
   var dateList = dateRangeList(from, to);
   var btn = document.getElementById('btnGenerate');
@@ -462,6 +513,7 @@ function exportReportPdf() {
   var { jsPDF } = window.jspdf;
   var doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   var PW = 297, ML = 12, MR = 12;
+  var TABLE_FONT_SIZE = 7.5;
 
   doc.setFillColor(10,40,80);
   doc.rect(0,0,PW,20,'F');
@@ -479,43 +531,31 @@ function exportReportPdf() {
     return row;
   });
   var totalRow = ['TOTAL '+nDays+' HARI'].concat(rep.items.map(function(it){ return rep.itemTotals[it]||0; })).concat([grandTotal]);
+  var avgRow = ['RATA-RATA / HARI'].concat(rep.items.map(function(it){ return formatAvg((rep.itemTotals[it]||0)/nDays); })).concat([formatAvg(grandTotal/nDays)]);
+
+  // Header split across 2 lines: "Conveyor" / "Belt N" for belt, "Gate" / "N" for gate.
+  var headerCells = rep.items.map(function(it) {
+    return rep.mode==='belt' ? 'Conveyor\nBelt '+it : 'Gate\n'+it;
+  });
+
+  // Measure the widest "Hari / Tanggal" cell so it never wraps to a second
+  // line, regardless of how many columns squeeze the rest of the table.
+  doc.setFont(undefined,'normal'); doc.setFontSize(TABLE_FONT_SIZE);
+  var col0Width = rep.dateList.reduce(function(max, d) {
+    return Math.max(max, doc.getTextWidth(formatDayLabel(d)));
+  }, doc.getTextWidth('TOTAL '+nDays+' HARI')) + 6;
 
   doc.autoTable({
     startY: 26,
-    head: [['Hari / Tanggal'].concat(rep.items.map(function(it){ return label+' '+it; })).concat(['Total Flight'])],
+    head: [['Hari / Tanggal'].concat(headerCells).concat(['Total\nFlight'])],
     body: dayBody,
-    foot: [totalRow],
-    styles: { fontSize: 7.5, cellPadding: 2, halign: 'center' },
+    foot: [totalRow, avgRow],
+    styles: { fontSize: TABLE_FONT_SIZE, cellPadding: 2, halign: 'center' },
     headStyles: { fillColor: [10,40,80], textColor: [255,255,255], fontStyle: 'bold', halign: 'center' },
     footStyles: { fillColor: [225,232,242], textColor: [10,40,80], fontStyle: 'bold', halign: 'center' },
-    columnStyles: { 0: { halign: 'left' } },
+    columnStyles: { 0: { halign: 'left', cellWidth: col0Width } },
     alternateRowStyles: { fillColor: [245,248,252] },
     margin: { left: ML, right: MR },
-  });
-
-  var y = doc.lastAutoTable.finalY + 8;
-  doc.setTextColor(10,40,80); doc.setFontSize(11); doc.setFont(undefined,'bold');
-  doc.text('Rekap Penggunaan per '+label, ML, y);
-  y += 4;
-
-  var summaryBody = rep.items.map(function(it) {
-    var total = rep.itemTotals[it]||0;
-    return [label+' '+it, total, formatAvg(total/nDays)];
-  });
-  var summaryTotalRow = ['TOTAL', grandTotal, formatAvg(grandTotal/nDays)+' flight/hari'];
-
-  doc.autoTable({
-    startY: y,
-    head: [[label, 'Total Flight '+nDays+' Hari', 'Rata-rata / Hari']],
-    body: summaryBody,
-    foot: [summaryTotalRow],
-    styles: { fontSize: 8.5, cellPadding: 2.5, halign: 'center' },
-    headStyles: { fillColor: [10,40,80], textColor: [255,255,255], fontStyle: 'bold', halign: 'center' },
-    footStyles: { fillColor: [225,232,242], textColor: [10,40,80], fontStyle: 'bold', halign: 'center' },
-    columnStyles: { 0: { halign: 'left' } },
-    alternateRowStyles: { fillColor: [245,248,252] },
-    margin: { left: ML, right: MR },
-    tableWidth: 120,
   });
 
   doc.save('Laporan-Realisasi-'+label.replace(/\s+/g,'')+'-'+rep.dateList[0]+'_'+rep.dateList[rep.dateList.length-1]+'.pdf');
@@ -533,12 +573,122 @@ document.querySelectorAll('#tgMode .toggle-btn').forEach(function(b) {
 document.getElementById('btnGenerate').addEventListener('click', generateReport);
 document.getElementById('btnExportPdf').addEventListener('click', exportReportPdf);
 
-(function() {
-  var to = new Date();
-  var from = new Date(); from.setDate(from.getDate()-6);
-  document.getElementById('dateTo').value = fmtDate(to);
-  document.getElementById('dateFrom').value = fmtDate(from);
-})();
+/* ============================================================
+   CUSTOM CALENDAR DATE-RANGE PICKER (same component as analytics.html)
+============================================================ */
+var MONTH_NAMES_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+var DOW_SHORT_ID = ['Sen','Sel','Rab','Kam','Jum','Sab','Min'];
+var todayD = new Date(); todayD.setHours(0,0,0,0);
+var datasetStart = new Date(2026,0,1); // matches flights_cache backfill start (see about.html)
+var repFrom = null, repTo = null;
+
+function fmtDateShortId(iso) {
+  var d = new Date(iso+'T00:00:00');
+  return d.getDate()+' '+MONTH_NAMES_ID[d.getMonth()].slice(0,3)+' '+d.getFullYear();
+}
+function updateDrTriggerLabel() {
+  document.getElementById('drTriggerLabel').textContent = repFrom && repTo ? (fmtDateShortId(repFrom)+' – '+fmtDateShortId(repTo)) : 'Pilih rentang tanggal';
+}
+function setPreset(days) {
+  var to = new Date(todayD);
+  var from;
+  if (days==='month') from = new Date(todayD.getFullYear(), todayD.getMonth(), 1);
+  else { from = new Date(todayD); from.setDate(from.getDate()-(days-1)); }
+  if (from < datasetStart) from = new Date(datasetStart);
+  repFrom = fmtDate(from); repTo = fmtDate(to);
+  updateDrTriggerLabel();
+}
+setPreset(7);
+
+var dr = { open:false, viewMonth: new Date(todayD.getFullYear(), todayD.getMonth(), 1), selStart: repFrom, selEnd: repTo, pickingSecond: false };
+var drPicker = document.getElementById('drPicker'), drPanel = document.getElementById('drPanel'), drTrigger = document.getElementById('drTrigger');
+
+function openDrPanel() {
+  dr.selStart = repFrom; dr.selEnd = repTo; dr.pickingSecond = false;
+  dr.viewMonth = new Date(repTo+'T00:00:00'); dr.viewMonth.setDate(1);
+  drPanel.classList.add('show'); dr.open = true;
+  renderCalendar();
+}
+function closeDrPanel() { drPanel.classList.remove('show'); dr.open = false; }
+drTrigger.addEventListener('click', function(e){ e.stopPropagation(); dr.open ? closeDrPanel() : openDrPanel(); });
+document.addEventListener('click', function(e){ if (dr.open && !drPicker.contains(e.target)) closeDrPanel(); });
+document.addEventListener('keydown', function(e){ if (e.key==='Escape' && dr.open) closeDrPanel(); });
+drPanel.addEventListener('click', function(e){ e.stopPropagation(); });
+
+function renderCalendar() {
+  var y = dr.viewMonth.getFullYear(), m = dr.viewMonth.getMonth();
+  document.getElementById('drMonthLabel').textContent = MONTH_NAMES_ID[m]+' '+y;
+  var minMonth = new Date(datasetStart.getFullYear(), datasetStart.getMonth(), 1);
+  var maxMonth = new Date(todayD.getFullYear(), todayD.getMonth(), 1);
+  document.getElementById('drPrevMonth').disabled = dr.viewMonth <= minMonth;
+  document.getElementById('drNextMonth').disabled = dr.viewMonth >= maxMonth;
+
+  var firstDow = (new Date(y,m,1).getDay()+6)%7; // 0=Senin
+  var daysInMonth = new Date(y,m+1,0).getDate();
+  var daysInPrevMonth = new Date(y,m,0).getDate();
+
+  var grid = document.getElementById('drCalGrid');
+  var html = DOW_SHORT_ID.map(function(d){return '<div class="dr-cal-dow">'+d+'</div>';}).join('');
+
+  var cells = [];
+  for (var i=0;i<firstDow;i++) cells.push({day: daysInPrevMonth-firstDow+1+i, other:true, dateObj: new Date(y, m-1, daysInPrevMonth-firstDow+1+i)});
+  for (var d2=1; d2<=daysInMonth; d2++) cells.push({day:d2, other:false, dateObj: new Date(y,m,d2)});
+  var remain = (7 - (cells.length % 7)) % 7;
+  for (var d3=1; d3<=remain; d3++) cells.push({day:d3, other:true, dateObj: new Date(y,m+1,d3)});
+
+  cells.forEach(function(c){
+    var iso = fmtDate(c.dateObj);
+    var disabled = c.dateObj < datasetStart || c.dateObj > todayD;
+    var cls = ['dr-cal-day'];
+    if (c.other) cls.push('other-month');
+    if (disabled) cls.push('disabled');
+    if (iso === fmtDate(todayD)) cls.push('today');
+    if (dr.selStart && iso === dr.selStart) cls.push('range-start');
+    if (dr.selEnd && iso === dr.selEnd) cls.push('range-end');
+    if (dr.selStart && dr.selEnd && iso > dr.selStart && iso < dr.selEnd) cls.push('in-range');
+    html += '<button type="button" class="'+cls.join(' ')+'" data-iso="'+iso+'" '+(disabled?'disabled':'')+'>'+c.day+'</button>';
+  });
+  grid.innerHTML = html;
+
+  grid.querySelectorAll('.dr-cal-day:not(.disabled)').forEach(function(btn){
+    btn.addEventListener('click', function(){ pickDate(btn.dataset.iso); });
+  });
+
+  var selTextEl = document.getElementById('drSelectionText');
+  if (!dr.pickingSecond && dr.selStart && dr.selEnd) selTextEl.textContent = fmtDateShortId(dr.selStart)+' → '+fmtDateShortId(dr.selEnd);
+  else if (dr.pickingSecond) selTextEl.textContent = 'Pilih tanggal akhir';
+  else selTextEl.textContent = 'Pilih tanggal mulai';
+}
+function pickDate(iso) {
+  if (!dr.pickingSecond) { dr.selStart = iso; dr.selEnd = null; dr.pickingSecond = true; }
+  else {
+    if (iso < dr.selStart) { dr.selEnd = dr.selStart; dr.selStart = iso; } else { dr.selEnd = iso; }
+    dr.pickingSecond = false;
+  }
+  renderCalendar();
+}
+document.getElementById('drPrevMonth').addEventListener('click', function(){ dr.viewMonth.setMonth(dr.viewMonth.getMonth()-1); renderCalendar(); });
+document.getElementById('drNextMonth').addEventListener('click', function(){ dr.viewMonth.setMonth(dr.viewMonth.getMonth()+1); renderCalendar(); });
+document.getElementById('drApply').addEventListener('click', function(){
+  if (dr.selStart && dr.selEnd) {
+    repFrom = dr.selStart; repTo = dr.selEnd;
+    updateDrTriggerLabel();
+    document.querySelectorAll('#drPresets .dr-preset-item').forEach(function(x){x.classList.remove('active');});
+    closeDrPanel();
+    generateReport();
+  }
+});
+document.getElementById('drCancel').addEventListener('click', closeDrPanel);
+document.querySelectorAll('#drPresets .dr-preset-item').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('#drPresets .dr-preset-item').forEach(function(x){x.classList.remove('active');});
+    b.classList.add('active');
+    setPreset(b.dataset.preset === 'month' ? b.dataset.preset : parseInt(b.dataset.preset,10));
+    closeDrPanel();
+    generateReport();
+  });
+});
+updateDrTriggerLabel();
 
 (function() {
   var root = document.documentElement;
