@@ -9,6 +9,8 @@
   <title>Laporan Realisasi – M-FIDS</title>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.25/dist/jspdf.plugin.autotable.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
   <style>
     :root {
       --bg:        #0a1628;
@@ -141,6 +143,12 @@
     .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
     .btn-secondary { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; }
     .btn-secondary:hover { border-color: var(--teal); color: var(--text); }
+
+    .export-dropdown { position: relative; }
+    .export-menu { position: absolute; top: calc(100% + 8px); right: 0; z-index: 250; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 6px; display: none; min-width: 170px; box-shadow: 0 12px 34px rgba(0,0,0,.4); }
+    .export-menu.show { display: block; }
+    .export-menu-item { display: flex; align-items: center; gap: 8px; width: 100%; background: transparent; border: none; color: var(--text2); text-align: left; padding: 8px 10px; border-radius: 7px; cursor: pointer; font-size: 12px; font-family: inherit; }
+    .export-menu-item:hover { background: var(--bg3); color: var(--text); }
     .theme-toggle-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-sm); padding: 6px 10px; cursor: pointer; font-size: 15px; line-height: 1; }
     .theme-toggle-btn:hover { background: var(--bg2); }
 
@@ -249,7 +257,15 @@
     </div>
   </div>
   <button type="button" class="btn-primary" id="btnGenerate">Tampilkan</button>
-  <button type="button" class="btn-secondary" id="btnExportPdf">📄 Export PDF</button>
+  <div class="export-dropdown" id="exportDropdown">
+    <button type="button" class="btn-secondary" id="btnExportToggle">⬇️ Export ▾</button>
+    <div class="export-menu" id="exportMenu">
+      <button type="button" class="export-menu-item" data-export="pdf">📄 PDF</button>
+      <button type="button" class="export-menu-item" data-export="png">🖼️ PNG</button>
+      <button type="button" class="export-menu-item" data-export="jpg">🖼️ JPG</button>
+      <button type="button" class="export-menu-item" data-export="xlsx">📊 Excel (.xlsx)</button>
+    </div>
+  </div>
   <button type="button" class="theme-toggle-btn" id="themeToggle" title="Toggle Dark/Light">🌙</button>
 </div>
 </div>
@@ -576,9 +592,77 @@ function exportReportPdf() {
     addReportPdfPage(doc, rep);
   });
 
+  doc.save(reportFileBaseName()+'.pdf');
+}
+
+function reportFileBaseName() {
+  var reps = lastReport.reports;
   var first = reps[0];
   var names = reps.map(function(r){ return r.mode==='belt' ? 'ConveyorBelt' : 'Gate'; }).join('-');
-  doc.save('Laporan-Realisasi-'+names+'-'+first.dateList[0]+'_'+first.dateList[first.dateList.length-1]+'.pdf');
+  return 'Laporan-Realisasi-'+names+'-'+first.dateList[0]+'_'+first.dateList[first.dateList.length-1];
+}
+
+function downloadBlob(blob, filename) {
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+function currentBg() {
+  return getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#0a1628';
+}
+
+// Screenshots the rendered report table(s) (both tables at once in "Semua"
+// mode) as a PNG or JPG - simplest, most literal way to hand someone a
+// "picture" of the report, formatting and all.
+function exportReportImage(format) {
+  if (!lastReport || !lastReport.reports || !lastReport.reports.length) { setStatus('Tampilkan laporan dulu sebelum export.', true); return; }
+  if (!window.html2canvas) { setStatus('html2canvas belum siap, coba lagi sesaat.', true); return; }
+  setStatus('Membuat gambar…');
+  html2canvas(document.getElementById('reportRoot'), { scale: 2, backgroundColor: currentBg(), useCORS: true }).then(function(canvas) {
+    var mime = format==='jpg' ? 'image/jpeg' : 'image/png';
+    canvas.toBlob(function(blob) {
+      if (!blob) { setStatus('Gagal membuat gambar.', true); return; }
+      downloadBlob(blob, reportFileBaseName()+'.'+format);
+      setStatus('');
+    }, mime, 0.95);
+  }).catch(function(err) {
+    console.error(err);
+    setStatus('Gagal membuat gambar: '+err.message, true);
+  });
+}
+
+// Excel export (SheetJS) - one sheet per report (2 sheets for "Semua": Gate
+// then Belt). Averages are written as real numbers, not comma-formatted
+// display strings, so they stay usable for further calculation in Excel.
+function exportReportExcel() {
+  if (!lastReport || !lastReport.reports || !lastReport.reports.length) { setStatus('Tampilkan laporan dulu sebelum export.', true); return; }
+  if (!window.XLSX) { setStatus('Excel library belum siap, coba lagi sesaat.', true); return; }
+
+  var wb = XLSX.utils.book_new();
+  lastReport.reports.forEach(function(rep) {
+    var label = rep.mode==='belt' ? 'Belt' : 'Gate';
+    var nDays = rep.dateList.length;
+    var grandTotal = 0;
+
+    var aoa = [['Hari / Tanggal'].concat(rep.items.map(function(it){ return label+' '+it; })).concat(['Total Flight'])];
+    rep.dateList.forEach(function(d) {
+      var rowTotal = 0;
+      var row = [formatDayLabel(d)].concat(rep.items.map(function(it){ var c=rep.dayMatrix[d][it]||0; rowTotal+=c; return c; }));
+      row.push(rowTotal);
+      grandTotal += rowTotal;
+      aoa.push(row);
+    });
+    aoa.push(['TOTAL '+nDays+' HARI'].concat(rep.items.map(function(it){ return rep.itemTotals[it]||0; })).concat([grandTotal]));
+    aoa.push(['RATA-RATA / HARI'].concat(rep.items.map(function(it){ return Number(((rep.itemTotals[it]||0)/nDays).toFixed(2)); })).concat([Number((grandTotal/nDays).toFixed(2))]));
+
+    var ws = XLSX.utils.aoa_to_sheet(aoa);
+    var sheetName = (rep.mode==='belt' ? 'Conveyor Belt' : 'Gate').slice(0,31);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
+
+  XLSX.writeFile(wb, reportFileBaseName()+'.xlsx');
 }
 
 /* ============================================================
@@ -591,7 +675,24 @@ document.querySelectorAll('#tgMode .toggle-btn').forEach(function(b) {
   });
 });
 document.getElementById('btnGenerate').addEventListener('click', generateReport);
-document.getElementById('btnExportPdf').addEventListener('click', exportReportPdf);
+(function() {
+  var dropdown = document.getElementById('exportDropdown');
+  var toggleBtn = document.getElementById('btnExportToggle');
+  var menu = document.getElementById('exportMenu');
+  function openMenu(){ menu.classList.add('show'); }
+  function closeMenu(){ menu.classList.remove('show'); }
+  toggleBtn.addEventListener('click', function(e){ e.stopPropagation(); menu.classList.contains('show') ? closeMenu() : openMenu(); });
+  document.addEventListener('click', function(e){ if (!dropdown.contains(e.target)) closeMenu(); });
+  document.querySelectorAll('.export-menu-item').forEach(function(item) {
+    item.addEventListener('click', function() {
+      closeMenu();
+      var type = item.dataset.export;
+      if (type === 'pdf') exportReportPdf();
+      else if (type === 'png' || type === 'jpg') exportReportImage(type);
+      else if (type === 'xlsx') exportReportExcel();
+    });
+  });
+})();
 
 /* ============================================================
    CUSTOM CALENDAR DATE-RANGE PICKER (same component as analytics.html)
