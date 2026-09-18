@@ -571,6 +571,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
 
 <script src="js/app-config.js"></script>
 <script src="js/ui-chrome.js"></script>
+<script src="js/wa-report.js"></script>
 <script>
 /* ============================================================
    CONFIG
@@ -1408,79 +1409,37 @@ document.addEventListener('DOMContentLoaded', function() {
 ============================================================ */
 // ── WA SETTINGS: load & save ke Firestore ──
 var _waSaveTimer = null;
-function showWaToast(msg) {
-  var t = document.getElementById('waSaveToast');
-  if (!t) return;
-  t.textContent = msg || '✓ Saved to database';
-  var isError = msg && (msg.startsWith('✗') || msg.startsWith('⚠'));
-  t.style.background = isError ? '#d32f2f' : '#00c853';
-  t.style.color = '#fff';
-  t.classList.add('show');
-  clearTimeout(t._hideTimer);
-  t._hideTimer = setTimeout(function() { t.classList.remove('show'); }, isError ? 4000 : 2500);
-}
-function waSaveNow() {
-  if (!window._db) { showWaToast('⚠ Not connected to database'); return; }
-  clearTimeout(_waSaveTimer);
-  window._db.collection('wa_settings').doc('otp').set({
-    template: document.getElementById('waTemplateText').value
-  }, { merge: true }).then(function() {
-    showWaToast('✓ Saved to database');
-  }).catch(function(err) {
-    showWaToast('✗ Save failed: ' + (err.message || err.code || err));
-    console.error('[waSave] Firestore error:', err);
+// ── WA REPORT ── shared engine: js/wa-report.js
+// Lazy singleton: setupWaReport()/init runs earlier in the file and wires
+// bare function references, so the wrappers below must be hoisted function
+// declarations and the instance must not be built until first use.
+var _waApi = null;
+function _wa() {
+  if (!_waApi) _waApi = WaReport.create({
+    pageId: 'otp',
+    getDefaultTemplate: getDefaultWaTemplate,
+    buildTagData: buildWaTagData,
+    hasData: function () { return !!allFlights.length; },
+    onNoData: function () { alert('Data flight belum tersedia untuk WA Report.'); },
+    legacy: { startMarker: '==============================', endMarker: '[[/CATEGORY_BLOCK]]', endSuffix: '[[/CATEGORY_BLOCK]]' },
+    onStatus: null,
+    copiedLabel: 'Copied ✓',
+    copyBlockedLabel: null,
+    copyFallbackLabel: ''
   });
-}
-function waSave() {
-  if (!window._db) return;
-  clearTimeout(_waSaveTimer);
-  _waSaveTimer = setTimeout(waSaveNow, 800);
+  return _waApi;
 }
 
-function openWaReport() {
-  if (!allFlights.length) { alert('Data flight belum tersedia untuk WA Report.'); return; }
-  function applyAndShow(tmpl) {
-    document.getElementById('waTemplateText').value = tmpl;
-    generateWaReport();
-    document.getElementById('waReportModal').classList.add('show');
-  }
-  if (window._db) {
-    window._db.collection('wa_settings').doc('otp').get().then(function(doc) {
-      const d = doc.exists ? doc.data() : {};
-      if (d.template) { applyAndShow(d.template); return; }
-      if (d.opening || d.closing) {
-        const migrated = migrateLegacyWaTemplate(d.opening, d.closing);
-        applyAndShow(migrated);
-        window._db.collection('wa_settings').doc('otp').set({ template: migrated }, { merge: true }).catch(function(){});
-        return;
-      }
-      applyAndShow(getDefaultWaTemplate());
-    }).catch(function() { applyAndShow(getDefaultWaTemplate()); });
-  } else {
-    applyAndShow(getDefaultWaTemplate());
-  }
-}
+function showWaToast(msg) { WaReport.showToast(msg); }
+function waSaveNow() { _wa().saveNow(); }
+function waSave() { _wa().save(); }
 
-function closeWaReport() {
-  document.getElementById('waReportModal').classList.remove('show');
-}
+function openWaReport() { _wa().open(); }
+
+function closeWaReport() { _wa().close(); }
 
 /* ── Template engine: {tag} substitution + [[BLOCK]]...[[/BLOCK]] repeating rows ── */
-function renderWaTemplate(tmpl, data, blocks) {
-  const withBlocks = String(tmpl||'').replace(/\[\[(\w+)\]\]\n?([\s\S]*?)\n?\[\[\/\1\]\]/g, function(_, name, inner) {
-    const rows = (blocks && blocks[name]) || [];
-    return rows.map(function(row) {
-      return inner.replace(/\{([a-zA-Z0-9_%]+)\}/g, function(m, key) {
-        if (Object.prototype.hasOwnProperty.call(row, key)) return String(row[key]);
-        if (Object.prototype.hasOwnProperty.call(data, key)) return String(data[key]);
-        return m;
-      });
-    }).join('\n');
-  });
-  return withBlocks.replace(/\{([a-zA-Z0-9_%]+)\}/g, function(m, key) {
-    return Object.prototype.hasOwnProperty.call(data, key) ? String(data[key]) : m;
-  });
-}
+function renderWaTemplate(tmpl, data, blocks) { return WaReport.renderTemplate(tmpl, data, blocks); }
 
 function getDefaultWaTemplate() {
   return [
@@ -1518,13 +1477,7 @@ function getDefaultWaTemplate() {
 
 // Combines old free-text opening + old free-text closing around the (new) auto-generated body,
 // so a previously-saved custom opening/closing keeps working after migrating to the template format.
-function migrateLegacyWaTemplate(opening, closing) {
-  const def = getDefaultWaTemplate();
-  const bodyStart = def.indexOf('==============================');
-  const bodyEnd = def.lastIndexOf('[[/CATEGORY_BLOCK]]') + '[[/CATEGORY_BLOCK]]'.length;
-  const body = def.slice(bodyStart, bodyEnd);
-  return [(opening||'').trim(), '', body, '', (closing||'').trim()].join('\n');
-}
+function migrateLegacyWaTemplate(opening, closing) { return _wa().migrateLegacy(opening, closing); }
 
 function buildWaTagData() {
   const all = allFlights.filter(f => {
@@ -1569,26 +1522,9 @@ function buildWaTagData() {
   return { data, blocks };
 }
 
-function generateWaReport() {
-  const tmpl = document.getElementById('waTemplateText').value;
-  const built = buildWaTagData();
-  document.getElementById('waReportText').value = renderWaTemplate(tmpl, built.data, built.blocks);
-}
+function generateWaReport() { _wa().generate(); }
 
-async function copyWaReport() {
-  const output = document.getElementById('waReportText');
-  const btn    = document.getElementById('btnCopyWaReport');
-  generateWaReport();
-  const text = output.value || '';
-  if (!text.trim()) return;
-  const oldText = btn.textContent;
-  try {
-    if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(text);
-    else { output.focus(); output.select(); document.execCommand('copy'); }
-    btn.textContent = '✓ Copied!'; btn.disabled = true;
-    setTimeout(()=>{ btn.textContent=oldText; btn.disabled=false; }, 1400);
-  } catch(e) { output.focus(); output.select(); }
-}
+function copyWaReport() { return _wa().copy(); }
 </script>
 
 <!-- jsPDF -->

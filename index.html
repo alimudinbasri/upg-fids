@@ -706,6 +706,7 @@
 
 <script src="js/app-config.js"></script>
 <script src="js/ui-chrome.js"></script>
+<script src="js/wa-report.js"></script>
 <script>
 // ── CONFIG ──
 const CFG = {
@@ -1452,59 +1453,33 @@ function isIntlFlight(f) {
 }
 // ── WA SETTINGS: load & save ke Firestore ──
 var _waSaveTimer = null;
-function showWaToast(msg) {
-  var t = document.getElementById('waSaveToast');
-  if (!t) return;
-  t.textContent = msg || '✓ Saved to database';
-  var isError = msg && (msg.startsWith('✗') || msg.startsWith('⚠'));
-  t.style.background = isError ? '#d32f2f' : '#00c853';
-  t.style.color = '#fff';
-  t.classList.add('show');
-  clearTimeout(t._hideTimer);
-  t._hideTimer = setTimeout(function() { t.classList.remove('show'); }, isError ? 4000 : 2500);
-}
-function waSaveNow() {
-  if (!window._db) { showWaToast('⚠ Not connected to database'); return; }
-  clearTimeout(_waSaveTimer);
-  window._db.collection('wa_settings').doc('index').set({
-    template: document.getElementById('waTemplateText').value
-  }, { merge: true }).then(function() {
-    showWaToast('✓ Saved to database');
-  }).catch(function(err) {
-    showWaToast('✗ Save failed: ' + (err.message || err.code || err));
-    console.error('[waSave] Firestore error:', err);
+// ── WA REPORT ── shared engine: js/wa-report.js
+// Lazy singleton: setupWaReport()/init runs earlier in the file and wires
+// bare function references, so the wrappers below must be hoisted function
+// declarations and the instance must not be built until first use.
+var _waApi = null;
+function _wa() {
+  if (!_waApi) _waApi = WaReport.create({
+    pageId: 'index',
+    getDefaultTemplate: getDefaultWaTemplate,
+    buildTagData: buildWaTagData,
+    hasData: function () { return !!allFlights.length; },
+    onNoData: function () { alert('Flight data not yet available for WA Report.'); },
+    legacy: { startMarker: 'GATE REPORT', endMarker: '-Total = {belt_tot_flight}', endSuffix: '-Total = {belt_tot_flight} Flight' },
+    onStatus: null,
+    copiedLabel: 'Copied ✓',
+    copyBlockedLabel: null,
+    copyFallbackLabel: ''
   });
-}
-function waSave() {
-  if (!window._db) return;
-  clearTimeout(_waSaveTimer);
-  _waSaveTimer = setTimeout(waSaveNow, 800);
+  return _waApi;
 }
 
-function openWaReportModal() {
-  if (!allFlights.length) { alert('Flight data not yet available for WA Report.'); return; }
-  function applyAndShow(tmpl) {
-    document.getElementById('waTemplateText').value = tmpl;
-    generateWaReportText();
-    document.getElementById('waReportModal').classList.add('show');
-  }
-  if (window._db) {
-    window._db.collection('wa_settings').doc('index').get().then(function(doc) {
-      const d = doc.exists ? doc.data() : {};
-      if (d.template) { applyAndShow(d.template); return; }
-      if (d.opening || d.closing) {
-        const migrated = migrateLegacyWaTemplate(d.opening, d.closing);
-        applyAndShow(migrated);
-        window._db.collection('wa_settings').doc('index').set({ template: migrated }, { merge: true }).catch(function(){});
-        return;
-      }
-      applyAndShow(getDefaultWaTemplate());
-    }).catch(function() { applyAndShow(getDefaultWaTemplate()); });
-  } else {
-    applyAndShow(getDefaultWaTemplate());
-  }
-}
-function closeWaReportModal() { document.getElementById('waReportModal').classList.remove('show'); }
+function showWaToast(msg) { WaReport.showToast(msg); }
+function waSaveNow() { _wa().saveNow(); }
+function waSave() { _wa().save(); }
+
+function openWaReportModal() { _wa().open(); }
+function closeWaReportModal() { _wa().close(); }
 function formatLongDate(ds) {
   const days=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
   const months=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -1514,21 +1489,7 @@ function formatLongDate(ds) {
 }
 
 /* ── Template engine: {tag} substitution + [[BLOCK]]...[[/BLOCK]] repeating rows ── */
-function renderWaTemplate(tmpl, data, blocks) {
-  const withBlocks = String(tmpl||'').replace(/\[\[(\w+)\]\]\n?([\s\S]*?)\n?\[\[\/\1\]\]/g, function(_, name, inner) {
-    const rows = (blocks && blocks[name]) || [];
-    return rows.map(function(row) {
-      return inner.replace(/\{([a-zA-Z0-9_%]+)\}/g, function(m, key) {
-        if (Object.prototype.hasOwnProperty.call(row, key)) return String(row[key]);
-        if (Object.prototype.hasOwnProperty.call(data, key)) return String(data[key]);
-        return m;
-      });
-    }).join('\n');
-  });
-  return withBlocks.replace(/\{([a-zA-Z0-9_%]+)\}/g, function(m, key) {
-    return Object.prototype.hasOwnProperty.call(data, key) ? String(data[key]) : m;
-  });
-}
+function renderWaTemplate(tmpl, data, blocks) { return WaReport.renderTemplate(tmpl, data, blocks); }
 
 function getDefaultWaTemplate() {
   return [
@@ -1565,19 +1526,9 @@ function getDefaultWaTemplate() {
 
 // Combines old free-text opening + old free-text closing around the (new) auto-generated body,
 // so a previously-saved custom opening/closing keeps working after migrating to the template format.
-function migrateLegacyWaTemplate(opening, closing) {
-  const def = getDefaultWaTemplate();
-  const bodyStart = def.indexOf('GATE REPORT');
-  const bodyEnd = def.lastIndexOf('-Total = {belt_tot_flight}') + '-Total = {belt_tot_flight} Flight'.length;
-  const body = def.slice(bodyStart, bodyEnd);
-  return [(opening||'').trim(), '', body, '', (closing||'').trim()].join('\n');
-}
+function migrateLegacyWaTemplate(opening, closing) { return _wa().migrateLegacy(opening, closing); }
 
-function generateWaReportText() {
-  const tmpl = document.getElementById('waTemplateText').value;
-  const built = buildWaTagData();
-  document.getElementById('waReportText').value = renderWaTemplate(tmpl, built.data, built.blocks);
-}
+function generateWaReportText() { _wa().generate(); }
 function buildWaTagData() {
   const tanggal = document.getElementById('masterDate').value || today();
   const longDate = formatLongDate(tanggal);
@@ -1631,17 +1582,7 @@ function buildWaTagData() {
 
   return { data, blocks };
 }
-async function copyWaReportText() {
-  const output=document.getElementById('waReportText'), btn=document.getElementById('btnCopyWaReport');
-  generateWaReportText();
-  const text=output.value||''; if (!text.trim()) return;
-  const oldText=btn?btn.textContent:'';
-  try {
-    if (navigator.clipboard&&navigator.clipboard.writeText) await navigator.clipboard.writeText(text);
-    else { output.focus(); output.select(); document.execCommand('copy'); }
-    if (btn) { btn.textContent='Copied ✓'; btn.disabled=true; setTimeout(()=>{btn.textContent=oldText;btn.disabled=false;},1400); }
-  } catch(e) { output.focus(); output.select(); }
-}
+function copyWaReportText() { return _wa().copy(); }
 document.getElementById('btnCloseWaReport').addEventListener('click', closeWaReportModal);
 document.getElementById('waReportModal').addEventListener('click', function(e){ if(e.target.id==='waReportModal') closeWaReportModal(); });
 document.getElementById('btnGenerateWaReport').addEventListener('click', function() { generateWaReportText(); waSaveNow(); });
