@@ -228,6 +228,7 @@
         <button type="button" class="dr-preset-item active" data-preset="7">7 hari terakhir</button>
         <button type="button" class="dr-preset-item" data-preset="30">30 hari terakhir</button>
         <button type="button" class="dr-preset-item" data-preset="month">Bulan ini</button>
+        <button type="button" class="dr-preset-item" data-preset="all">Semua</button>
       </div>
       <div class="dr-cal">
         <div class="dr-cal-head">
@@ -592,7 +593,8 @@ function updateDrTriggerLabel() {
 function setPreset(days) {
   var to = new Date(todayD);
   var from;
-  if (days==='month') from = new Date(todayD.getFullYear(), todayD.getMonth(), 1);
+  if (days==='all') from = new Date(datasetStart);
+  else if (days==='month') from = new Date(todayD.getFullYear(), todayD.getMonth(), 1);
   else { from = new Date(todayD); from.setDate(from.getDate()-(days-1)); }
   if (from < datasetStart) from = new Date(datasetStart);
   repFrom = fmtDate(from); repTo = fmtDate(to);
@@ -683,7 +685,7 @@ document.querySelectorAll('#drPresets .dr-preset-item').forEach(function(b){
   b.addEventListener('click', function(){
     document.querySelectorAll('#drPresets .dr-preset-item').forEach(function(x){x.classList.remove('active');});
     b.classList.add('active');
-    setPreset(b.dataset.preset === 'month' ? b.dataset.preset : parseInt(b.dataset.preset,10));
+    setPreset(b.dataset.preset === 'month' || b.dataset.preset === 'all' ? b.dataset.preset : parseInt(b.dataset.preset,10));
     closeDrPanel();
     generateReport();
   });
