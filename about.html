@@ -161,7 +161,7 @@
     <a href="real_belt.html" class="nav-link"><span class="nav-link-icon">🛄</span>Real Belt</a>
     <a href="otp.html"       class="nav-link"><span class="nav-link-icon">📊</span>OTP Report</a>
     <a href="analytics.html" class="nav-link"><span class="nav-link-icon">📈</span>Analytics</a>
-    <a href="laporan.html"   class="nav-link"><span class="nav-link-icon">📄</span>Laporan Realisasi</a>
+    <a href="laporan.html"   class="nav-link"><span class="nav-link-icon">📄</span>Gate/Belt Report</a>
     <a href="admin.html"     class="nav-link"><span class="nav-link-icon">🛡</span>Admin</a>
     <a href="about.html"     class="nav-link active"><span class="nav-link-icon">ℹ️</span>About</a>
   </nav>
@@ -179,7 +179,7 @@
   <a href="real_belt.html" class="mtab-item"><span class="mtab-icon">🛄</span><span class="mtab-label">Belt</span></a>
   <a href="otp.html" class="mtab-item"><span class="mtab-icon">📊</span><span class="mtab-label">OTP</span></a>
   <a href="analytics.html" class="mtab-item"><span class="mtab-icon">📈</span><span class="mtab-label">Analytics</span></a>
-  <a href="laporan.html" class="mtab-item"><span class="mtab-icon">📄</span><span class="mtab-label">Laporan</span></a>
+  <a href="laporan.html" class="mtab-item"><span class="mtab-icon">📄</span><span class="mtab-label">Report</span></a>
 </nav>
 
 <div id="gate" class="state-msg">Memeriksa akses admin…</div>
@@ -264,7 +264,7 @@
           <tr><td><code class="inline">real_belt.html</code></td><td>Realisasi penempatan belt (bagasi) — sama seperti Real Gate tapi untuk belt kedatangan</td><td>User login</td></tr>
           <tr><td><code class="inline">otp.html</code></td><td>Laporan On-Time Performance per tanggal — kategori delay PM 89/2015, breakdown ARR/DEP</td><td>User login</td></tr>
           <tr><td><code class="inline">analytics.html</code></td><td>Dashboard analitik historis — tren, heatmap jam sibuk, rute/maskapai tersibuk, filter lanjutan, tabel log penerbangan. Baca dari <code class="inline">flights_cache</code> (Firestore) dengan fallback live-fetch ke GAS</td><td>User login</td></tr>
-          <tr><td><code class="inline">laporan.html</code></td><td>Laporan Realisasi Gate/Belt per rentang tanggal — date-range picker kalender, mode "Semua" (Gate + Belt sekaligus), grafik batang total flight per Gate/Belt (Chart.js), export PDF / PNG / JPG / Excel (.xlsx). Sumber data sama dengan analytics.html: <code class="inline">flights_cache</code> dengan fallback GAS</td><td>User login</td></tr>
+          <tr><td><code class="inline">laporan.html</code></td><td>Gate/Belt Report — realisasi penggunaan gate &amp; belt per rentang tanggal — date-range picker kalender, mode "Semua" (Gate + Belt sekaligus), grafik batang total flight per Gate/Belt (Chart.js), export PDF / PNG / JPG / Excel (.xlsx). Sumber data sama dengan analytics.html: <code class="inline">flights_cache</code> dengan fallback GAS</td><td>User login</td></tr>
           <tr><td><code class="inline">admin.html</code></td><td>Panel admin — activity log pengunjung, kelola daftar admin, blokir user, mode maintenance, hapus log lama</td><td><b>Admin only</b></td></tr>
           <tr><td><code class="inline">about.html</code></td><td>Halaman ini — dokumentasi teknis aplikasi</td><td><b>Admin only</b></td></tr>
           <tr><td><code class="inline">login.html</code></td><td>Halaman login (Google Sign-In)</td><td>Publik</td></tr>
