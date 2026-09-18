@@ -95,6 +95,20 @@ service cloud.firestore {
         request.auth.token.email == 'gas-sync@upg-fids.internal';
     }
 
+    // Sync heartbeat, written by the same Apps Script account on every run.
+    // Deliberately a separate, tiny document rather than a field on
+    // flights_cache: the data documents are ~55KB each, and any write to one
+    // pushes the whole thing to every client holding an onSnapshot listener.
+    // Keeping the "is the sync alive?" signal here means a heartbeat costs
+    // nothing, which in turn lets the sync skip rewriting unchanged flight data.
+    //   sync_status/heartbeat.lastRun   -> is the sync still running
+    //   flights_cache/{date}.updatedAt  -> when the data last actually changed
+    match /sync_status/{doc} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+        request.auth.token.email == 'gas-sync@upg-fids.internal';
+    }
+
     // Site-wide maintenance mode toggle. Public read (auth-guard.js must be able
     // to check this before a user is even logged in, so it can redirect straight
     // to maintenance.html); only admins can flip it.
