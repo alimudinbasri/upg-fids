@@ -538,7 +538,10 @@
     .mtab-icon { font-size: 19px; line-height: 1; }
     .mtab-label { font-size: 9.5px; font-weight: 700; white-space: nowrap; }
     .mtab-item.active { color: var(--teal); }
-    body { padding-bottom: 58px; }
+    /* Fallback saja. layoutSyncFooter() mengukur tinggi sebenarnya dan
+       menimpanya — tab bar bergantung safe-area-inset dan footer bisa
+       jadi dua baris di layar sempit. */
+    body { padding-bottom: 104px; }
     .sync-footer { bottom: 58px; }
   }
 </style>
@@ -962,14 +965,16 @@ async function fetchFlights(kind, date) {
  * is written on every run and answers that question instead; if it is stale
  * or missing, this falls back to live GAS exactly as before.
  */
-const SYNC_MAX_AGE_MS = 10 * 60 * 1000;   // sync runs every 2 min
-const DB_WAIT_MS      = 4000;             // don't hang waiting for login
-let lastLoadSource = null;
+var SYNC_MAX_AGE_MS = 10 * 60 * 1000;   // sync runs every 2 min
+var DB_WAIT_MS      = 4000;             // don't hang waiting for login
+var lastLoadSource  = null;
+var lastHeartbeat   = null;             // shown in the footer as "sync terakhir"
 
 async function fetchAllRaw(date) {
   const prev = addDays(date, -1), next = addDays(date, 1);
 
-  const hbAge = FlightData.heartbeatAgeMs(await FlightData.readSyncHeartbeat(DB_WAIT_MS));
+  lastHeartbeat = await FlightData.readSyncHeartbeat(DB_WAIT_MS);
+  const hbAge = FlightData.heartbeatAgeMs(lastHeartbeat);
 
   if (hbAge < SYNC_MAX_AGE_MS) {
     const [t, p, n] = await Promise.all([
@@ -1025,34 +1030,66 @@ function setStaleNotice(msg, isError) {
 }
 
 // ── SYNC FOOTER ──
+function _hhmmss(v) {
+  const d = v instanceof Date ? v : new Date(Date.parse(v));
+  if (isNaN(d.getTime())) return "–";
+  return String(d.getHours()).padStart(2,"0") + ":" +
+         String(d.getMinutes()).padStart(2,"0") + ":" +
+         String(d.getSeconds()).padStart(2,"0");
+}
+function _usia(v) {
+  const t = v instanceof Date ? v.getTime() : Date.parse(v);
+  if (isNaN(t)) return null;
+  const m = Math.max(0, Math.round((Date.now() - t) / 60000));
+  return m < 1 ? "baru saja" : m + " mnt lalu";
+}
+
+// Keep the footer clear of the flight list. The tab bar height depends on the
+// device's safe-area inset and the footer wraps to two lines on narrow
+// screens, so both are measured rather than assumed — the old fixed 58px
+// accounted for the tab bar only, which left the footer sitting on top of the
+// last flight row, and on desktop there was no allowance at all.
+function layoutSyncFooter() {
+  const f = document.getElementById("syncFooter");
+  if (!f) return;
+  const tab = document.querySelector(".mobile-tabbar");
+  const tabH = (tab && getComputedStyle(tab).display !== "none") ? tab.offsetHeight : 0;
+  f.style.bottom = tabH + "px";
+  document.body.style.paddingBottom = (tabH + f.offsetHeight) + "px";
+}
+window.addEventListener("resize", layoutSyncFooter);
+
 function updateSyncFooter(when) {
   const el = document.getElementById("syncFooter");
   const txt = document.getElementById("syncFooterText");
   if (!el || !txt) return;
-  const days = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
-  const months = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-  const d = when || new Date();
-  const dateStr = days[d.getDay()] + ", " + String(d.getDate()).padStart(2,"0") + " " + months[d.getMonth()] + " " + d.getFullYear();
-  const timeStr = String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0") + ":" + String(d.getSeconds()).padStart(2,"0");
-  txt.textContent = "Data berhasil sinkron dengan server pada " + dateStr + ", pukul " + timeStr;
+
+  // Three different clocks, and conflating them is how a dead sync hides:
+  //   updatedAt          when the flight data itself last CHANGED
+  //   heartbeat.lastRun  when the sync last TALKED to AIS
+  //   now                when this page last rendered  (not shown — it says
+  //                      nothing about whether the data is current)
+  const src = lastLoadSource;
   el.classList.remove("stale");
 
-  // Say where the data came from. Without this a dead sync looks identical to
-  // a healthy one until someone notices the numbers have stopped moving.
-  const src = lastLoadSource;
-  if (!src) return;
-  if (src.source === "firestore") {
-    let extra = " · dari cache";
-    if (src.updatedAt) {
-      const mins = Math.max(0, Math.round((Date.now() - Date.parse(src.updatedAt)) / 60000));
-      extra += " (data " + (mins < 1 ? "baru saja" : mins + " menit lalu") + ")";
+  if (src && src.source === "firestore") {
+    const parts = [];
+    parts.push("Data AIS " + _hhmmss(src.updatedAt) +
+               (_usia(src.updatedAt) ? " (" + _usia(src.updatedAt) + ")" : ""));
+    if (lastHeartbeat && lastHeartbeat.lastRun) {
+      parts.push("sync terakhir " + _hhmmss(lastHeartbeat.lastRun) +
+                 (_usia(lastHeartbeat.lastRun) ? " (" + _usia(lastHeartbeat.lastRun) + ")" : ""));
     }
-    if (src.partial) extra += " · " + src.partial;
-    txt.textContent += extra;
-  } else {
-    txt.textContent += " · langsung dari AIS" + (src.why ? " (" + src.why + ")" : "");
+    if (src.partial) parts.push(src.partial);
+    txt.textContent = parts.join(" · ");
+  } else if (src) {
+    txt.textContent = "Langsung dari AIS " + _hhmmss(when || new Date()) +
+                      (src.why ? " · " + src.why : "");
     el.classList.add("stale");
+  } else {
+    txt.textContent = "Menunggu sinkronisasi data pertama…";
   }
+  layoutSyncFooter();
 }
 
 // ── LOAD DATA ──
@@ -1341,7 +1378,7 @@ function stopLiveUpdates(why) {
 function startLiveUpdates(date) {
   if (!window._db || date !== today()) return;
   teardownLive();
-  var lastHeartbeat = Date.now();
+  var lastSeenAt = Date.now();   // when a healthy heartbeat was last observed
 
   liveUnsub = window._db.collection("flights_cache").doc(date)
     .onSnapshot(function (doc) {
@@ -1355,14 +1392,16 @@ function startLiveUpdates(date) {
 
   liveHbUnsub = window._db.collection("sync_status").doc("heartbeat")
     .onSnapshot(function (doc) {
-      const age = FlightData.heartbeatAgeMs(doc.exists ? doc.data() : null);
-      if (age < SYNC_MAX_AGE_MS) lastHeartbeat = Date.now();
+      const hb = doc.exists ? doc.data() : null;
+      const age = FlightData.heartbeatAgeMs(hb);
+      if (age < SYNC_MAX_AGE_MS) { lastHeartbeat = hb; lastSeenAt = Date.now(); }
+      updateSyncFooter(new Date());   // keep "sync terakhir" moving
     }, function () { /* watchdog will catch it */ });
 
   // Catches the case the listeners never fire again at all.
   liveWatchdog = setInterval(function () {
-    if (Date.now() - lastHeartbeat > SYNC_MAX_AGE_MS) {
-      stopLiveUpdates("no heartbeat for " + Math.round((Date.now() - lastHeartbeat) / 60000) + " min");
+    if (Date.now() - lastSeenAt > SYNC_MAX_AGE_MS) {
+      stopLiveUpdates("no heartbeat for " + Math.round((Date.now() - lastSeenAt) / 60000) + " min");
     }
   }, 30000);
 
