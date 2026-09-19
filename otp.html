@@ -212,7 +212,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
 .tbl-card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; overflow: clip; }
 .tbl-head {
   display: grid;
-  grid-template-columns: 10% 20% 17% 17% 17% 20%;
+  grid-template-columns: 9% 22% 16% 16% 15% 22%;
   padding: 5px 8px;
   background: var(--bg3);
   border-bottom: 2px solid var(--border);
@@ -229,12 +229,18 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
 .flight-list { display: flex; flex-direction: column; }
 .flight-card {
   display: grid;
-  grid-template-columns: 10% 20% 17% 17% 17% 20%;
+  grid-template-columns: 9% 22% 16% 16% 15% 22%;
   align-items: start;
   padding: 7px 8px;
   border-bottom: 1px solid rgb(2 79 179);
   transition: background .15s;
 }
+/* Zebra striping, same as index.html. Each flight is exactly one
+   .flight-card, so nth-child counts flights. A translucent overlay rather
+   than a fixed colour, so one rule serves both themes. Declared before
+   :hover so hovering still wins on a striped row. */
+.flight-card:nth-child(even) { background: rgba(255,255,255,.030); }
+:root[data-theme="light"] .flight-card:nth-child(even) { background: rgba(0,40,80,.045); }
 .flight-card:hover { background: rgba(0,188,212,.05); }
 .flight-card.arr { border-left: 3px solid var(--teal); }
 .flight-card.dep { border-left: 3px solid var(--amber); }
@@ -244,6 +250,10 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
 .type-badge.ARR { background: rgba(0,188,212,.2); color: var(--teal); border: 1px solid var(--teal-dim); }
 .type-badge.DEP { background: rgba(255,193,7,.15); color: var(--amber); border: 1px solid #ffab00; }
 .col-flight, .col-city, .col-time, .col-location, .col-remarks { min-width: 0; padding: 0 3px; }
+/* Flight number badge and the registration/type line centred on each other,
+   same as index.html. Scoped to this column so the Pax line, which reuses
+   .flight-meta in the city column, keeps its own alignment. */
+.col-flight { text-align: center; }
 .flight-num { font-size: 11.5px; font-weight: 800; letter-spacing: .3px; line-height: 1; display: inline-block; padding: 3px 8px; border-radius: 4px; white-space: nowrap; }
 .fn-JT { background: #cc2200; color: #fff; }
 .fn-ID { background: #8b0000; color: #fff; }
@@ -293,7 +303,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
   .summary-grid .summary-card:nth-child(4),
   .summary-grid .summary-card:nth-child(5) { grid-column: span 1; }
   .cat-grid { grid-template-columns: repeat(3, 1fr); }
-  .tbl-head, .tbl-row { grid-template-columns: 10% 20% 17% 17% 17% 20%; }
+  .tbl-head, .tbl-row { grid-template-columns: 9% 22% 16% 16% 15% 22%; }
   .brand-sub { display: none; }
   .clock { font-size: 16px; }
   .brand-name { font-size: 11px; }
@@ -679,9 +689,10 @@ function normalizeArr(row) {
   const belt     = fmt(first(row,['belt','Belt','carousel']),'');
   const pax      = Number(first(row,['pax','Pax','total_pax','penumpang'],0))||0;
   const reg      = fmt(first(row,['reg','Reg','registration','a/c','aircraft']),'');
+  const acType   = fmt(first(row,['type','Type','aircraft_type','actype','equipment']),'');
   const bay      = fmt(first(row,['bay_id','bay','Bay','ps','PS','stand','parking']),'');
   const route    = [city, iata].filter(Boolean).join(' / ') || '–';
-  return { type:'ARR', flight, schedule, estimate, actual, city, iata, route, remark, belt, pax, reg, bay };
+  return { type:'ARR', flight, schedule, estimate, actual, city, iata, route, remark, belt, pax, reg, acType, bay };
 }
 
 function normalizeDep(row) {
@@ -695,9 +706,10 @@ function normalizeDep(row) {
   const gate     = fmt(first(row,['gate','Gate','gate_id']),'');
   const pax      = Number(first(row,['pax','Pax','total_pax','penumpang'],0))||0;
   const reg      = fmt(first(row,['reg','Reg','registration','a/c','aircraft']),'');
+  const acType   = fmt(first(row,['type','Type','aircraft_type','actype','equipment']),'');
   const bay      = fmt(first(row,['bay_id','bay','Bay','ps','PS','stand','parking']),'');
   const route    = [city, iata].filter(Boolean).join(' / ') || '–';
-  return { type:'DEP', flight, schedule, estimate, actual, city, iata, route, remark, gate, pax, reg, bay };
+  return { type:'DEP', flight, schedule, estimate, actual, city, iata, route, remark, gate, pax, reg, acType, bay };
 }
 
 const hasOpData = f => !!(f.estimate||f.actual||f.pax||f.remark&&f.remark!=='Scheduled');
@@ -879,6 +891,16 @@ function getFiltered() {
   return [...active, ...archived];
 }
 
+// Registration + aircraft type on one line, matching index.html.
+// AIS uses "ZZZZZ" as its placeholder for an unknown registration; showing
+// that to staff means nothing, so it is suppressed.
+function flightMeta(f) {
+  const parts = [];
+  if (f.reg && !/^Z+$/i.test(f.reg)) parts.push(esc(f.reg));
+  if (f.acType) parts.push(esc(f.acType));
+  return parts.length ? `<div class="flight-meta">${parts.join(' · ')}</div>` : '';
+}
+
 function render() {
   const all = allFlights.filter(f => {
     if (activeTab === 'arr') return f.type === 'ARR';
@@ -979,7 +1001,7 @@ function render() {
       </div>
       <div class="col-flight">
         <div class="flight-num fn-${fnCls}">${esc(f.flight)}</div>
-        ${f.reg ? `<div class="flight-meta">REG ${esc(f.reg)}</div>` : ''}
+        ${flightMeta(f)}
       </div>
       <div class="col-time">${timeHtml}</div>
       <div class="col-city">
