@@ -216,7 +216,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
   padding: 5px 8px;
   background: var(--bg3);
   border-bottom: 2px solid var(--border);
-  font-size: 10px; font-weight: 700; letter-spacing: .6px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .6px;
   color: var(--text3); text-transform: uppercase;
   position: sticky; top: var(--header-h,64px); z-index: 10;
 }
@@ -239,12 +239,12 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
 .flight-card.arr { border-left: 3px solid var(--teal); }
 .flight-card.dep { border-left: 3px solid var(--amber); }
 .col-type { display: flex; flex-direction: column; align-items: center; gap: 3px; padding-top: 2px; }
-.row-num  { font-size: 9px; font-weight: 700; color: var(--text3); line-height: 1; }
-.type-badge { padding: 2px 5px; border-radius: 4px; font-size: 9px; font-weight: 800; letter-spacing: .4px; }
+.row-num  { font-size: 10.5px; font-weight: 700; color: var(--text3); line-height: 1; }
+.type-badge { padding: 2px 6px; border-radius: 4px; font-size: 10.5px; font-weight: 800; letter-spacing: .4px; }
 .type-badge.ARR { background: rgba(0,188,212,.2); color: var(--teal); border: 1px solid var(--teal-dim); }
 .type-badge.DEP { background: rgba(255,193,7,.15); color: var(--amber); border: 1px solid #ffab00; }
 .col-flight, .col-city, .col-time, .col-location, .col-remarks { min-width: 0; padding: 0 3px; }
-.flight-num { font-size: 10px; font-weight: 800; letter-spacing: .3px; line-height: 1; display: inline-block; padding: 3px 7px; border-radius: 4px; white-space: nowrap; }
+.flight-num { font-size: 11.5px; font-weight: 800; letter-spacing: .3px; line-height: 1; display: inline-block; padding: 3px 8px; border-radius: 4px; white-space: nowrap; }
 .fn-JT { background: #cc2200; color: #fff; }
 .fn-ID { background: #8b0000; color: #fff; }
 .fn-QG { background: #00875a; color: #fff; }
@@ -256,22 +256,22 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
 .fn-KS { background: #007a6e; color: #fff; }
 .fn-TR { background: #c8102e; color: #fff; }
 .fn-XX { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
-.flight-meta { font-size: 9px; color: var(--text3); margin-top: 3px; }
-.city-name { font-size: 10px; color: var(--text2); font-weight: 500; line-height: 1.2; }
-.city-code { font-size: 13px; font-weight: 800; color: var(--citycode); letter-spacing: .5px; line-height: 1.4; }
+.flight-meta { font-size: 10.5px; color: var(--text3); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.city-name { font-size: 11.5px; color: var(--text2); font-weight: 500; line-height: 1.2; }
+.city-code { font-size: 15px; font-weight: 800; color: var(--citycode); letter-spacing: .5px; line-height: 1.35; }
 .time-row  { display: flex; align-items: baseline; gap: 3px; }
-.time-label { font-size: 9px; font-weight: 700; color: var(--text3); width: 22px; flex-shrink: 0; }
-.time-val  { font-size: 10px; font-weight: 700; color: var(--text2); font-variant-numeric: tabular-nums; }
+.time-label { font-size: 10.5px; font-weight: 700; color: var(--text3); width: 25px; flex-shrink: 0; }
+.time-val  { font-size: 11.5px; font-weight: 700; color: var(--text2); font-variant-numeric: tabular-nums; }
 .time-val.actual-arr { color: var(--teal2); }
 .time-val.actual-dep { color: var(--amber); }
 .time-val.est-val    { color: var(--amber); }
 .loc-row   { display: flex; align-items: baseline; gap: 3px; line-height: 1.6; }
-.loc-label { font-size: 9px; font-weight: 700; color: var(--text3); width: 28px; flex-shrink: 0; }
-.loc-val   { font-size: 10px; font-weight: 800; color: var(--text); }
+.loc-label { font-size: 10.5px; font-weight: 700; color: var(--text3); width: 32px; flex-shrink: 0; }
+.loc-val   { font-size: 11.5px; font-weight: 800; color: var(--text); }
 .loc-val.belt { color: var(--teal2); }
-.loc-val.ps   { font-size: 10px; font-weight: 600; color: var(--text3); }
+.loc-val.ps   { font-size: 11.5px; font-weight: 600; color: var(--text3); }
 .col-remarks { display: flex; flex-direction: column; gap: 2px; }
-.status-pill { display: inline-block; padding: 2px 5px; border-radius: 8px; font-size: 9px; font-weight: 700; letter-spacing: .3px; margin-bottom: 1px; white-space: nowrap; }
+.status-pill { display: inline-block; max-width: 100%; padding: 2px 6px; border-radius: 8px; font-size: 10.5px; font-weight: 700; letter-spacing: .3px; margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .status-pill.ontime    { background: #028b3b; color: #fff; }
 .status-pill.c1        { background: #ff9800; color: #fff; }
 .status-pill.c2        { background: #c06405; color: #fff; }
@@ -282,8 +282,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
 .status-pill.landed    { background: rgba(0,230,118,.18); color: var(--green); border: 1px solid #00c853; }
 .status-pill.departed  { background: rgba(255,193,7,.15); color: var(--amber); border: 1px solid #ffab00; }
 .status-pill.default   { background: rgba(90,143,160,.12); color: var(--text3); border: 1px solid var(--border); }
-.delay-info { font-size: 9px; color: var(--amber); font-weight: 700; }
-.remark-sub { font-size: 9px; color: var(--text3); font-weight: 600; }
+.delay-info { font-size: 10.5px; color: var(--amber); font-weight: 700; }
+.remark-sub { font-size: 10.5px; color: var(--text3); font-weight: 600; }
 .tbl-empty { padding: 28px; text-align: center; color: var(--text3); font-weight: 700; }
 .loading-row { padding: 28px; text-align: center; color: var(--teal); font-weight: 700; }
 
@@ -300,6 +300,12 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
 }
 @media (max-width: 480px) {
   .cat-grid { grid-template-columns: repeat(3, 1fr); }
+}
+/* At 360px the longest delay pill ("Delay Cat.5") wants 71px against 63px of
+   column. It is the only element that cannot take the full +15%, so it alone
+   steps back; everything else keeps the larger type at every width. */
+@media (max-width: 380px) {
+  .status-pill { font-size: 9.5px; padding: 2px 5px; }
 }
 @media (max-width: 640px) {
   .option-menu { position: fixed !important; top: 100px !important; left: 16px !important; right: 16px !important; width: auto !important; border-radius: 18px !important; }
