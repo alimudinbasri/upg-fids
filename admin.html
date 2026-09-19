@@ -127,7 +127,13 @@
 
     /* ── MGMT TABS ── */
     .mgmt-tabs { border-bottom: 1px solid var(--border); background: var(--bg2); }
-    .mgmt-tab-bar { display: flex; gap: 0; border-bottom: 1px solid var(--border); padding: 0 16px; }
+    /* Scrolls on its own rather than widening the page. Without this the four
+       tabs pushed the document to 488px inside a 360px viewport, and the whole
+       admin page sat scrolled sideways with its left edge cut off. */
+    .mgmt-tab-bar { display: flex; gap: 0; border-bottom: 1px solid var(--border); padding: 0 16px;
+                    overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .mgmt-tab-bar::-webkit-scrollbar { display: none; }
+    .mgmt-tab-btn { flex: 0 0 auto; }
     .mgmt-tab-btn { background: transparent; border: none; border-bottom: 2.5px solid transparent; color: var(--text3); font-size: 12px; font-weight: 700; padding: 10px 16px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: color .15s; white-space: nowrap; margin-bottom: -1px; }
     .mgmt-tab-btn:hover { color: var(--text); }
     .mgmt-tab-btn.active { color: var(--teal); border-bottom-color: var(--teal); }
@@ -190,6 +196,22 @@
       .mtab-label { font-size: 9.5px; font-weight: 700; white-space: nowrap; }
       .mtab-item.active { color: var(--teal); }
       body { padding-bottom: 58px; }
+
+      /* Tighten the management tabs so all four fit a phone without scrolling.
+         Measured: this fits from 412px up; below that the next step takes over.
+         The bar can still scroll if a future label outgrows both. */
+      .mgmt-tab-bar  { padding: 0 6px; }
+      .mgmt-tab-btn  { font-size: 11px; padding: 9px 7px; gap: 3px; }
+      .tab-count     { font-size: 9px; padding: 1px 4px; margin-left: 2px; }
+      .mgmt-tab-panel { padding: 12px 10px; }
+    }
+
+    /* Narrow phones (360px and similar). Wrapping to two rows also fits but
+       costs 71px of height against 33px for one tightened row, on a screen
+       where vertical space is the scarce thing. */
+    @media (max-width: 400px) {
+      .mgmt-tab-btn { font-size: 10px; padding: 8px 4px; gap: 2px; }
+      .tab-count    { font-size: 8px; padding: 0 3px; }
     }
   </style>
 </head>

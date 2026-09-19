@@ -196,6 +196,13 @@
     /* ── FLIGHT CARD — unified grid ── */
     .flight-list { display: flex; flex-direction: column; }
 
+    /* Zebra striping. Each flight is exactly one .flight-card — the PAIRING
+       line lives inside it — so nth-child counts flights, not sub-rows.
+       A translucent overlay rather than a fixed colour, so the same rule works
+       against both the dark and light theme backgrounds. */
+    .flight-card:nth-child(even) { background: rgba(255,255,255,.030); }
+    :root[data-theme="light"] .flight-card:nth-child(even) { background: rgba(0,40,80,.045); }
+
     .flight-card {
       display: grid;
       grid-template-columns: 8% 20% 17% 20% 15% 20%;
@@ -404,46 +411,53 @@
         position: sticky !important;
         grid-template-columns: 9% 22% 16% 16% 15% 22%;
         padding: 4px 4px;
-        font-size: 10px; letter-spacing: 0;
+        font-size: 11.5px; letter-spacing: 0;
       }
       .flight-card {
         display: grid !important;
         grid-template-columns: 9% 22% 16% 16% 15% 22%;
         padding: 2px;
       }
-      .th         { gap: 1px; padding: 1px 2px; white-space: normal; line-height: 1.25; overflow: visible; }
-      .sort-arrow { font-size: 10px; }
+      .th         { gap: 1px; padding: 2px 2px; white-space: normal; line-height: 1.25; overflow: visible; }
+      .sort-arrow { font-size: 11.5px; }
 
       /* # · Type col */
-      .row-num    { font-size: 10px; }
-      .type-badge { font-size: 10px; padding: 1px 3px; letter-spacing: 0; }
+      .row-num    { font-size: 11.5px; }
+      .type-badge { font-size: 11.5px; padding: 2px 4px; letter-spacing: 0; }
 
       /* Flight col */
-      .flight-num { font-size: 11px; padding: 2px 6px; letter-spacing: 0; }
-      .flight-meta{ font-size: 10px; }
+      .flight-num { font-size: 12.5px; padding: 3px 7px; letter-spacing: 0; }
+      .flight-meta{ font-size: 11.5px; }
       /* On the narrowest phones the registration + aircraft type needs ~71px
          and the column gives ~69px. Half a point smaller clears it rather
          than ellipsing a character off the type. */
-      @media (max-width: 380px) { .flight-meta { font-size: 9.5px; } }
+      /* Phones around 360px cannot carry the full +15% on every element: the
+         registration line wants 80px against 70px of column, and the widest
+         status pill 87px against 82px. Only those two are stepped back — the
+         rest keep the larger type. Above 380px nothing is reduced. */
+      @media (max-width: 380px) {
+        .flight-meta { font-size: 10px; }
+        .status-pill { font-size: 10.5px; padding: 2px 5px; }
+      }
 
       /* Time col */
-      .time-row   { gap: 2px; }
-      .time-label { font-size: 10px; width: 14px; }
-      .time-val   { font-size: 10px; }
+      .time-row   { gap: 3px; }
+      .time-label { font-size: 11.5px; width: 17px; }
+      .time-val   { font-size: 11.5px; }
 
       /* City col */
-      .city-name  { font-size: 10px; }
-      .city-code  { font-size: 13px; letter-spacing: 0; }
+      .city-name  { font-size: 11.5px; }
+      .city-code  { font-size: 15px; letter-spacing: 0; }
 
       /* Location col */
-      .loc-row    { gap: 2px; line-height: 1.6; }
-      .loc-label  { font-size: 10px; width: 25px; }
-      .loc-val    { font-size: 13px; }
-      .loc-val.ps { font-size: 10px; }
+      .loc-row    { gap: 3px; line-height: 1.55; }
+      .loc-label  { font-size: 11.5px; width: 29px; }
+      .loc-val    { font-size: 15px; }
+      .loc-val.ps { font-size: 11.5px; }
 
       /* Remarks col */
-      .status-pill { font-size: 10px; padding: 1px 5px; letter-spacing: 0; }
-      .pax-info    { font-size: 10px; }
+      .status-pill { font-size: 11.5px; padding: 2px 6px; letter-spacing: 0; }
+      .pax-info    { font-size: 11.5px; }
 
 
 
