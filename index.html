@@ -196,6 +196,42 @@
     /* ── FLIGHT CARD — unified grid ── */
     .flight-list { display: flex; flex-direction: column; }
 
+    /* ── SPLIT BOARD ──────────────────────────────────────────────────────
+       Two panes side by side on wide screens. Measured: every column still
+       fits at full desktop type down to a 560px pane, so the split engages
+       from 1200px — every common laptop width and up. Below that the single
+       combined list is used, unchanged. */
+    .board-split { display: none; }
+    @media (min-width: 1200px) {
+      .board-split { display: grid; grid-template-columns: 1fr 1fr; gap: 0; align-items: start; }
+      .board-split[hidden] { display: grid; }        /* JS owns visibility via .is-split */
+      body:not(.is-split) .board-split { display: none; }
+      body.is-split .table-head,
+      body.is-split .table-wrap { display: none; }
+      /* Both lists are visible at once, so filtering to one of them is noise. */
+      body.is-split .tab-btn[data-tab="arr"],
+      body.is-split .tab-btn[data-tab="dep"] { display: none; }
+    }
+    .board-pane { min-width: 0; border-right: 1px solid var(--border); }
+    .board-pane:last-child { border-right: none; }
+    .pane-title {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 14px; font-size: 12px; font-weight: 800; letter-spacing: .12em;
+      text-transform: uppercase; position: sticky; top: var(--header-h, 64px); z-index: 11;
+    }
+    .pane-title.pane-arr { background: rgba(0,188,212,.14); color: var(--teal2);
+                           border-bottom: 2px solid var(--teal-dim); }
+    .pane-title.pane-dep { background: rgba(255,193,7,.12); color: var(--amber);
+                           border-bottom: 2px solid #ffab00; }
+    .pane-count { font-size: 11px; font-weight: 800; opacity: .85; letter-spacing: 0; }
+    /* Same grid and sticky behaviour as .table-head, offset below the pane title. */
+    .pane-head { display: grid; grid-template-columns: 8% 20% 17% 20% 15% 20%;
+                 padding: 6px 8px; background: var(--bg3);
+                 border-bottom: 2px solid var(--border);
+                 font-size: 11px; font-weight: 700; letter-spacing: .5px;
+                 color: var(--text3); text-transform: uppercase;
+                 position: sticky; top: calc(var(--header-h, 64px) + 33px); z-index: 10; }
+
     /* Zebra striping. Each flight is exactly one .flight-card — the PAIRING
        line lives inside it — so nth-child counts flights, not sub-rows.
        A translucent overlay rather than a fixed colour, so the same rule works
@@ -738,6 +774,25 @@
 
 </div><!-- .table-wrap -->
 
+<!-- ── SPLIT BOARD (wide screens only) ──
+     Arrivals and departures side by side, the way the airport's own boards
+     are laid out. Each pane gets its own copy of the column header, cloned
+     from #tableHead at startup so the two can never drift apart. Below the
+     breakpoint this stays hidden and the single combined list above is used
+     instead. -->
+<div class="board-split" id="boardSplit" hidden>
+  <section class="board-pane">
+    <div class="pane-title pane-arr"><span>ARRIVAL</span><span class="pane-count" id="paneArrCount"></span></div>
+    <div class="pane-head" id="paneArrHead"></div>
+    <div class="flight-list" id="flightListArr"></div>
+  </section>
+  <section class="board-pane">
+    <div class="pane-title pane-dep"><span>DEPARTURE</span><span class="pane-count" id="paneDepCount"></span></div>
+    <div class="pane-head" id="paneDepHead"></div>
+    <div class="flight-list" id="flightListDep"></div>
+  </section>
+</div>
+
 
 <script src="js/app-config.js"></script>
 <script src="js/ui-chrome.js"></script>
@@ -1230,13 +1285,65 @@ async function loadData() {
 }
 
 // ── RENDER ──
+/* ── Split board ──────────────────────────────────────────────────────────
+ * Above 1200px the board shows arrivals and departures side by side, so the
+ * ARR/DEP buttons are hidden — both lists are on screen already. Below it,
+ * the single combined list and those buttons behave exactly as before.
+ */
+const SPLIT_MQ = window.matchMedia("(min-width: 1200px)");
+function isSplit() { return SPLIT_MQ.matches; }
+
+function setupSplitBoard() {
+  // Clone the column header into both panes rather than duplicating the
+  // markup, so a future column change cannot leave them out of step. IDs are
+  // stripped because they would otherwise appear three times in the document.
+  const src = document.getElementById("tableHead");
+  ["paneArrHead", "paneDepHead"].forEach(id => {
+    const host = document.getElementById(id);
+    if (!host || !src) return;
+    host.innerHTML = "";
+    Array.from(src.children).forEach(th => {
+      const c = th.cloneNode(true);
+      c.removeAttribute("id");
+      c.querySelectorAll("[id]").forEach(el => el.removeAttribute("id"));
+      host.appendChild(c);
+    });
+  });
+  applySplitMode();
+  SPLIT_MQ.addEventListener("change", applySplitMode);
+}
+
+function applySplitMode() {
+  const on = isSplit();
+  document.body.classList.toggle("is-split", on);
+  const split = document.getElementById("boardSplit");
+  if (split) split.hidden = !on;
+  // A tab filter left on ARR or DEP would blank one of the two panes, and the
+  // buttons that set it are hidden here, so there would be no way back.
+  if (on && activeTab !== "all") {
+    activeTab = "all";
+    document.querySelectorAll(".tab-btn").forEach(b =>
+      b.classList.toggle("active", b.dataset.tab === "all"));
+  }
+  renderFlights();
+}
+
+function emptyStateHtml(q) {
+  return `<div class="state-box">
+      <div class="state-icon">${q?"🔍":"✈️"}</div>
+      <div class="state-title">${q?"Not found":"No flights"}</div>
+      <div class="state-sub">${q?"Try a different keyword.":"No flight data available for today."}</div>
+    </div>`;
+}
+
 function renderFlights() {
-  const list = document.getElementById("flightList");
   const q = searchQ.toLowerCase().trim();
 
   let filtered = allFlights.filter(f => {
-    if (activeTab==="arr" && f.type!=="ARR") return false;
-    if (activeTab==="dep" && f.type!=="DEP") return false;
+    if (!isSplit()) {
+      if (activeTab==="arr" && f.type!=="ARR") return false;
+      if (activeTab==="dep" && f.type!=="DEP") return false;
+    }
     if (!q) return true;
     return searchHaystack(f).some(v => v.includes(q));
   });
@@ -1247,18 +1354,32 @@ function renderFlights() {
   document.getElementById("tabArr").textContent = "ARR "+arr;
   document.getElementById("tabDep").textContent = "DEP "+dep;
 
-  if (filtered.length===0) {
-    list.innerHTML=`<div class="state-box">
-      <div class="state-icon">${q?"🔍":"✈️"}</div>
-      <div class="state-title">${q?"Not found":"No flights"}</div>
-      <div class="state-sub">${q?"Try a different keyword.":"No flight data available for today."}</div>
-    </div>`;
+  filtered = applySort(filtered);
+
+  if (isSplit()) {
+    const arrRows = filtered.filter(f => f.type === "ARR");
+    const depRows = filtered.filter(f => f.type === "DEP");
+    const paint = (listId, countId, rows) => {
+      const el = document.getElementById(listId);
+      const cnt = document.getElementById(countId);
+      if (cnt) cnt.textContent = rows.length + (q ? " found" : "");
+      if (el) el.innerHTML = rows.length ? buildRows(rows, q) : emptyStateHtml(q);
+    };
+    paint("flightListArr", "paneArrCount", arrRows);
+    paint("flightListDep", "paneDepCount", depRows);
+    updateSortUI();
     return;
   }
 
-  filtered = applySort(filtered);
+  const list = document.getElementById("flightList");
+  list.innerHTML = filtered.length ? buildRows(filtered, q) : emptyStateHtml(q);
+  updateSortUI();
+}
 
-  list.innerHTML = filtered.map((f, i) => {
+// Row markup for one list. Numbering restarts per list, so each pane reads
+// 1..n rather than carrying gaps from the other side.
+function buildRows(filtered, q) {
+  return filtered.map((f, i) => {
     const isArr    = f.type==="ARR";
     const actClass = isArr ? "actual-arr" : "actual-dep";
     const sClass   = statusClass(f.remark);
@@ -1347,9 +1468,12 @@ function updateSortUI() {
   });
 }
 
-document.getElementById("tableHead").addEventListener("click", e => {
+// Delegated from the document so it covers the combined header and both
+// cloned pane headers — and keeps working if the clones are rebuilt.
+document.addEventListener("click", e => {
   const th = e.target.closest(".th");
   if (!th) return;
+  if (!th.closest("#tableHead") && !th.closest(".pane-head")) return;
   const col = th.dataset.col;
   if (sortKey===col) sortDir = sortDir==="asc"?"desc":"asc";
   else { sortKey=col; sortDir="asc"; }
@@ -1526,6 +1650,7 @@ document.getElementById("masterDate").addEventListener("change", () => {
   loadData();
 });
 
+setupSplitBoard();
 updateSortUI();
 tickClock();
 setInterval(tickClock,1000);
