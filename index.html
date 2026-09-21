@@ -232,10 +232,16 @@
       padding: 7px 14px; font-size: 12px; font-weight: 800; letter-spacing: .12em;
       text-transform: uppercase; position: sticky; top: var(--header-h, 64px); z-index: 11;
     }
-    .pane-title.pane-arr { background: rgba(0,188,212,.14); color: var(--teal2);
-                           border-bottom: 2px solid var(--teal-dim); }
-    .pane-title.pane-dep { background: rgba(255,193,7,.12); color: var(--amber);
-                           border-bottom: 2px solid #ffab00; }
+    /* Opaque. These bars are sticky, so a translucent fill let the flight rows
+       scroll visibly through them — the tint is painted over the page colour
+       instead of blended with whatever happens to be behind it. Layering it
+       this way keeps one rule working in both themes, since --bg changes. */
+    .pane-title.pane-arr { background-color: var(--bg);
+                           background-image: linear-gradient(rgba(0,188,212,.14), rgba(0,188,212,.14));
+                           color: var(--teal2); border-bottom: 2px solid var(--teal-dim); }
+    .pane-title.pane-dep { background-color: var(--bg);
+                           background-image: linear-gradient(rgba(255,193,7,.12), rgba(255,193,7,.12));
+                           color: var(--amber); border-bottom: 2px solid #ffab00; }
     .pane-count { font-size: 11px; font-weight: 800; opacity: .85; letter-spacing: 0; }
     /* Same grid and sticky behaviour as .table-head, offset below the pane title. */
     .pane-head { display: grid; grid-template-columns: 8% 20% 17% 20% 15% 20%;
@@ -243,7 +249,7 @@
                  border-bottom: 2px solid var(--border);
                  font-size: 11px; font-weight: 700; letter-spacing: .5px;
                  color: var(--text3); text-transform: uppercase;
-                 position: sticky; top: calc(var(--header-h, 64px) + 33px); z-index: 10; }
+                 position: sticky; top: calc(var(--header-h, 64px) + var(--pane-title-h, 32px)); z-index: 10; }
 
     /* Zebra striping. Each flight is exactly one .flight-card — the PAIRING
        line lives inside it — so nth-child counts flights, not sub-rows.
@@ -2143,6 +2149,12 @@ UIChrome.initNav();
     var bh = bar  ? bar.offsetHeight  : 100;
     document.documentElement.style.setProperty('--fids-h',   fh + 'px');
     document.documentElement.style.setProperty('--header-h', (fh + bh) + 'px');
+    // The split panes stack two sticky bars: the ARRIVAL/DEPARTURE title and
+    // the column header under it. Measure the title rather than assuming a
+    // height — a hard-coded 33px against its real 32px left a 1px slit for
+    // rows to show through.
+    var pt = document.querySelector('.pane-title');
+    if (pt) document.documentElement.style.setProperty('--pane-title-h', pt.offsetHeight + 'px');
   }
   requestAnimationFrame(function() { requestAnimationFrame(setLayout); });
   window.addEventListener('resize', setLayout);
