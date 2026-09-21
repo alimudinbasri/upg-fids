@@ -202,7 +202,7 @@
        from 1200px — every common laptop width and up. Below that the single
        combined list is used, unchanged. */
     .board-split { display: none; }
-    @media (min-width: 1200px) {
+    @media (min-width: 960px) {
       .board-split { display: grid; grid-template-columns: 1fr 1fr; gap: 0; align-items: start; }
       .board-split[hidden] { display: grid; }        /* JS owns visibility via .is-split */
       body:not(.is-split) .board-split { display: none; }
@@ -211,6 +211,19 @@
       /* Both lists are visible at once, so filtering to one of them is noise. */
       body.is-split .tab-btn[data-tab="arr"],
       body.is-split .tab-btn[data-tab="dep"] { display: none; }
+    }
+    /* 960px is where Chrome for Android's "Desktop site" lands (it lays out at
+       980px), so the split has to work there. That gives each pane ~490px,
+       where the registration line and the widest status pill do not fit at
+       full desktop type — those two step down a point until there is room.
+       Everything else keeps its size. */
+    @media (min-width: 960px) and (max-width: 1199px) {
+      /* Measured in Chrome's desktop mode: viewport 964px after the
+         scrollbar, pane 482px, flight column 85px of content. The longest
+         real registration line ("PKWKD · ATR72-600") needs 89px at 10px, so
+         it takes another half point to clear. */
+      body.is-split .flight-meta { font-size: 9.5px; }
+      body.is-split .status-pill { font-size: 10px; padding: 3px 7px; }
     }
     .board-pane { min-width: 0; border-right: 1px solid var(--border); }
     .board-pane:last-child { border-right: none; }
@@ -265,6 +278,11 @@
        on each other. Scoped to this column so the Pax line, which reuses
        .flight-meta over in the city column, keeps its own alignment. */
     .col-flight { text-align: center; }
+    /* These two columns centre their content, so their headings have to centre
+       too. Left-aligned by default, the "Flight" label sat 67px away from the
+       badges beneath it and "No · Type" 6px. The other four columns are
+       left-aligned on both sides and need nothing. */
+    .th[data-col="num"], .th[data-col="flight"] { justify-content: center; }
 
     /* Flight — nomor penerbangan berwarna per maskapai */
     .flight-num {
@@ -910,47 +928,133 @@ function formatShortDate(ds) {
 function buildPairing(arrivals, departures, date, prevArrivals, nextDepartures) {
   prevArrivals   = prevArrivals   || [];
   nextDepartures = nextDepartures || [];
-  const depByReg = {}, arrByReg = {};
+  const depByReg = {}, arrByReg = {}, regDone = {};
   departures.forEach(f => { if (f.reg && f.reg!=="-") (depByReg[f.reg]||(depByReg[f.reg]=[])).push(f); });
   arrivals.forEach(f   => { if (f.reg && f.reg!=="-") (arrByReg[f.reg]||(arrByReg[f.reg]=[])).push(f); });
 
   const needsNextDayDep = [];  // arrivals with no same-day departure match
   const needsPrevDayArr = [];  // departures with no same-day arrival match
 
-  arrivals.forEach(arr => {
-    if (!arr.reg || arr.reg==="-") { arr.pairing = null; return; }
-    const deps = (depByReg[arr.reg]||[]).slice().sort((a,b)=>(a.schedule||"99:99").localeCompare(b.schedule||"99:99"));
-    const t = arr.actual||arr.estimate||arr.schedule||"00:00";
-    const match = deps.find(d=>(d.schedule||"99:99")>=t);
-    if (match) { match.pdate = date; arr.pairing = match; }
-    else { arr.pairing = null; needsNextDayDep.push(arr); }
+  /* An aircraft's day is a rotation: it lands, turns around, departs, and
+   * repeats. So the pairing for an arrival is simply the NEXT departure of
+   * that same aircraft, and each movement can be used exactly once.
+   *
+   * The previous version asked each flight independently for "the first
+   * departure at or after my time", which broke in two ways that the Lion
+   * Group MVT for 21/09 makes obvious:
+   *
+   *   PK-LFK  JT-948 dep 02:41 · JT-949 arr 10:12 · JT-871 dep 10:27
+   *           JT-782 arr 16:00 · JT-885 dep 16:20
+   *
+   *   1. It compared an arrival's ACTUAL time against a departure's
+   *      SCHEDULED time. JT-949 landed at 10:12 while JT-871 was scheduled
+   *      09:30, so JT-871 was skipped as "already gone" — even though it
+   *      actually left at 10:27, waiting for that very aircraft. JT-949 was
+   *      then paired six hours forward to JT-885.
+   *   2. Nothing was consumed, so JT-885 ended up as the pairing for BOTH
+   *      JT-949 and JT-782, and JT-880 for both JT-871 and JT-948.
+   *
+   * Walking the timeline instead, with one consistent clock per movement,
+   * gives JT-949→JT-871 and JT-782→JT-885 — which is what the MVT says.
+   */
+  const bestTime = f => f.actual || f.estimate || f.schedule || "";
+  const TURNAROUND_SLACK_MIN = 90;
+  const toMin = t => {
+    const m = /^(\d{1,2}):(\d{2})/.exec(t || "");
+    return m ? (+m[1]) * 60 + (+m[2]) : null;
+  };
+  const minutesBetween = (a, b) => {
+    const x = toMin(a), y = toMin(b);
+    return (x === null || y === null) ? Infinity : Math.abs(y - x);
+  };
+
+  Object.keys(arrByReg).concat(Object.keys(depByReg)).forEach(reg => {
+    if (regDone[reg]) return;
+    regDone[reg] = true;
+
+    const moves = (arrByReg[reg] || []).map(f => ({ f, kind: "A", t: bestTime(f) }))
+      .concat((depByReg[reg] || []).map(f => ({ f, kind: "D", t: bestTime(f) })))
+      // A movement with no usable time sorts last rather than to midnight,
+      // where it would capture the first departure of the day.
+      .sort((a, b) => (a.t || "99:99").localeCompare(b.t || "99:99"));
+
+    let pendingArr = null;
+    moves.forEach(m => {
+      if (m.kind === "A") {
+        if (m.consumed) return;        // already taken by the departure before it
+        // Two arrivals in a row means the earlier one's departure is not in
+        // today's data; it is handed to the next-day fallback below.
+        if (pendingArr) needsNextDayDep.push(pendingArr);
+        pendingArr = m.f;
+        m.f.pairing = null;
+      } else {
+        if (pendingArr) {
+          pendingArr.pairing = m.f;  m.f.pdate = date;
+          m.f.pairing = pendingArr;  pendingArr.pdate = date;
+          pendingArr = null;
+        } else {
+          // No arrival ahead of this departure on the clock — but the two
+          // sides of a turnaround are often quoted on different clocks (an
+          // estimated arrival against a scheduled departure), which can put
+          // the departure a few minutes "before" its own inbound. PK-LOJ on
+          // 21/09 shows it: JT-665 reads 18:10 while JT-848 reads 18:40, and
+          // the MVT pairs them. So look just ahead, and only just ahead: a
+          // genuine later arrival of the same tail is hours away, not minutes.
+          const nxt = moves[moves.indexOf(m) + 1];
+          if (nxt && nxt.kind === "A" && !nxt.f.pairing &&
+              minutesBetween(m.t, nxt.t) <= TURNAROUND_SLACK_MIN) {
+            nxt.f.pairing = m.f;  m.f.pdate = date;
+            m.f.pairing = nxt.f;  nxt.f.pdate = date;
+            nxt.consumed = true;
+          } else {
+            m.f.pairing = null;
+            needsPrevDayArr.push(m.f);   // arrived before today, e.g. an overnight
+          }
+        }
+      }
+    });
+    if (pendingArr) needsNextDayDep.push(pendingArr);
   });
-  departures.forEach(dep => {
-    if (!dep.reg || dep.reg==="-") { dep.pairing = null; return; }
-    const arrs = (arrByReg[dep.reg]||[]).slice().sort((a,b)=>(b.schedule||"00:00").localeCompare(a.schedule||"00:00"));
-    const t = dep.schedule||dep.estimate||"23:59";
-    const match = arrs.find(a=>(a.actual||a.estimate||a.schedule||"00:00")<=t);
-    if (match) { match.pdate = date; dep.pairing = match; }
-    else { dep.pairing = null; needsPrevDayArr.push(dep); }
+
+  // Flights with no registration cannot be rotated at all.
+  arrivals.concat(departures).forEach(f => {
+    if (!f.reg || f.reg === "-") f.pairing = null;
   });
 
   // ── Cross-day fallback, from data the caller already fetched ──
+  // Each adjacent-day movement is consumed too. Two departures that both
+  // arrived yesterday must take yesterday's two latest arrivals, not the same
+  // one twice — that is how JT-880 ended up under both JT-871 and JT-948.
   if (needsPrevDayArr.length && prevArrivals.length) {
     const prevByReg = {};
     prevArrivals.forEach(f => { if (f.reg && f.reg!=="-") (prevByReg[f.reg]||(prevByReg[f.reg]=[])).push(f); });
+    Object.keys(prevByReg).forEach(r => prevByReg[r].sort((a,b) =>
+      (bestTime(b)||"00:00").localeCompare(bestTime(a)||"00:00")));   // latest first
     const prevDate = addDays(date, -1);
-    needsPrevDayArr.forEach(dep => {
-      const arrs = (prevByReg[dep.reg]||[]).slice().sort((a,b)=>(b.schedule||"00:00").localeCompare(a.schedule||"00:00"));
-      if (arrs.length) { arrs[0].pdate = prevDate; dep.pairing = arrs[0]; }
+    // Earliest departure of the day takes the latest arrival of yesterday.
+    needsPrevDayArr.slice().sort((a,b) =>
+      (bestTime(a)||"99:99").localeCompare(bestTime(b)||"99:99")).forEach(dep => {
+      const pool = prevByReg[dep.reg];
+      if (pool && pool.length) {
+        const a = pool.shift();
+        a.pdate = prevDate; dep.pairing = a;
+      }
     });
   }
   if (needsNextDayDep.length && nextDepartures.length) {
     const nextByReg = {};
     nextDepartures.forEach(f => { if (f.reg && f.reg!=="-") (nextByReg[f.reg]||(nextByReg[f.reg]=[])).push(f); });
+    Object.keys(nextByReg).forEach(r => nextByReg[r].sort((a,b) =>
+      (bestTime(a)||"99:99").localeCompare(bestTime(b)||"99:99")));   // earliest first
     const nextDate = addDays(date, 1);
-    needsNextDayDep.forEach(arr => {
-      const deps = (nextByReg[arr.reg]||[]).slice().sort((a,b)=>(a.schedule||"99:99").localeCompare(b.schedule||"99:99"));
-      if (deps.length) { deps[0].pdate = nextDate; arr.pairing = deps[0]; }
+    // Latest arrival of the day takes the earliest departure of tomorrow.
+    needsNextDayDep.slice().sort((a,b) =>
+      (bestTime(b)||"00:00").localeCompare(bestTime(a)||"00:00")).forEach(arr => {
+      const pool = nextByReg[arr.reg];
+      if (pool && pool.length) {
+        const d = pool.shift();
+        d.pdate = nextDate; arr.pairing = d;
+      }
     });
   }
 }
@@ -1290,7 +1394,7 @@ async function loadData() {
  * ARR/DEP buttons are hidden — both lists are on screen already. Below it,
  * the single combined list and those buttons behave exactly as before.
  */
-const SPLIT_MQ = window.matchMedia("(min-width: 1200px)");
+const SPLIT_MQ = window.matchMedia("(min-width: 960px)");
 function isSplit() { return SPLIT_MQ.matches; }
 
 function setupSplitBoard() {
