@@ -38,6 +38,13 @@ const APP_CONFIG = {
     'NO GATE': {seat:0, max:0, status:'NO GATE', off:false}
   },
 
+  // Terminal gate groupings used in WA Report and terminal stats
+  terminalGroups: [
+    { id: 'TS',    name: 'TS (Gate 1-6, 6A)',              gates: ['1','2','3','4','5','6','6A'] },
+    { id: 'TE',    name: 'TE (Gate 7-10, 9A)',             gates: ['7','8','9','9A','10'] },
+    { id: 'INTER', name: 'INTER (Gate 11, 12, 11A, 11B)',  gates: ['11','12','11A','11B'] }
+  ],
+
   defaultBelts: ['1','2','3','4','5','6','7','8','9','10'],
   beltMeta: {
     '1':  {status:'INT'},

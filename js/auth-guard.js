@@ -23,7 +23,7 @@
   const db   = firebase.firestore();
 
   function emailToKey(email) {
-    return email.toLowerCase().replace(/\./g, '_').replace(/@/g, '__');
+    return (email || '').trim().toLowerCase().replace(/\./g, '_').replace(/@/g, '__');
   }
 
   // Site-wide maintenance mode — checked independently of auth state (public
@@ -81,6 +81,7 @@
       name:      user.displayName || user.email,
       page:      pageName,
       timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      expireAt:  new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       userAgent: navigator.userAgent,
       timezone:  Intl.DateTimeFormat().resolvedOptions().timeZone || "",
       referrer:  document.referrer || "direct",
@@ -105,6 +106,19 @@
     const browser = parseBrowser(ua);
     const device  = parseDevice(ua);
     var   geoData = { ip: '', location: '' };
+    var   hasCachedGeo = false;
+
+    // Check cached geoData synchronously before initial Firestore write to eliminate redundant writes
+    try {
+      var raw = localStorage.getItem('_mfids_geo');
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (parsed.ts && Date.now() - parsed.ts < 86400000) {
+          geoData = { ip: parsed.ip || '', location: parsed.location || '' };
+          hasCachedGeo = true;
+        }
+      }
+    } catch(e) {}
 
     // User login record (one doc per email, upserted on each login)
     const userLogRef = db.collection("user_logs").doc(emailToKey(user.email));
@@ -148,44 +162,30 @@
     }, 60000);
     window.addEventListener("beforeunload", function() { clearInterval(heartbeat); });
 
-    // Fetch IP + location once per day, cache in localStorage
-    (function fetchGeo() {
-      var cached = null;
-      try {
-        var raw = localStorage.getItem('_mfids_geo');
-        if (raw) {
-          var parsed = JSON.parse(raw);
-          if (parsed.ts && Date.now() - parsed.ts < 86400000) cached = parsed;
-        }
-      } catch(e) {}
-
-      if (cached) {
-        geoData = { ip: cached.ip || '', location: cached.location || '' };
-        writePresenceFull();
-        updateUserLog();
-        return;
-      }
-
-      fetch('https://ipapi.co/json/')
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
-          geoData = { ip: d.ip || '', location: [d.city, d.country_name].filter(Boolean).join(', ') };
-          try { localStorage.setItem('_mfids_geo', JSON.stringify({ ip: geoData.ip, location: geoData.location, ts: Date.now() })); } catch(e) {}
-          writePresenceFull();
-          updateUserLog();
-        })
-        .catch(function() {
-          fetch('https://api.ipify.org?format=json')
-            .then(function(r) { return r.json(); })
-            .then(function(d) {
-              geoData = { ip: d.ip || '', location: '' };
-              try { localStorage.setItem('_mfids_geo', JSON.stringify({ ip: geoData.ip, location: '', ts: Date.now() })); } catch(e) {}
-              writePresenceFull();
-              updateUserLog();
-            })
-            .catch(function() {});
-        });
-    })();
+    // Fetch IP + location only if not already cached
+    if (!hasCachedGeo) {
+      (function fetchGeo() {
+        fetch('https://ipapi.co/json/')
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            geoData = { ip: d.ip || '', location: [d.city, d.country_name].filter(Boolean).join(', ') };
+            try { localStorage.setItem('_mfids_geo', JSON.stringify({ ip: geoData.ip, location: geoData.location, ts: Date.now() })); } catch(e) {}
+            writePresenceFull();
+            updateUserLog();
+          })
+          .catch(function() {
+            fetch('https://api.ipify.org?format=json')
+              .then(function(r) { return r.json(); })
+              .then(function(d) {
+                geoData = { ip: d.ip || '', location: '' };
+                try { localStorage.setItem('_mfids_geo', JSON.stringify({ ip: geoData.ip, location: '', ts: Date.now() })); } catch(e) {}
+                writePresenceFull();
+                updateUserLog();
+              })
+              .catch(function() {});
+          });
+      })();
+    }
 
     const nameEl = document.getElementById("nav-user-name");
     if (nameEl) nameEl.textContent = user.displayName || user.email;

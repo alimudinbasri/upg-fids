@@ -541,6 +541,7 @@ var GAS_URL = APP_CONFIG.gasUrl;
 
 function fmtDate(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function fmt(v, def) { def = def===undefined?'':def; var s = String(v===null||v===undefined?'':v).trim(); return s===''||s==='-' ? def : s; }
+function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function cleanText(value) { return FlightClass.cleanText(value); }
 function first(obj, keys, def) {
   def = def===undefined?'':def;
@@ -1212,13 +1213,13 @@ function renderRoutes(cur) {
   sorted.forEach(function(r){
     var tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
-    tr.title = 'Click to filter route '+r.route;
+    tr.title = 'Click to filter route '+esc(r.route);
     if (state.routes.length===1 && state.routes[0]===r.route) tr.style.background = 'var(--bg3)';
-    tr.innerHTML = '<td><b>'+r.route+'</b> <span style="color:var(--text3)">'+r.city+'</span></td>'+
+    tr.innerHTML = '<td><b>'+esc(r.route)+'</b> <span style="color:var(--text3)">'+esc(r.city)+'</span></td>'+
       '<td class="num"><div class="bar-cell"><span class="mono">'+r.flights+'</span><div class="bar-track"><div class="bar-fill" style="width:'+(100*r.flights/maxFlights)+'%;background:'+(r.cls==='INT'?pal.cat[6]:'var(--teal)')+'"></div></div></div></td>'+
       '<td class="num mono">'+r.pax.toLocaleString('id-ID')+'</td>'+
       '<td class="num mono">'+r.otp.toFixed(0)+'%</td>'+
-      '<td><span class="pill '+(r.cls==='INT'?'int':'dom')+'">'+r.cls+'</span></td>';
+      '<td><span class="pill '+(r.cls==='INT'?'int':'dom')+'">'+esc(r.cls)+'</span></td>';
     tr.addEventListener('click', function(){ toggleRouteFocus(r.route); });
     tb.appendChild(tr);
   });
@@ -1254,9 +1255,9 @@ function renderAirlines(cur) {
   sorted.forEach(function(a){
     var tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
-    tr.title = 'Click to filter airline '+a.airline;
+    tr.title = 'Click to filter airline '+esc(a.airline);
     if (state.airlines.length===1 && state.airlines[0]===a.airline) tr.style.background = 'var(--bg3)';
-    tr.innerHTML = '<td><b>'+a.airline+'</b> <span style="color:var(--text3)">'+a.name+'</span></td>'+
+    tr.innerHTML = '<td><b>'+esc(a.airline)+'</b> <span style="color:var(--text3)">'+esc(a.name)+'</span></td>'+
       '<td class="num mono">'+a.flights.toLocaleString('id-ID')+'</td>'+
       '<td class="num mono">'+a.pax.toLocaleString('id-ID')+'</td>'+
       '<td class="num mono">'+a.otp.toFixed(0)+'%</td>';
@@ -1408,11 +1409,11 @@ function renderLogTable() {
   pageRows.forEach(function(f){
     var st = statusLabel(f);
     var tr = document.createElement('tr');
-    tr.innerHTML = '<td class="mono">'+f.date+'</td><td class="mono">'+f.time+'</td><td class="mono">'+(f.eta||'–')+'</td><td class="mono">'+(f.actual||'–')+'</td><td><b>'+f.flightNo+'</b></td>'+
-      '<td>'+f.type+'</td><td>'+f.route+' <span style="color:var(--text3)">('+f.city+')</span></td>'+
-      '<td><span class="pill '+(f.cls==='INT'?'int':'dom')+'">'+f.cls+'</span></td>'+
-      '<td class="mono">'+f.gb+'</td><td class="mono">'+f.bay+'</td><td class="num mono">'+(f.category===6?'–':f.delayMin+'m')+'</td>'+
-      '<td><span class="pill '+st.cls+'">'+st.text+'</span></td><td class="num mono">'+(f.pax||'–')+'</td>';
+    tr.innerHTML = '<td class="mono">'+esc(f.date)+'</td><td class="mono">'+esc(f.time)+'</td><td class="mono">'+esc(f.eta||'–')+'</td><td class="mono">'+esc(f.actual||'–')+'</td><td><b>'+esc(f.flightNo)+'</b></td>'+
+      '<td>'+esc(f.type)+'</td><td>'+esc(f.route)+' <span style="color:var(--text3)">('+esc(f.city)+')</span></td>'+
+      '<td><span class="pill '+(f.cls==='INT'?'int':'dom')+'">'+esc(f.cls)+'</span></td>'+
+      '<td class="mono">'+esc(f.gb)+'</td><td class="mono">'+esc(f.bay)+'</td><td class="num mono">'+(f.category===6?'–':f.delayMin+'m')+'</td>'+
+      '<td><span class="pill '+st.cls+'">'+esc(st.text)+'</span></td><td class="num mono">'+(f.pax||'–')+'</td>';
     tb.appendChild(tr);
   });
   document.getElementById('pagerInfo').textContent = 'Page '+state.page+' / '+totalPages;

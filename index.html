@@ -2086,8 +2086,12 @@ function buildWaTagData() {
     if (!gateStats[g]) gateStats[g]={fc:0,pax:0};
     gateStats[g].fc++; gateStats[g].pax+=Number(f.pax||0);
   });
+  const termGroups = APP_CONFIG.terminalGroups || [
+    { id: 'TS',    name: 'TS (Gate 1-6, 6A)',              gates: ['1','2','3','4','5','6','6A'] },
+    { id: 'TE',    name: 'TE (Gate 7-10, 9A)',             gates: ['7','8','9','9A','10'] },
+    { id: 'INTER', name: 'INTER (Gate 11, 12, 11A, 11B)',  gates: ['11','12','11A','11B'] }
+  ];
   const grpSum=gates=>gates.reduce((a,g)=>{const s=gateStats[g]||{fc:0,pax:0};a.fc+=s.fc;a.pax+=s.pax;return a;},{fc:0,pax:0});
-  const ts=grpSum(['1','2','3','4','5','6','6A']), te=grpSum(['7','8','9','9A','10']), inter=grpSum(['11','12','11A','11B']);
   const gDom=depFlights.filter(f=>!isIntlFlight(f)), gInt=depFlights.filter(f=>isIntlFlight(f));
 
   const arrFlights=allFlights.filter(f=>f.type==='ARR'&&String(f.belt||'').trim()!=='');
@@ -2112,11 +2116,15 @@ function buildWaTagData() {
       const s=gateStats[g]||{fc:0,pax:0};
       return { gate:g, gate_flight:s.fc, gate_pax:s.pax.toLocaleString('id-ID') };
     }),
-    GATE_GROUP_BLOCK: [
-      { group:'TS (Gate 1-6, 6A)', group_flight:ts.fc, group_pax:ts.pax.toLocaleString('id-ID'), 'group_%':pct(ts.fc,depFlights.length) },
-      { group:'TE (Gate 7-10, 9A)', group_flight:te.fc, group_pax:te.pax.toLocaleString('id-ID'), 'group_%':pct(te.fc,depFlights.length) },
-      { group:'INTER (Gate 11, 12, 11A, 11B)', group_flight:inter.fc, group_pax:inter.pax.toLocaleString('id-ID'), 'group_%':pct(inter.fc,depFlights.length) }
-    ],
+    GATE_GROUP_BLOCK: termGroups.map(function(tg) {
+      const sum = grpSum(tg.gates);
+      return {
+        group: tg.name,
+        group_flight: sum.fc,
+        group_pax: sum.pax.toLocaleString('id-ID'),
+        'group_%': pct(sum.fc, depFlights.length)
+      };
+    }),
     BELT_BLOCK: DEFAULT_BELTS.map(function(b) {
       const s=beltStats[b]||{fc:0};
       return { belt:b, belt_flight:s.fc };
