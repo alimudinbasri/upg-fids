@@ -404,9 +404,10 @@ GET <span class="cm">{gasUrl}</span>?action=departure&amp;date=YYYY-MM-DD
           <tr><td><code class="inline">admins/{emailKey}</code></td><td>Daftar admin dinamis (selain 3 admin hardcoded)</td><td>Admin utama (hardcoded), via admin.html</td></tr>
           <tr><td><code class="inline">admin_uids/{uid}</code></td><td>Cache bookkeeping uid↔admin, <b>bukan</b> sumber kebenaran isAdmin()</td><td>admin.html saat login</td></tr>
           <tr><td><code class="inline">blocked_users/{emailKey}</code></td><td>Daftar user yang diblokir</td><td>Admin</td></tr>
+          <tr><td><code class="inline">allowed_users/{emailKey}</code></td><td>Allowlist akun di luar domain <code class="inline">@injourneyairports.id</code> (mis. gmail staf)</td><td>Admin, via tab Allowed di admin.html</td></tr>
           <tr><td><code class="inline">activity_logs/{id}</code></td><td>Log kunjungan setiap halaman (uid, email, page, timestamp, device, dst)</td><td>Semua user login (self-attributed)</td></tr>
           <tr><td><code class="inline">user_logs/{emailKey}</code></td><td>Satu record per email — data login terakhir</td><td>User yang bersangkutan</td></tr>
-          <tr><td><code class="inline">presence/{uid}</code></td><td>Status online (heartbeat 60 detik) untuk hitung "online count"</td><td>User yang bersangkutan</td></tr>
+          <tr><td><code class="inline">presence/{uid}</code></td><td>Status online (heartbeat 5 menit, dilewati saat tab tersembunyi); hanya admin yang membaca</td><td>User yang bersangkutan</td></tr>
           <tr><td><code class="inline">wa_settings/{pageId}</code></td><td>Template teks laporan WhatsApp per halaman</td><td>Admin</td></tr>
           <tr><td><code class="inline">site_config/maintenance</code></td><td>Toggle mode maintenance global + pesan custom</td><td>Admin</td></tr>
         </tbody>
@@ -416,24 +417,34 @@ GET <span class="cm">{gasUrl}</span>?action=departure&amp;date=YYYY-MM-DD
 
   <section class="doc-section" id="rules">
     <h2>8. Aturan Keamanan (Firestore Rules)</h2>
-    <p>Ringkasan <code class="inline">firestore.rules</code> (per koleksi, lihat file aslinya untuk detail lengkap):</p>
+    <p>Ringkasan <code class="inline">firestore.rules</code> (per koleksi, lihat file aslinya untuk detail lengkap).
+      Diuji otomatis di emulator: <code class="inline">tests/rules</code> (<code class="inline">npm test</code>) — jalankan sebelum setiap deploy rules.</p>
     <ul>
-      <li><code class="inline">isHardcodedAdmin()</code> — true kalau email login ada di 3 alamat admin tetap (harus sinkron manual dengan <code class="inline">APP_CONFIG.adminEmails</code>)</li>
+      <li><code class="inline">isAllowed()</code> — <b>siapa yang boleh memakai aplikasi</b> (audit 24 Sep 2026, sebelumnya: semua akun Google):
+        email terverifikasi <b>DAN</b> tidak ada di <code class="inline">blocked_users</code> <b>DAN</b>
+        (domain <code class="inline">@injourneyairports.id</code> ATAU ada di <code class="inline">allowed_users</code> ATAU admin).
+        Blokir kini ditegakkan di server, bukan hanya di browser. Biaya: 1 read tambahan per request (cek blokir).</li>
+      <li><code class="inline">isHardcodedAdmin()</code> — true kalau email login <b>terverifikasi</b> dan ada di 3 alamat admin tetap (harus sinkron manual dengan <code class="inline">APP_CONFIG.adminEmails</code>)</li>
       <li><code class="inline">isAdmin()</code> — hardcoded admin ATAU punya dokumen di <code class="inline">/admins</code> (sumber kebenaran; <b>bukan</b> <code class="inline">/admin_uids</code>, karena itu bisa ditulis sendiri oleh user manapun dan tidak boleh dipakai untuk cek admin — celah eskalasi privilege yang sudah diantisipasi)</li>
-      <li><code class="inline">activity_logs</code> — siapapun boleh create (harus self-attributed uid/email), hanya admin boleh baca semua/hapus</li>
-      <li><code class="inline">presence</code> — user hanya boleh tulis/hapus data dirinya sendiri, admin boleh hapus siapapun</li>
-      <li><code class="inline">blocked_users</code> — user login boleh cek statusnya sendiri, hanya admin boleh list semua/tulis</li>
-      <li><code class="inline">admins</code> — semua user login boleh baca, hanya hardcoded admin boleh tulis</li>
-      <li><code class="inline">wa_settings</code> — semua user login boleh baca, hanya admin boleh tulis</li>
-      <li><code class="inline">flights_cache</code> — semua user login boleh baca, <b>hanya</b> akun <code class="inline">gas-sync@upg-fids.internal</code> boleh tulis</li>
+      <li><code class="inline">activity_logs</code> — create oleh user <code class="inline">isAllowed()</code>, self-attributed, <code class="inline">timestamp</code> wajib server time, field &amp; panjang divalidasi; hanya admin boleh baca/hapus</li>
+      <li><code class="inline">presence</code>, <code class="inline">user_logs</code> — user hanya menulis dokumennya sendiri, daftar field &amp; panjang string divalidasi (isinya dirender di admin.html); <b>hanya admin yang boleh membaca</b> (berisi email, IP, lokasi)</li>
+      <li><code class="inline">blocked_users</code>, <code class="inline">allowed_users</code>, <code class="inline">admins</code> — user hanya boleh membaca dokumen miliknya sendiri; list hanya admin; tulis: admin (admins: hanya hardcoded admin)</li>
+      <li><code class="inline">wa_settings</code> — <code class="inline">isAllowed()</code> boleh baca, hanya admin boleh tulis</li>
+      <li><code class="inline">flights_cache</code>, <code class="inline">sync_status</code> — <code class="inline">isAllowed()</code> boleh baca, <b>hanya</b> akun <code class="inline">gas-sync@upg-fids.internal</code> boleh tulis</li>
       <li><code class="inline">site_config</code> — baca publik (perlu dicek sebelum user login, untuk redirect maintenance), tulis hanya admin</li>
     </ul>
   </section>
 
   <section class="doc-section" id="auth">
     <h2>9. Model Otentikasi &amp; Admin</h2>
-    <p>Login pakai <b>Firebase Auth dengan Google Sign-In</b> (tidak ada email/password untuk user biasa). Ada dua
-      jenis admin:</p>
+    <p>Login pakai <b>Firebase Auth dengan Google Sign-In</b> (tidak ada email/password untuk user biasa).
+      Akses ditentukan <code class="inline">isAllowed()</code> di rules (lihat §8), dicerminkan di
+      <code class="inline">js/auth-guard.js</code> hanya untuk UX: akun yang tidak diizinkan di-sign-out dan diarahkan ke
+      <code class="inline">login.html?error=unauthorized</code>; akun terblokir ke <code class="inline">blocked.html</code>.
+      Domain yang otomatis diizinkan ada di <code class="inline">APP_CONFIG.allowedDomains</code> (cermin
+      <code class="inline">inAllowedDomain()</code> di rules). Akun lain didaftarkan admin di tab <b>Allowed</b> admin.html
+      (tersedia tombol "Ambil kandidat dari riwayat login" — tidak ada yang tercentang otomatis, karena sebelum allowlist
+      ada, akun Google mana pun bisa login). Jumlah user online kini hanya tampil untuk admin. Ada dua jenis admin:</p>
     <ul>
       <li><b>Admin hardcoded (utama)</b> — 3 alamat email tetap di <code class="inline">APP_CONFIG.adminEmails</code>
         (dan cermin di <code class="inline">firestore.rules</code>). Hanya mereka yang boleh menambah/menghapus admin dinamis.</li>
@@ -448,6 +459,12 @@ GET <span class="cm">{gasUrl}</span>?action=departure&amp;date=YYYY-MM-DD
     <p>Ada satu akun Firebase Auth khusus non-manusia: <code class="inline">gas-sync@upg-fids.internal</code>
       (email+password, kredensial tersimpan di Script Properties Apps Script) — satu-satunya identitas yang diizinkan
       menulis ke <code class="inline">flights_cache</code>.</p>
+    <p><b>Akses ke web app GAS:</b> semua halaman memanggil GAS lewat <code class="inline">GasAuth.url()</code>
+      (auth-guard.js), yang menambahkan Firebase ID token sebagai <code class="inline">?idToken=</code>.
+      <code class="inline">apps-script/doGet_auth.gs</code> berisi pemeriksaan untuk <code class="inline">doGet()</code>:
+      GAS membaca <code class="inline">sync_status/heartbeat</code> <i>dengan token pemanggil</i>, jadi rules
+      <code class="inline">isAllowed()</code> menjadi satu-satunya definisi akses untuk aplikasi maupun GAS.
+      Pemeriksaan ini harus dipasang manual di proyek Apps Script (source GAS di luar repo).</p>
   </section>
 
   <section class="doc-section" id="gas">
