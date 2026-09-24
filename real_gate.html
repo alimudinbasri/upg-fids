@@ -847,7 +847,8 @@ function loadData() {
     timedOut = true;
     onLoadError(new Error('Request timeout. Cek koneksi internet.'));
   }, 20000);
-  fetch(GAS_URL + '?action=departure&date=' + encodeURIComponent(tanggal), { cache: 'no-store' })
+  GasAuth.url('departure', tanggal)   // adds the ID token doGet() requires
+    .then(function(url) { return fetch(url, { cache: 'no-store' }); })
     .then(function(res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
     .then(function(data) {
       clearTimeout(timeout);

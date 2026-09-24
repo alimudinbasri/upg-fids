@@ -1174,7 +1174,8 @@ async function fetchViaGas(kind, date) {
   // param is present (confirmed against the live endpoint), but responds in
   // well under a second to a bare request and sends
   // Access-Control-Allow-Origin: *, so a normal cross-origin fetch works fine.
-  const url = CFG.gasUrl + "?" + new URLSearchParams({action: kind==="arrival"?"arrival":"departure", date, _ts: Date.now()});
+  // GasAuth (js/auth-guard.js) adds the ID token doGet() requires.
+  const url = await GasAuth.url(kind==="arrival"?"arrival":"departure", date);
   const r = await fetch(url, {cache:"no-store"});
   if (!r.ok) throw new Error("HTTP "+r.status);
   const res = await r.json();

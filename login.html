@@ -93,9 +93,14 @@
     auth.onAuthStateChanged(function(user) {
       if (user) {
         // Already logged in — redirect without ever showing login page
+        // ?next= only ever names one of this app's own pages, by bare filename.
+        // Passing it straight to location.replace() let a crafted link send a
+        // signed-in user to another site — or run a javascript: URL on this
+        // origin, with their session.
         const base = location.pathname.replace(/\/[^/]*$/, '/');
-        const dest = new URLSearchParams(location.search).get("next") || base + "index.html";
-        location.replace(dest);
+        const next = new URLSearchParams(location.search).get("next") || "";
+        const dest = /^[a-z0-9_-]+\.html$/i.test(next) && next !== "login.html" ? next : "index.html";
+        location.replace(base + dest);
         return;
       }
       // Not logged in — reveal the login card

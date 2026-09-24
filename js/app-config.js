@@ -17,6 +17,17 @@ const APP_CONFIG = {
     "upg.pl@injourneyairports.id"
   ],
 
+  // Anyone with a verified address on these domains may use the app; other
+  // accounts need an allowed_users/{emailKey} doc (managed in admin.html).
+  // Mirrors inAllowedDomain() in firestore.rules — keep both in sync.
+  allowedDomains: ["injourneyairports.id"],
+
+  // Presence: how often an open tab refreshes its lastSeen, and how recent
+  // lastSeen must be to count as online (a bit over two beats, so one
+  // missed write doesn't flicker a user offline).
+  presenceHeartbeatMs: 5 * 60 * 1000,
+  onlineWindowMs:      11 * 60 * 1000,
+
   defaultGates: ['1','2','3','4','5','6','6A','7','8','9','9A','10','11','11A','11B','12'],
   gateMeta: {
     '1':   {seat:64,  max:107, status:'DOM'},

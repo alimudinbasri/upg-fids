@@ -45,10 +45,13 @@ var FlightData = (function () {
   // Named jsonp() for historical reasons only — it has used a plain
   // fetch() since the JSONP outage (74e6e4e). The GAS endpoint hangs
   // when a `callback` parameter is present, so never add one.
+  // GasAuth (js/auth-guard.js) adds the caller's ID token, which doGet()
+  // requires. gasUrl is kept for the signature; the URL comes from GasAuth.
   function gasFetch(gasUrl, action, date) {
     return new Promise(function (resolve, reject) {
       var tid = setTimeout(function () { reject(new Error('Timeout: ' + action + ' ' + date)); }, 20000);
-      fetch(gasUrl + '?action=' + action + '&date=' + encodeURIComponent(date), { cache: 'no-store' })
+      GasAuth.url(action, date)
+        .then(function (url) { return fetch(url, { cache: 'no-store' }); })
         .then(function (res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
         .then(function (data) { clearTimeout(tid); resolve(data); })
         .catch(function (err) { clearTimeout(tid); reject(new Error('Fetch error: ' + action + ' ' + date + ' - ' + err.message)); });

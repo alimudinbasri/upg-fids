@@ -725,7 +725,8 @@ const hasOpData = f => !!(f.estimate||f.actual||f.pax||f.remark&&f.remark!=='Sch
 function jsonp(action, date) {
   return new Promise(function(resolve, reject) {
     const tid = setTimeout(function() { reject(new Error('Timeout: ' + action)); }, 20000);
-    fetch(GAS_URL + '?action=' + action + '&date=' + encodeURIComponent(date), { cache: 'no-store' })
+    GasAuth.url(action, date)   // adds the ID token doGet() requires
+      .then(function(url) { return fetch(url, { cache: 'no-store' }); })
       .then(function(res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
       .then(function(data) { clearTimeout(tid); resolve(data); })
       .catch(function(err) { clearTimeout(tid); reject(new Error('Fetch error: ' + action + ' - ' + err.message)); });

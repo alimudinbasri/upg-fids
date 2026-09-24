@@ -2,12 +2,16 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isHardcodedAdmin() {
-      return request.auth != null && request.auth.token.email in [
-        'alimudinbasri@gmail.com',
-        'alimudin.basri@injourneyairports.id',
-        'upg.pl@injourneyairports.id'
-      ];
+    // ── Identity ────────────────────────────────────────────────────────────
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Google sign-in always yields a verified address. Requiring it closes the
+    // path where someone self-registers an email/password account under an
+    // address they don't own — e.g. an admin's address that has never signed in.
+    function verified() {
+      return signedIn() && request.auth.token.email_verified == true;
     }
 
     // Mirrors emailToKey() in js/auth-guard.js and admin.html
@@ -15,74 +19,163 @@ service cloud.firestore {
       return email.lower().replace('\\.', '_').replace('@', '__');
     }
 
-    // Dynamic admin: email has a doc in /admins (only isHardcodedAdmin() can write there)
-    function isDynamicAdminByEmail() {
-      return request.auth != null &&
-        exists(/databases/$(database)/documents/admins/$(emailToKey(request.auth.token.email)));
+    function myKey() {
+      return emailToKey(request.auth.token.email);
     }
 
-    // isAdmin: hardcoded admin OR dynamic admin, verified against /admins (source of truth).
-    // Does NOT trust /admin_uids directly — that collection is self-writable by uid owners,
-    // so using its mere existence as the admin check would let any logged-in user grant
-    // themselves admin by writing their own admin_uids/{uid} doc from the browser console.
+    function isHardcodedAdmin() {
+      return verified() && request.auth.token.email.lower() in [
+        'alimudinbasri@gmail.com',
+        'alimudin.basri@injourneyairports.id',
+        'upg.pl@injourneyairports.id'
+      ];
+    }
+
+    // Dynamic admin: has a doc in /admins (only isHardcodedAdmin() can write there).
+    // Does NOT trust /admin_uids — see the note on that collection.
+    function isDynamicAdmin() {
+      return verified() &&
+        exists(/databases/$(database)/documents/admins/$(myKey()));
+    }
+
     function isAdmin() {
-      return isHardcodedAdmin() || isDynamicAdminByEmail();
+      return isHardcodedAdmin() || isDynamicAdmin();
     }
 
-    // Activity logs — create must be self-attributed (uid/email match the caller),
-    // so a user can't forge a log entry claiming to be someone else
+    // Mirrors APP_CONFIG.allowedDomains in js/app-config.js
+    function inAllowedDomain() {
+      return request.auth.token.email.lower().matches('.*@injourneyairports[.]id');
+    }
+
+    // May use the app at all. Blocking is enforced HERE, not only in the
+    // browser, so a blocked account gets nothing even through the raw SDK.
+    // Cost: the blocked check is one billed read per request; the domain test
+    // is free, and the allowlist/admin lookups only run for other domains.
+    function isAllowed() {
+      return verified() &&
+        !exists(/databases/$(database)/documents/blocked_users/$(myKey())) &&
+        (inAllowedDomain() ||
+         exists(/databases/$(database)/documents/allowed_users/$(myKey())) ||
+         isAdmin());
+    }
+
+    function isSyncAccount() {
+      return signedIn() && request.auth.token.email == 'gas-sync@upg-fids.internal';
+    }
+
+    // ── Field validation ────────────────────────────────────────────────────
+    // Optional string no longer than n. Everything users write about
+    // themselves is later rendered on admin.html, so shape and size are
+    // checked here as well as escaped there.
+    function optStr(d, k, n) {
+      return !(k in d) || (d[k] is string && d[k].size() <= n);
+    }
+
+    function isSelf(d) {
+      return d.uid == request.auth.uid &&
+        (!('email' in d) || d.email == request.auth.token.email);
+    }
+
+    // ── Collections ─────────────────────────────────────────────────────────
+
+    // Activity logs — self-attributed, server-timestamped, append-only
     match /activity_logs/{logId} {
-      allow create: if request.auth != null &&
+      allow create: if isAllowed() &&
+        request.resource.data.keys().hasOnly(['uid', 'email', 'name', 'page', 'timestamp',
+          'expireAt', 'userAgent', 'timezone', 'referrer', 'platform']) &&
         request.resource.data.uid == request.auth.uid &&
-        request.resource.data.email == request.auth.token.email;
+        request.resource.data.email == request.auth.token.email &&
+        request.resource.data.timestamp == request.time &&
+        optStr(request.resource.data, 'name', 200) &&
+        optStr(request.resource.data, 'page', 100) &&
+        optStr(request.resource.data, 'userAgent', 512) &&
+        optStr(request.resource.data, 'timezone', 100) &&
+        optStr(request.resource.data, 'referrer', 512) &&
+        optStr(request.resource.data, 'platform', 100);
       allow read, delete: if isAdmin();
       allow update: if false;
     }
 
-    // Presence — user boleh tulis/hapus miliknya sendiri; admin boleh hapus siapapun
+    // Presence — a user writes only their own doc; only admins read (it holds
+    // email, IP and device). Heartbeats merge into the doc, so the checks run
+    // against the merged result.
     match /presence/{uid} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == uid;
-      allow delete: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      allow read: if isAdmin();
+      allow create, update: if isAllowed() && request.auth.uid == uid &&
+        request.resource.data.keys().hasOnly(['uid', 'email', 'name', 'page', 'lastSeen',
+          'lastSeenMs', 'userAgent', 'browser', 'device', 'ip', 'location', 'loginAt', 'isAdmin']) &&
+        isSelf(request.resource.data) &&
+        (!('lastSeenMs' in request.resource.data) || request.resource.data.lastSeenMs is int) &&
+        (!('isAdmin' in request.resource.data) || request.resource.data.isAdmin is bool) &&
+        optStr(request.resource.data, 'name', 200) &&
+        optStr(request.resource.data, 'page', 100) &&
+        optStr(request.resource.data, 'userAgent', 512) &&
+        optStr(request.resource.data, 'browser', 50) &&
+        optStr(request.resource.data, 'device', 50) &&
+        optStr(request.resource.data, 'ip', 64) &&
+        optStr(request.resource.data, 'location', 200);
+      allow delete: if signedIn() && (request.auth.uid == uid || isAdmin());
     }
 
-    // Blocked users — semua user login boleh cek status blokir dirinya;
-    // hanya admin yang boleh list semua dan boleh tulis/hapus
+    // User login records — one per email, written by its owner, read by admins
+    match /user_logs/{emailKey} {
+      allow read: if isAdmin();
+      allow create, update: if isAllowed() && emailKey == myKey() &&
+        request.resource.data.keys().hasOnly(['uid', 'email', 'name', 'device', 'browser',
+          'ip', 'location', 'loginAt']) &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.email == request.auth.token.email &&
+        optStr(request.resource.data, 'name', 200) &&
+        optStr(request.resource.data, 'device', 50) &&
+        optStr(request.resource.data, 'browser', 50) &&
+        optStr(request.resource.data, 'ip', 64) &&
+        optStr(request.resource.data, 'location', 200);
+    }
+
+    // Blocked users — a user may check their own status; admins manage the list
     match /blocked_users/{emailKey} {
-      allow get:         if request.auth != null;
-      allow list, write: if isAdmin();
+      allow get:    if signedIn() && (emailKey == myKey() || isAdmin());
+      allow list:   if isAdmin();
+      allow create, update: if isAdmin() &&
+        request.resource.data.keys().hasOnly(['email', 'blockedAt', 'blockedBy']) &&
+        request.resource.data.email is string &&
+        emailToKey(request.resource.data.email) == emailKey;
+      allow delete: if isAdmin();
     }
 
-    // Admins collection
+    // Allowlist for accounts outside the allowed domain (e.g. gmail.com staff)
+    match /allowed_users/{emailKey} {
+      allow get:    if signedIn() && (emailKey == myKey() || isAdmin());
+      allow list:   if isAdmin();
+      allow create, update: if isAdmin() &&
+        request.resource.data.keys().hasOnly(['email', 'addedAt', 'addedBy']) &&
+        request.resource.data.email is string &&
+        emailToKey(request.resource.data.email) == emailKey &&
+        request.resource.data.addedAt == request.time &&
+        request.resource.data.addedBy == request.auth.token.email;
+      allow delete: if isAdmin();
+    }
+
+    // Admins — a user may check their own doc (auth-guard does); admins list
     match /admins/{emailKey} {
-      allow read:  if request.auth != null;
+      allow get:   if signedIn() && (emailKey == myKey() || isAdmin());
+      allow list:  if isAdmin();
       allow write: if isHardcodedAdmin();
     }
 
-    // Admin UIDs — bookkeeping cache written by admin.html on login; NOT used by isAdmin()
-    // (see note above). Self-write only allowed once the caller is already a verified
-    // admin via /admins, so this can no longer be used to self-escalate.
+    // Admin UIDs — bookkeeping cache written by admin.html on login; NOT used by
+    // isAdmin(). Self-write only once the caller is already a verified admin
+    // via /admins, so it cannot be used to self-escalate.
     match /admin_uids/{uid} {
-      allow read: if request.auth != null;
-      allow write: if isHardcodedAdmin() ||
-        (request.auth != null && request.auth.uid == uid && isDynamicAdminByEmail());
+      allow read:   if isAdmin();
+      allow write:  if isHardcodedAdmin() ||
+        (request.auth != null && request.auth.uid == uid && isDynamicAdmin());
       allow delete: if isHardcodedAdmin();
     }
 
-    // User login records — a user may only write their own record
-    // (doc id must be their own emailKey, and uid must match)
-    match /user_logs/{emailKey} {
-      allow write: if request.auth != null &&
-        emailKey == emailToKey(request.auth.token.email) &&
-        request.resource.data.uid == request.auth.uid;
-      allow list, get: if request.auth != null;
-    }
-
-    // WA Report settings (opening/closing text per page) — shared config,
-    // read by any logged-in user (needed to generate the WA report), but
-    // only admins may edit it since it's shared across all users of a page.
+    // WA Report settings — shared per page; everyone allowed reads, admins edit
     match /wa_settings/{pageId} {
-      allow read:  if request.auth != null;
+      allow read:  if isAllowed();
       allow write: if isAdmin();
     }
 
@@ -90,30 +183,28 @@ service cloud.firestore {
     // signed in as a dedicated sync account. Only that account may write, so a
     // compromised/regular user session can never inject false flight data here.
     match /flights_cache/{date} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null &&
-        request.auth.token.email == 'gas-sync@upg-fids.internal';
+      allow read:  if isAllowed();
+      allow write: if isSyncAccount();
     }
 
     // Sync heartbeat, written by the same Apps Script account on every run.
     // Deliberately a separate, tiny document rather than a field on
     // flights_cache: the data documents are ~55KB each, and any write to one
     // pushes the whole thing to every client holding an onSnapshot listener.
-    // Keeping the "is the sync alive?" signal here means a heartbeat costs
-    // nothing, which in turn lets the sync skip rewriting unchanged flight data.
     //   sync_status/heartbeat.lastRun   -> is the sync still running
     //   flights_cache/{date}.updatedAt  -> when the data last actually changed
+    // Apps Script doGet() also reads this doc WITH THE CALLER'S TOKEN as its
+    // access check, so isAllowed() here is the single definition for both.
     match /sync_status/{doc} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null &&
-        request.auth.token.email == 'gas-sync@upg-fids.internal';
+      allow read:  if isAllowed();
+      allow write: if isSyncAccount();
     }
 
     // Site-wide maintenance mode toggle. Public read (auth-guard.js must be able
     // to check this before a user is even logged in, so it can redirect straight
     // to maintenance.html); only admins can flip it.
     match /site_config/{doc} {
-      allow read: if true;
+      allow read:  if true;
       allow write: if isAdmin();
     }
   }

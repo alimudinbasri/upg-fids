@@ -600,7 +600,14 @@ firebase deploy --only hosting --project upg-fids</div>
   // not js/auth-guard.js, which only hides nav links rather than blocking
   // direct URL access for non-admins. ──
   auth.onAuthStateChanged(function(user) {
-    if (!user) { location.replace(BASE + "login.html"); return; }
+    if (!user) { if (!window._rejecting) location.replace(BASE + "login.html"); return; }
+    // Same rule as isAdmin() in firestore.rules: an unverified address (a
+    // self-registered email/password account) is never treated as admin.
+    if (!user.emailVerified) {
+      window._rejecting = true;   // the signOut below re-enters with user=null
+      auth.signOut().finally(function() { location.replace(BASE + "login.html?error=unauthorized"); });
+      return;
+    }
 
     function proceedAsAdmin() {
       document.getElementById("gate").style.display = "none";

@@ -4,6 +4,8 @@
     "ignore": [
       "firebase.json",
       "firestore.rules",
+      "apps-script/**",
+      "tests/**",
       "**/.*",
       ".git/**",
       "**/node_modules/**"

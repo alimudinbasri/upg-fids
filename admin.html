@@ -268,6 +268,7 @@
   <div class="mgmt-tab-bar">
     <button class="mgmt-tab-btn active" data-tab="activity">📋 Activity Log <span class="tab-count" id="tab-count-activity"></span></button>
     <button class="mgmt-tab-btn" data-tab="admin">🛡 Admin <span class="tab-count" id="tab-count-admin"></span></button>
+    <button class="mgmt-tab-btn" data-tab="allowed">✅ Allowed <span class="tab-count" id="tab-count-allowed"></span></button>
     <button class="mgmt-tab-btn" data-tab="block">🚫 Block <span class="tab-count" id="tab-count-block"></span></button>
     <button class="mgmt-tab-btn" data-tab="maintenance">🛠 Maintenance</button>
   </div>
@@ -286,6 +287,25 @@
       <button class="btn btn-primary" id="btn-add-admin">+ Add Admin</button>
     </div>
     <div class="mgmt-list" id="admin-list">
+      <span class="mgmt-empty">Loading…</span>
+    </div>
+  </div>
+
+  <!-- Panel: Allowed -->
+  <div class="mgmt-tab-panel" id="tab-panel-allowed">
+    <div class="maint-row-sub" style="margin-bottom:10px;">
+      Akun <b id="allowed-domain-label"></b> otomatis punya akses. Akun lain (mis. gmail.com) hanya bisa masuk
+      jika terdaftar di sini. Admin selalu punya akses.
+    </div>
+    <div class="admin-add-row">
+      <input type="email" class="admin-email-input" id="allowed-email-input" placeholder="Tambah email yang diizinkan…" autocomplete="off" />
+      <button class="btn btn-primary" id="btn-add-allowed">+ Allow</button>
+    </div>
+    <div class="admin-add-row">
+      <button class="btn" id="btn-import-allowed">⤵ Ambil kandidat dari riwayat login</button>
+    </div>
+    <div class="mgmt-list" id="allowed-import" style="display:none;margin-bottom:14px;"></div>
+    <div class="mgmt-list" id="allowed-list">
       <span class="mgmt-empty">Loading…</span>
     </div>
   </div>
@@ -358,7 +378,14 @@
   document.documentElement.style.visibility = "hidden";
 
   auth.onAuthStateChanged(function(user) {
-    if (!user) { location.replace(BASE + "login.html"); return; }
+    if (!user) { if (!window._rejecting) location.replace(BASE + "login.html"); return; }
+    // Same rule as isAdmin() in firestore.rules: an unverified address (a
+    // self-registered email/password account) is never treated as admin.
+    if (!user.emailVerified) {
+      window._rejecting = true;   // the signOut below re-enters with user=null
+      auth.signOut().finally(function() { location.replace(BASE + "login.html?error=unauthorized"); });
+      return;
+    }
 
     function proceedAsAdmin() {
       document.documentElement.style.visibility = "visible";
@@ -427,8 +454,9 @@
     }
     writePresenceFull();
     const heartbeat = setInterval(function() {
+      if (document.visibilityState === "hidden") return;
       presenceRef.set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp(), lastSeenMs: Date.now() }, { merge: true }).catch(function(){});
-    }, 60000);
+    }, APP_CONFIG.presenceHeartbeatMs);
     window.addEventListener("beforeunload", function() { clearInterval(heartbeat); });
 
     // Geo fetch (same caching logic as auth-guard.js)
@@ -527,6 +555,15 @@
          + " " + pad(d.getHours()) + "." + pad(d.getMinutes());
   }
 
+  // Every field shown on this page was written by the user it describes
+  // (name, device, location, …) or by another admin. Anything interpolated
+  // into innerHTML goes through esc() — an unescaped field here runs script
+  // in an admin's session.
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
 
   // ── BLOCK / UNBLOCK ──
   function blockEmail(email, cb) {
@@ -568,6 +605,7 @@
         document.getElementById("tab-panel-" + btn.dataset.tab).classList.add("active");
         if (btn.dataset.tab === "activity")    loadActivityLog();
         if (btn.dataset.tab === "admin")       loadAdminList();
+        if (btn.dataset.tab === "allowed")     loadAllowedList();
         if (btn.dataset.tab === "block")       loadBlockedList();
         if (btn.dataset.tab === "maintenance") loadMaintenanceConfig();
       });
@@ -589,7 +627,7 @@
 
       const rows = HARDCODED_ADMINS.map(function(email) {
         return '<div class="mgmt-row">'
-          + '<span class="mgmt-row-email">' + email + '</span>'
+          + '<span class="mgmt-row-email">' + esc(email) + '</span>'
           + '<span class="mgmt-row-badge primary">Primary</span>'
           + '</div>';
       });
@@ -598,9 +636,9 @@
         const email = d.email || "";
         if (HARDCODED_ADMINS.includes(email.toLowerCase())) return;
         rows.push('<div class="mgmt-row">'
-          + '<span class="mgmt-row-email">' + email + '</span>'
+          + '<span class="mgmt-row-email">' + esc(email) + '</span>'
           + '<span class="mgmt-row-badge">Admin</span>'
-          + (window.IS_PRIMARY_ADMIN ? '<button class="btn-del-admin" data-email="' + email + '">🗑 Remove</button>' : '')
+          + (window.IS_PRIMARY_ADMIN ? '<button class="btn-del-admin" data-email="' + esc(email) + '">🗑 Remove</button>' : '')
           + '</div>');
       });
 
@@ -613,7 +651,7 @@
         removeAdmin(email);
       };
     }).catch(function(err) {
-      listEl.innerHTML = '<span class="mgmt-empty" style="color:var(--red);">Failed to load admin list: ' + err.message + '</span>';
+      listEl.innerHTML = '<span class="mgmt-empty" style="color:var(--red);">Failed to load admin list: ' + esc(err.message) + '</span>';
     });
   }
 
@@ -647,6 +685,123 @@
       .catch(function(err) { showNotice("Failed to remove admin: " + err.message, "error"); });
   }
 
+  // ── ALLOWLIST (accounts outside APP_CONFIG.allowedDomains) ──
+  // Enforced by isAllowed() in firestore.rules; this is only the editor.
+  function inAllowedDomain(email) {
+    email = (email || "").toLowerCase();
+    return APP_CONFIG.allowedDomains.some(function(d) { return email.slice(-(d.length + 1)) === "@" + d; });
+  }
+
+  function loadAllowedList() {
+    const listEl = document.getElementById("allowed-list");
+    if (!listEl) return;
+    document.getElementById("allowed-domain-label").textContent =
+      APP_CONFIG.allowedDomains.map(function(d) { return "@" + d; }).join(", ");
+    db.collection("allowed_users").get().then(function(snap) {
+      const docs = snap.docs.map(function(d) { return d.data(); })
+        .sort(function(a, b) { return (a.email || "").localeCompare(b.email || ""); });
+      const el = document.getElementById("tab-count-allowed");
+      if (el) el.textContent = docs.length;
+      if (!docs.length) { listEl.innerHTML = '<span class="mgmt-empty">Belum ada email yang diizinkan.</span>'; return; }
+      listEl.innerHTML = docs.map(function(d) {
+        const meta = (d.addedBy ? "oleh " + d.addedBy : "") + (d.addedAt ? " · " + fmtTs(d.addedAt) : "");
+        return '<div class="mgmt-row">'
+          + '<span class="mgmt-row-email">' + esc(d.email)
+          +   (meta ? '<br><span class="blocked-meta">' + esc(meta) + '</span>' : '')
+          + '</span>'
+          + '<button class="btn-del-admin" data-email="' + esc(d.email) + '">🗑 Remove</button>'
+          + '</div>';
+      }).join("");
+      listEl.onclick = function(e) {
+        const btn = e.target.closest(".btn-del-admin");
+        if (!btn) return;
+        const email = btn.dataset.email;
+        if (!confirm("Cabut akses:\n" + email + "?")) return;
+        db.collection("allowed_users").doc(emailToKey(email)).delete()
+          .then(function() { showNotice("Akses dicabut: " + email, "success"); loadAllowedList(); })
+          .catch(function(err) { showNotice("Gagal mencabut akses: " + err.message, "error"); });
+      };
+    }).catch(function(err) {
+      listEl.innerHTML = '<span class="mgmt-empty" style="color:var(--red);">Failed to load: ' + esc(err.message) + '</span>';
+    });
+  }
+
+  function addAllowed(emails) {
+    emails = emails.map(function(e) { return e.trim().toLowerCase(); }).filter(Boolean);
+    const bad = emails.filter(function(e) { return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); });
+    if (!emails.length || bad.length) {
+      showNotice("Format email tidak valid" + (bad.length ? ": " + bad.join(", ") : "."), "error");
+      return Promise.resolve(false);
+    }
+    const batch = db.batch();
+    emails.forEach(function(email) {
+      batch.set(db.collection("allowed_users").doc(emailToKey(email)), {
+        email:   email,
+        addedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        addedBy: auth.currentUser.email
+      });
+    });
+    return batch.commit().then(function() {
+      showNotice("Diizinkan: " + emails.join(", "), "success");
+      loadAllowedList();
+      return true;
+    }).catch(function(err) { showNotice("Gagal menambah: " + err.message, "error"); return false; });
+  }
+
+  // Candidates = everyone who has signed in before (user_logs), minus the
+  // allowed domain, admins, blocked and already-allowed accounts. Before the
+  // allowlist existed ANY Google account could sign in, so this list can
+  // contain strangers: nothing is pre-ticked, each one is a deliberate choice.
+  function showAllowCandidates() {
+    const box = document.getElementById("allowed-import");
+    box.style.display = "";
+    box.innerHTML = '<span class="mgmt-empty">Loading…</span>';
+    Promise.all([
+      db.collection("user_logs").get(),
+      db.collection("allowed_users").get(),
+      db.collection("blocked_users").get(),
+      db.collection("admins").get()
+    ]).then(function(r) {
+      const skip = new Set(HARDCODED_ADMINS);
+      [r[1], r[2], r[3]].forEach(function(snap) {
+        snap.docs.forEach(function(d) { skip.add((d.data().email || "").toLowerCase()); });
+      });
+      const cands = r[0].docs.map(function(d) { return d.data(); })
+        .filter(function(d) { const e = (d.email || "").toLowerCase(); return e && !inAllowedDomain(e) && !skip.has(e); })
+        .sort(function(a, b) { return (a.email || "").localeCompare(b.email || ""); });
+      if (!cands.length) {
+        box.innerHTML = '<span class="mgmt-empty">Tidak ada kandidat — semua akun di riwayat login sudah tercakup.</span>';
+        return;
+      }
+      box.innerHTML = '<div class="maint-row-sub">Centang akun staf yang boleh tetap masuk:</div>'
+        + cands.map(function(d) {
+            return '<label class="mgmt-row" style="cursor:pointer;">'
+              + '<input type="checkbox" class="allow-cand" value="' + esc(d.email.toLowerCase()) + '">'
+              + '<span class="mgmt-row-email">' + esc(d.name || "") + '<br><span class="blocked-meta">' + esc(d.email)
+              + (d.loginAt ? ' · login terakhir ' + esc(fmtTs(d.loginAt)) : '') + '</span></span>'
+              + '</label>';
+          }).join("")
+        + '<div class="admin-add-row" style="margin-top:8px;"><button class="btn btn-primary" id="btn-allow-selected">✓ Izinkan yang dicentang</button></div>';
+      document.getElementById("btn-allow-selected").onclick = function() {
+        const picked = Array.prototype.map.call(box.querySelectorAll(".allow-cand:checked"), function(c) { return c.value; });
+        if (!picked.length) { showNotice("Belum ada yang dicentang.", "info"); return; }
+        if (!confirm("Izinkan " + picked.length + " akun?\n\n" + picked.join("\n"))) return;
+        addAllowed(picked).then(function(ok) { if (ok) box.style.display = "none"; });
+      };
+    }).catch(function(err) {
+      box.innerHTML = '<span class="mgmt-empty" style="color:var(--red);">Failed to load: ' + esc(err.message) + '</span>';
+    });
+  }
+
+  document.getElementById("btn-add-allowed").addEventListener("click", function() {
+    const input = document.getElementById("allowed-email-input");
+    addAllowed([input.value]).then(function(ok) { if (ok) input.value = ""; });
+  });
+  document.getElementById("allowed-email-input").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") document.getElementById("btn-add-allowed").click();
+  });
+  document.getElementById("btn-import-allowed").addEventListener("click", showAllowCandidates);
+
   // Prevent bfcache loop
   window.addEventListener('pageshow', function(event) {
     if (event.persisted) { window.location.reload(); }
@@ -659,13 +814,20 @@
     if (e.key === "Enter") addAdmin(this.value);
   });
 
+  // Only the docs seen inside the online window. presence keeps one doc per
+  // user who ever signed in, so reading the whole collection cost a read per
+  // past user on every refresh.
+  function recentPresence(cutoff) {
+    return db.collection("presence").where("lastSeenMs", ">=", cutoff).get();
+  }
+
   // ── TAB COUNTS ──
   function refreshTabCounts() {
     // Activity Log: online / total (merged from user_logs + presence)
-    var cutoff = Date.now() - 5 * 60 * 1000;
+    var cutoff = Date.now() - APP_CONFIG.onlineWindowMs;
     Promise.all([
       db.collection("user_logs").get(),
-      db.collection("presence").get()
+      recentPresence(cutoff)
     ]).then(function(res) {
       var logEmails = new Set();
       res[0].docs.forEach(function(d) {
@@ -703,6 +865,13 @@
         if (el) el.textContent = HARDCODED_ADMINS.length + dynamic;
       }).catch(function(){});
 
+    // Allowed count
+    db.collection("allowed_users").get()
+      .then(function(snap) {
+        var el = document.getElementById("tab-count-allowed");
+        if (el) el.textContent = snap.size;
+      }).catch(function(){});
+
     // Block count
     db.collection("blocked_users").get()
       .then(function(snap) {
@@ -717,11 +886,11 @@
     if (!listEl) return;
     listEl.innerHTML = '<span class="online-empty">Loading…</span>';
 
-    const cutoff = Date.now() - 5 * 60 * 1000;
+    const cutoff = Date.now() - APP_CONFIG.onlineWindowMs;
 
     Promise.all([
       db.collection("user_logs").get(),
-      db.collection("presence").get(),
+      recentPresence(cutoff),
       db.collection("blocked_users").get()
     ]).then(function(results) {
       const logsSnap     = results[0];
@@ -803,15 +972,15 @@
               ? '<span style="color:var(--text3);font-size:10px">admin</span>'
               : isBlocked
                 ? '<span style="color:var(--red);font-size:10px;font-weight:700;">🚫 Blocked</span>'
-                : '<button class="btn-block" data-email="' + email + '">🚫 Block</button>';
+                : '<button class="btn-block" data-email="' + esc(email) + '">🚫 Block</button>';
             return '<tr>'
-              + '<td><span class="td-name">' + (d.name || "—") + '</span><br><span class="td-email">' + (d.email || "—") + '</span></td>'
+              + '<td><span class="td-name">' + esc(d.name || "—") + '</span><br><span class="td-email">' + esc(d.email || "—") + '</span></td>'
               + '<td style="text-align:center">' + onlineDot + '</td>'
-              + '<td class="td-since">'   + fmtTs(d.loginAt)    + '</td>'
-              + '<td class="td-device">'  + (d.device   || "—") + '</td>'
-              + '<td class="td-browser">' + (d.browser  || "—") + '</td>'
-              + '<td class="td-loc">'     + (d.location || "—") + '</td>'
-              + '<td class="td-ip">'      + (d.ip       || "—") + '</td>'
+              + '<td class="td-since">'   + esc(fmtTs(d.loginAt)) + '</td>'
+              + '<td class="td-device">'  + esc(d.device   || "—") + '</td>'
+              + '<td class="td-browser">' + esc(d.browser  || "—") + '</td>'
+              + '<td class="td-loc">'     + esc(d.location || "—") + '</td>'
+              + '<td class="td-ip">'      + esc(d.ip       || "—") + '</td>'
               + '<td>'                    + actionBtn            + '</td>'
               + '</tr>';
           }).join('')
@@ -825,7 +994,7 @@
         blockEmail(email, function() { loadActivityLog(); });
       };
     }).catch(function(err) {
-      listEl.innerHTML = '<span class="online-empty" style="color:var(--red);">Failed to load: ' + err.message + '</span>';
+      listEl.innerHTML = '<span class="online-empty" style="color:var(--red);">Failed to load: ' + esc(err.message) + '</span>';
     });
   }
 
@@ -847,11 +1016,11 @@
         const byInfo = d.blockedBy ? ' · by ' + d.blockedBy : '';
         const tsInfo = d.blockedAt ? fmtTs(d.blockedAt) : '';
         return '<div class="mgmt-row">'
-          + '<span class="mgmt-row-email">' + email
-          +   (tsInfo ? '<br><span class="blocked-meta">' + tsInfo + byInfo + '</span>' : '')
+          + '<span class="mgmt-row-email">' + esc(email)
+          +   (tsInfo ? '<br><span class="blocked-meta">' + esc(tsInfo + byInfo) + '</span>' : '')
           + '</span>'
           + '<span class="mgmt-row-badge blocked">Blocked</span>'
-          + '<button class="btn-unblock-row" data-email="' + email + '">✓ Unblock</button>'
+          + '<button class="btn-unblock-row" data-email="' + esc(email) + '">✓ Unblock</button>'
           + '</div>';
       }).join('');
 
@@ -863,7 +1032,7 @@
         unblockEmail(email, function() { loadBlockedList(); });
       };
     }).catch(function(err) {
-      listEl.innerHTML = '<span class="mgmt-empty" style="color:var(--red);">Failed to load: ' + err.message + '</span>';
+      listEl.innerHTML = '<span class="mgmt-empty" style="color:var(--red);">Failed to load: ' + esc(err.message) + '</span>';
     });
   }
 
