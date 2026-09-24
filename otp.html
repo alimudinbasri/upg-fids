@@ -504,7 +504,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
     <div class="wa-modal-body">
       <div class="wa-tags-ref wa-admin-only" style="display:none">
         <b>Available Tags:</b><br>
-        {airport}, {day}, {date}, {filter}, {total_flight}, {ontime_flight}, {ontime_%}, {delay_flight}, {delay_%}, {cancel_flight}, {cancel_%}, {otp_%}<br>
+        {airport}, {day}, {date}, {filter}, {total_flight}, {operated_flight}, {noactual_flight}, {ontime_flight}, {ontime_%}, {delay_flight}, {delay_%}, {cancel_flight}, {cancel_%}, {otp_%}<br>
         Repeating block tags: {cat_no}, {cat_range}, {cat_flight} inside [[CATEGORY_BLOCK]]...[[/CATEGORY_BLOCK]]
       </div>
       <div class="wa-field wa-admin-only" style="display:none"><label>Template</label><textarea id="waTemplateText" rows="20"></textarea></div>
@@ -542,6 +542,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI',system
         <div class="leg-item"><div class="leg-dot" style="background:#00e676"></div><span id="legOt">On Time (0)</span></div>
         <div class="leg-item"><div class="leg-dot" style="background:var(--amber)"></div><span id="legDl">Delay (0)</span></div>
         <div class="leg-item"><div class="leg-dot" style="background:var(--red)"></div><span id="legCn">Cancel (0)</span></div>
+        <div class="leg-item" title="Belum ada jam aktual (ATA/ATD) — belum terbang, atau data belum masuk. Tidak dihitung dalam OTP."><div class="leg-dot" style="background:var(--border)"></div><span id="legNa">No Actual (0)</span></div>
       </div>
     </div>
   </section>
@@ -646,16 +647,33 @@ function isCancelled(remark) {
   return /cancel|batal/i.test(String(remark||''));
 }
 
+// The feed sends full "YYYY-MM-DD HH:MM:SS" stamps. Subtracting only the
+// HH:MM parts made a 23:40 -> 00:25 departure 1395 minutes EARLY, i.e. on
+// time. Full stamps are used when both are present; bare times (older
+// cached rows) take the shorter way round midnight.
+function stampMin(raw) {
+  const m = String(raw || '').match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{1,2}):(\d{2})/);
+  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) / 60000 : null;
+}
 function calcDelayMin(f) {
   if (!f.actual || !f.schedule) return null;
-  const d = toMin(f.actual) - toMin(f.schedule);
-  return isNaN(d) ? null : d;
+  const s = stampMin(f.schedRaw), a = stampMin(f.actRaw);
+  if (s !== null && a !== null) return a - s;
+  let d = toMin(f.actual) - toMin(f.schedule);
+  if (isNaN(d)) return null;
+  if (d < -720) d += 1440;
+  else if (d > 720) d -= 1440;
+  return d;
 }
-
+// 0 on time · 1–5 delay categories (PM 89/2015) · 6 cancelled ·
+// 7 NO ACTUAL TIME YET — not flown yet, or the feed has no ATA/ATD. These
+// used to count as on time, inflating OTP for the whole of the current day.
+const CAT_NO_ACTUAL = 7;
 function getCategory(f) {
   if (isCancelled(f.remark)) return 6;
   const d = calcDelayMin(f);
-  if (d === null || d < 30) return 0;
+  if (d === null) return CAT_NO_ACTUAL;
+  if (d < 30) return 0;
   if (d <= 60)  return 1;
   if (d <= 120) return 2;
   if (d <= 180) return 3;
@@ -663,6 +681,23 @@ function getCategory(f) {
   return 5;
 }
 
+// OTP counts only operated flights: on time / operated, where operated =
+// has an actual time or was cancelled. Flights with no actual time yet are
+// reported separately (noActual) instead of silently counting as on time.
+function otpSummary(list) {
+  let ontime = 0, delay = 0, cancel = 0, noActual = 0;
+  list.forEach(function(f) {
+    const c = getCategory(f);
+    if (c === 0) ontime++;
+    else if (c === 6) cancel++;
+    else if (c === CAT_NO_ACTUAL) noActual++;
+    else delay++;
+  });
+  const operated = ontime + delay + cancel;
+  const pct = function(n) { return operated > 0 ? (n / operated * 100).toFixed(1) : '0.0'; };
+  return { total: list.length, operated: operated, ontime: ontime, delay: delay, cancel: cancel,
+           noActual: noActual, pct: pct, otpPct: operated > 0 ? pct(ontime) : null };
+}
 function catLabel(c) {
   if (c === 0) return '<span class="badge c0">On Time</span>';
   if (c === 6) return '<span class="badge c6">Kat. 6</span>';
@@ -692,7 +727,9 @@ function normalizeArr(row) {
   const acType   = fmt(first(row,['type','Type','aircraft_type','actype','equipment']),'');
   const bay      = fmt(first(row,['bay_id','bay','Bay','ps','PS','stand','parking']),'');
   const route    = [city, iata].filter(Boolean).join(' / ') || '–';
-  return { type:'ARR', flight, schedule, estimate, actual, city, iata, route, remark, belt, pax, reg, acType, bay };
+  const schedRaw = String(first(row,['schedule','STA','sta','sch','Sch','time','jam']));
+  const actRaw   = String(first(row,['actual','ATA','ata','Act','act','atd','ATD']));
+  return { type:'ARR', flight, schedule, estimate, actual, schedRaw, actRaw, city, iata, route, remark, belt, pax, reg, acType, bay };
 }
 
 function normalizeDep(row) {
@@ -709,7 +746,9 @@ function normalizeDep(row) {
   const acType   = fmt(first(row,['type','Type','aircraft_type','actype','equipment']),'');
   const bay      = fmt(first(row,['bay_id','bay','Bay','ps','PS','stand','parking']),'');
   const route    = [city, iata].filter(Boolean).join(' / ') || '–';
-  return { type:'DEP', flight, schedule, estimate, actual, city, iata, route, remark, gate, pax, reg, acType, bay };
+  const schedRaw = String(first(row,['schedule','STD','std','sch','Sch','time','jam']));
+  const actRaw   = String(first(row,['actual','ATD','atd','Act','act','ata','ATA']));
+  return { type:'DEP', flight, schedule, estimate, actual, schedRaw, actRaw, city, iata, route, remark, gate, pax, reg, acType, bay };
 }
 
 const hasOpData = f => !!(f.estimate||f.actual||f.pax||f.remark&&f.remark!=='Scheduled');
@@ -909,14 +948,14 @@ function render() {
     return true;
   });
 
-  const total   = all.length;
-  const cancel  = all.filter(f => getCategory(f) === 6).length;
-  const delay   = all.filter(f => { const c=getCategory(f); return c>=1&&c<=5; }).length;
-  const ontime  = total - cancel - delay;
-  const otpPct  = total > 0 ? ((ontime/total)*100).toFixed(1) : '–';
+  const sum     = otpSummary(all);
+  const total   = sum.total, ontime = sum.ontime, delay = sum.delay, cancel = sum.cancel;
+  const otpPct  = sum.otpPct === null ? '–' : sum.otpPct;
 
-  document.getElementById('otpPct').textContent    = total>0 ? otpPct+'%' : '–';
+  document.getElementById('otpPct').textContent    = sum.otpPct === null ? '–' : otpPct+'%';
 
+  // Bar segments are shares of ALL flights; the unfilled track that remains
+  // is the flights with no actual time yet.
   const pOt = total>0 ? (ontime/total*100).toFixed(1) : 0;
   const pDl = total>0 ? (delay /total*100).toFixed(1) : 0;
   const pCn = total>0 ? (cancel/total*100).toFixed(1) : 0;
@@ -927,6 +966,7 @@ function render() {
   document.getElementById('legOt').textContent = 'On Time ('+ontime+')';
   document.getElementById('legDl').textContent = 'Delay ('+delay+')';
   document.getElementById('legCn').textContent = 'Cancel ('+cancel+')';
+  document.getElementById('legNa').textContent = 'No Actual ('+sum.noActual+')';
 
   const otp = parseFloat(otpPct);
   const pctEl = document.getElementById('otpPct');
@@ -983,6 +1023,8 @@ function render() {
     let remarkSub = '';
     if (cat === 6) {
       pillCls = 'cancelled'; pillTxt = 'Cancel';
+    } else if (cat === CAT_NO_ACTUAL) {
+      pillCls = 'default'; pillTxt = 'No Actual';
     } else if (cat >= 1 && cat <= 5) {
       pillCls = catClsMap[cat]; pillTxt = 'Delay C' + cat;
     } else {
@@ -1092,11 +1134,9 @@ function exportPdf() {
     if (activeTab==='dep') return f.type==='DEP';
     return true;
   });
-  const total  = all.length;
-  const cancel = all.filter(f=>getCategory(f)===6).length;
-  const delay  = all.filter(f=>{const c=getCategory(f);return c>=1&&c<=5;}).length;
-  const ontime = total-cancel-delay;
-  const otpPct = total>0 ? ((ontime/total)*100).toFixed(1) : '0.0';
+  const sum    = otpSummary(all);
+  const total  = sum.total, ontime = sum.ontime, delay = sum.delay, cancel = sum.cancel;
+  const otpPct = sum.otpPct === null ? '0.0' : sum.otpPct;
   const tabLabel = activeTab==='arr'?'Arrival':activeTab==='dep'?'Departure':'Semua';
 
   // ── HEADER ──
@@ -1201,8 +1241,8 @@ function exportPdf() {
 
   doc.autoTable({
     startY: y,
-    head: [['Total Flight','On Time','Delay','Cancel','OTP %']],
-    body: [[total, ontime, delay, cancel, otpPct+'%']],
+    head: [['Total Flight','No Actual','Operated','On Time','Delay','Cancel','OTP %']],
+    body: [[total, sum.noActual, sum.operated, ontime, delay, cancel, otpPct+'%']],
     styles: { fontSize: 9, cellPadding: 3, halign:'center', fontStyle:'normal' },
     headStyles: { fillColor:[10,40,80], textColor:[255,255,255], fontStyle:'bold', halign:'center' },
     alternateRowStyles: { fillColor:[245,248,252] },
@@ -1246,7 +1286,7 @@ function exportPdf() {
   doc.text('Flight Details', ML, y);
   y += 4;
 
-  const catNames = {0:'On Time',1:'Kat. 1',2:'Kat. 2',3:'Kat. 3',4:'Kat. 4',5:'Kat. 5',6:'Cancel'};
+  const catNames = {0:'On Time',1:'Kat. 1',2:'Kat. 2',3:'Kat. 3',4:'Kat. 4',5:'Kat. 5',6:'Cancel',7:'No Actual'};
   const rows = filtered.map(function(f, i) {
     const cat  = getCategory(f);
     const dMin = calcDelayMin(f);
@@ -1476,6 +1516,8 @@ function getDefaultWaTemplate() {
     "*RESUME OTP*",
     "- Filter         : {filter}",
     "- Total Flight   : {total_flight}",
+    "- Sudah Operasi  : {operated_flight}",
+    "- Belum Ada ATA/ATD : {noactual_flight}",
     "- On Time        : {ontime_flight} ({ontime_%}%)",
     "- Delay          : {delay_flight} ({delay_%}%)",
     "- Cancel         : {cancel_flight} ({cancel_%}%)",
@@ -1505,11 +1547,11 @@ function buildWaTagData() {
     if (activeTab==='dep') return f.type==='DEP';
     return true;
   });
-  const total  = all.length;
-  const cancel = all.filter(f => getCategory(f)===6).length;
-  const delay  = all.filter(f => { const c=getCategory(f); return c>=1&&c<=5; }).length;
-  const ontime = total - cancel - delay;
-  const pct1 = (n) => total>0 ? ((n/total)*100).toFixed(1) : '0.0';
+  const sum    = otpSummary(all);
+  const total  = sum.total, ontime = sum.ontime, delay = sum.delay, cancel = sum.cancel;
+  // Percentages are of OPERATED flights, the same base as OTP, so on time +
+  // delay + cancel add up to 100%.
+  const pct1 = sum.pct;
   const tabLabel = activeTab==='arr' ? 'ARR' : activeTab==='dep' ? 'DEP' : 'All';
   const date = document.getElementById('tanggal').value;
 
@@ -1519,6 +1561,8 @@ function buildWaTagData() {
     date: formatLongDate(date).split(', ')[1] || formatLongDate(date),
     filter: tabLabel,
     total_flight: total,
+    operated_flight: sum.operated,
+    noactual_flight: sum.noActual,
     ontime_flight: ontime, 'ontime_%': pct1(ontime),
     delay_flight: delay, 'delay_%': pct1(delay),
     cancel_flight: cancel, 'cancel_%': pct1(cancel),
