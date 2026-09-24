@@ -124,15 +124,16 @@ function check(name, cond, detail) {
   for (const d of [shift(-1), shift(1)]) await seed('flights_cache/' + d, { arrivals: JSON.stringify([row('JT-200', '10:00')]), departures: JSON.stringify([row('JT-201', '11:00')]), updatedAt: new Date().toISOString() });
   await seed('sync_status/heartbeat', { lastRun: new Date().toISOString() });
   await seed('site_config/maintenance', { enabled: false });
-  await seed('allowed_users/' + key('friend.staff@gmail.com'), { email: 'friend.staff@gmail.com' });
+  await seed('allowed_users/' + key('friend.staff@yahoo.com'), { email: 'friend.staff@yahoo.com' });
   await seed('blocked_users/' + key('blocked.user@injourneyairports.id'), { email: 'blocked.user@injourneyairports.id' });
   // stored-XSS probe for admin.html (C-01): a user record whose fields carry markup
-  await seed('user_logs/' + key('evil@gmail.com'), { uid: 'x', email: 'evil@gmail.com',
+  await seed('user_logs/' + key('evil@yahoo.com'), { uid: 'x', email: 'evil@yahoo.com',
     name: '<img src=x onerror="window.__xss=1">', device: '<b id=inj>D</b>', browser: 'B', ip: '1', location: '<svg onload="window.__xss=2">' });
 
   await mkUser('staff.ops@injourneyairports.id', true, 'Staff Ops');
-  await mkUser('someone@gmail.com', true, 'Stranger');
-  await mkUser('friend.staff@gmail.com', true, 'Friend');
+  await mkUser('someone@yahoo.com', true, 'Stranger');
+  await mkUser('any.person@gmail.com', true, 'Gmail user');
+  await mkUser('friend.staff@yahoo.com', true, 'Friend');
   await mkUser('blocked.user@injourneyairports.id', true, 'Blocked');
   await mkUser('new.staff@injourneyairports.id', false, 'Unverified');
   await mkUser('alimudinbasri@gmail.com', true, 'Admin');
@@ -169,16 +170,23 @@ function check(name, cond, detail) {
   check('same-app next honoured -> otp.html', (await b.evalv('location.pathname')).endsWith('/otp.html'), await b.evalv('location.href'));
   b.close();
 
-  console.log('stranger (any other Google account)');
-  b = await signedInBrowser('someone@gmail.com');
+  console.log('stranger (non-gmail, non-domain, not allowlisted)');
+  b = await signedInBrowser('someone@yahoo.com');
   check('sent to login.html?error=unauthorized', await waitUrl(b, /login\.html\?error=unauthorized/, 10000), await b.evalv('location.href'));
   check('error message visible', (await b.evalv('getComputedStyle(document.getElementById("error-msg")).display')) !== 'none');
   check('and signed out', (await b.evalv('firebase.auth().currentUser === null')) === true);
-  check('no presence doc for stranger', !(await readDoc('user_logs/' + key('someone@gmail.com'))));
+  check('no presence doc for stranger', !(await readDoc('user_logs/' + key('someone@yahoo.com'))));
   b.close();
 
-  console.log('allowlisted gmail account');
-  b = await signedInBrowser('friend.staff@gmail.com');
+  console.log('any verified Gmail account');
+  b = await signedInBrowser('any.person@gmail.com');
+  await b.go('index.html', 8000);
+  check('index.html stays open', (await b.evalv('location.pathname')).endsWith('/index.html'), await b.evalv('location.href'));
+  check('no uncaught exceptions', b.exceptions().length === 0, b.exceptions().join(' | '));
+  b.close();
+
+  console.log('allowlisted non-domain account');
+  b = await signedInBrowser('friend.staff@yahoo.com');
   await b.go('index.html', 8000);
   check('index.html stays open', (await b.evalv('location.pathname')).endsWith('/index.html'), await b.evalv('location.href'));
   check('no uncaught exceptions', b.exceptions().length === 0, b.exceptions().join(' | '));
@@ -214,11 +222,11 @@ function check(name, cond, detail) {
   check('XSS payload NOT executed', (await b.evalv('window.__xss === undefined && !document.getElementById("inj")')) === true, 'window.__xss=' + (await b.evalv('window.__xss')));
   check('XSS payload shown as text', (await b.evalv('document.getElementById("activity-list").innerText.includes("<img src=x")')) === true);
   await b.evalv('document.querySelector(\'[data-tab="allowed"]\').click()'); await sleep(2500);
-  check('Allowed tab lists seeded entry', (await b.evalv('document.getElementById("allowed-list").innerText.includes("friend.staff@gmail.com")')) === true, await b.evalv('document.getElementById("allowed-list").innerText'));
+  check('Allowed tab lists seeded entry', (await b.evalv('document.getElementById("allowed-list").innerText.includes("friend.staff@yahoo.com")')) === true, await b.evalv('document.getElementById("allowed-list").innerText'));
   await b.evalv('document.getElementById("btn-import-allowed").click()'); await sleep(2500);
-  check('import shows evil@gmail.com as an UNticked candidate', (await b.evalv('[...document.querySelectorAll(".allow-cand")].map(c=>c.value+":"+c.checked).join()')) === 'evil@gmail.com:false', await b.evalv('[...document.querySelectorAll(".allow-cand")].map(c=>c.value+":"+c.checked).join()'));
-  await b.evalv('window.confirm = () => true; document.getElementById("allowed-email-input").value = "new.person@gmail.com"; document.getElementById("btn-add-allowed").click()'); await sleep(2500);
-  check('admin can add an allowed email', !!(await readDoc('allowed_users/' + key('new.person@gmail.com'))));
+  check('import shows evil@yahoo.com as an UNticked candidate', (await b.evalv('[...document.querySelectorAll(".allow-cand")].map(c=>c.value+":"+c.checked).join()')) === 'evil@yahoo.com:false', await b.evalv('[...document.querySelectorAll(".allow-cand")].map(c=>c.value+":"+c.checked).join()'));
+  await b.evalv('window.confirm = () => true; document.getElementById("allowed-email-input").value = "new.person@yahoo.com"; document.getElementById("btn-add-allowed").click()'); await sleep(2500);
+  check('admin can add an allowed email', !!(await readDoc('allowed_users/' + key('new.person@yahoo.com'))));
   check('no uncaught exceptions on admin.html', b.exceptions().length === 0, b.exceptions().join(' | '));
   b.close();
 

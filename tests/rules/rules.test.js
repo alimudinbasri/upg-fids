@@ -20,12 +20,14 @@ const key = (email) => email.trim().toLowerCase().replace(/\./g, '_').replace(/@
 const USERS = {
   domain:      { uid: 'u-domain',  email: 'staff.ops@injourneyairports.id' },
   unverified:  { uid: 'u-unver',   email: 'new.staff@injourneyairports.id', verified: false },
-  stranger:    { uid: 'u-strange', email: 'someone@gmail.com' },
-  allowlisted: { uid: 'u-allow',   email: 'friend.staff@gmail.com' },
+  stranger:    { uid: 'u-strange', email: 'someone@yahoo.com' },
+  allowlisted: { uid: 'u-allow',   email: 'friend.staff@yahoo.com' },
+  gmail:       { uid: 'u-gmail',   email: 'any.person@gmail.com' },
+  gmailUnver:  { uid: 'u-gunver',  email: 'fake.person@gmail.com', verified: false },
   blocked:     { uid: 'u-blocked', email: 'blocked.user@injourneyairports.id' },
   hardAdmin:   { uid: 'u-hadmin',  email: 'alimudinbasri@gmail.com' },
   fakeAdmin:   { uid: 'u-fake',    email: 'upg.pl@injourneyairports.id', verified: false },
-  dynAdmin:    { uid: 'u-dadmin',  email: 'dyn.admin@gmail.com' },
+  dynAdmin:    { uid: 'u-dadmin',  email: 'dyn.admin@outlook.com' },
   sync:        { uid: 'u-sync',    email: 'gas-sync@upg-fids.internal', verified: false }
 };
 
@@ -87,7 +89,9 @@ test('flights_cache: only allowed, verified, unblocked accounts can read', async
   await assertFails(getDoc(doc(anon(), path_)));
   await assertSucceeds(getDoc(doc(as('domain'), path_)));
   await assertFails(getDoc(doc(as('unverified'), path_)));   // self-registered, unverified
-  await assertFails(getDoc(doc(as('stranger'), path_)));     // any Google account — the old hole
+  await assertFails(getDoc(doc(as('stranger'), path_)));     // other domains need the allowlist
+  await assertSucceeds(getDoc(doc(as('gmail'), path_)));     // any verified Gmail account (owner's decision)
+  await assertFails(getDoc(doc(as('gmailUnver'), path_)));   // but not a self-registered, unverified one
   await assertSucceeds(getDoc(doc(as('allowlisted'), path_)));
   await assertFails(getDoc(doc(as('blocked'), path_)));      // block enforced server-side
   await assertSucceeds(getDoc(doc(as('hardAdmin'), path_)));

@@ -20,7 +20,8 @@ const APP_CONFIG = {
   // Anyone with a verified address on these domains may use the app; other
   // accounts need an allowed_users/{emailKey} doc (managed in admin.html).
   // Mirrors inAllowedDomain() in firestore.rules — keep both in sync.
-  allowedDomains: ["injourneyairports.id"],
+  // gmail.com: every verified Gmail account, by the owner's decision.
+  allowedDomains: ["injourneyairports.id", "gmail.com"],
 
   // Presence: how often an open tab refreshes its lastSeen, and how recent
   // lastSeen must be to count as online (a bit over two beats, so one

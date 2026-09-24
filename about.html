@@ -404,7 +404,7 @@ GET <span class="cm">{gasUrl}</span>?action=departure&amp;date=YYYY-MM-DD
           <tr><td><code class="inline">admins/{emailKey}</code></td><td>Daftar admin dinamis (selain 3 admin hardcoded)</td><td>Admin utama (hardcoded), via admin.html</td></tr>
           <tr><td><code class="inline">admin_uids/{uid}</code></td><td>Cache bookkeeping uid↔admin, <b>bukan</b> sumber kebenaran isAdmin()</td><td>admin.html saat login</td></tr>
           <tr><td><code class="inline">blocked_users/{emailKey}</code></td><td>Daftar user yang diblokir</td><td>Admin</td></tr>
-          <tr><td><code class="inline">allowed_users/{emailKey}</code></td><td>Allowlist akun di luar domain <code class="inline">@injourneyairports.id</code> (mis. gmail staf)</td><td>Admin, via tab Allowed di admin.html</td></tr>
+          <tr><td><code class="inline">allowed_users/{emailKey}</code></td><td>Allowlist akun di luar domain yang otomatis diizinkan (<code class="inline">@injourneyairports.id</code>, <code class="inline">@gmail.com</code>)</td><td>Admin, via tab Allowed di admin.html</td></tr>
           <tr><td><code class="inline">activity_logs/{id}</code></td><td>Log kunjungan setiap halaman (uid, email, page, timestamp, device, dst)</td><td>Semua user login (self-attributed)</td></tr>
           <tr><td><code class="inline">user_logs/{emailKey}</code></td><td>Satu record per email — data login terakhir</td><td>User yang bersangkutan</td></tr>
           <tr><td><code class="inline">presence/{uid}</code></td><td>Status online (heartbeat 5 menit, dilewati saat tab tersembunyi); hanya admin yang membaca</td><td>User yang bersangkutan</td></tr>
@@ -422,7 +422,9 @@ GET <span class="cm">{gasUrl}</span>?action=departure&amp;date=YYYY-MM-DD
     <ul>
       <li><code class="inline">isAllowed()</code> — <b>siapa yang boleh memakai aplikasi</b> (audit 24 Sep 2026, sebelumnya: semua akun Google):
         email terverifikasi <b>DAN</b> tidak ada di <code class="inline">blocked_users</code> <b>DAN</b>
-        (domain <code class="inline">@injourneyairports.id</code> ATAU ada di <code class="inline">allowed_users</code> ATAU admin).
+        (domain <code class="inline">@injourneyairports.id</code> atau <code class="inline">@gmail.com</code> ATAU ada di <code class="inline">allowed_users</code> ATAU admin).
+        <code class="inline">@gmail.com</code> dibuka untuk semua akun Gmail terverifikasi atas keputusan pemilik aplikasi (24 Sep 2026) —
+        artinya siapa pun yang punya Gmail bisa melihat data penerbangan; data pribadi tetap hanya untuk admin.
         Blokir kini ditegakkan di server, bukan hanya di browser. Biaya: 1 read tambahan per request (cek blokir).</li>
       <li><code class="inline">isHardcodedAdmin()</code> — true kalau email login <b>terverifikasi</b> dan ada di 3 alamat admin tetap (harus sinkron manual dengan <code class="inline">APP_CONFIG.adminEmails</code>)</li>
       <li><code class="inline">isAdmin()</code> — hardcoded admin ATAU punya dokumen di <code class="inline">/admins</code> (sumber kebenaran; <b>bukan</b> <code class="inline">/admin_uids</code>, karena itu bisa ditulis sendiri oleh user manapun dan tidak boleh dipakai untuk cek admin — celah eskalasi privilege yang sudah diantisipasi)</li>

@@ -42,9 +42,11 @@ service cloud.firestore {
       return isHardcodedAdmin() || isDynamicAdmin();
     }
 
-    // Mirrors APP_CONFIG.allowedDomains in js/app-config.js
+    // Mirrors APP_CONFIG.allowedDomains in js/app-config.js. gmail.com is
+    // open to every verified Gmail account by the owner's decision
+    // (24 Sep 2026); personal data stays admin-only regardless.
     function inAllowedDomain() {
-      return request.auth.token.email.lower().matches('.*@injourneyairports[.]id');
+      return request.auth.token.email.lower().matches('.*@(injourneyairports[.]id|gmail[.]com)');
     }
 
     // May use the app at all. Blocking is enforced HERE, not only in the
